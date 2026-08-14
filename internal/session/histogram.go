@@ -132,7 +132,27 @@ func (s *Session) histogramWindow(ctx context.Context, plan Plan) (time.Time, ti
 
 	// The newest record must land inside the last bucket rather than just past
 	// the end of the range.
-	return start, end.Add(time.Nanosecond), nil
+	padded, paddedEnd := padWindow(start, end.Add(time.Nanosecond))
+	return padded, paddedEnd, nil
+}
+
+// minWindow is the shortest span a histogram is drawn over.
+//
+// A filter matching a single record gives a window of one nanosecond, which
+// buckets into one column filling the whole width — a solid wall that reads as
+// "everything, everywhere" rather than "one record, here". Widening the view
+// around it shows it as the spike it is. Only the viewport changes; the buckets
+// still hold exactly the records that matched.
+const minWindow = time.Minute
+
+func padWindow(start, end time.Time) (time.Time, time.Time) {
+	span := end.Sub(start)
+	if span >= minWindow {
+		return start, end
+	}
+
+	pad := (minWindow - span) / 2
+	return start.Add(-pad), end.Add(pad)
 }
 
 type bucketCount struct {
