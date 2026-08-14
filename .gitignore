@@ -22,3 +22,7 @@
 
 # os
 .DS_Store
+
+# built frontend, embedded at release time (see `make web`)
+/internal/server/dist/*
+!/internal/server/dist/.gitkeep

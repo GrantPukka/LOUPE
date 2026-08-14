@@ -1,0 +1,18 @@
+{
+  "name": "loupe-ui",
+  "private": true,
+  "type": "module",
+  "description": "The single-screen web UI for loupe. Built at release time and embedded in the binary; never installed by a user.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "preact": "^10.25.4"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.4",
+    "vite": "^6.0.7"
+  }
+}
