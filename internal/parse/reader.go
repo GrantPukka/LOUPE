@@ -167,7 +167,7 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 			// Not an error worth propagating: keep the raw text and move on.
 			entry.Record = Record{Message: string(trimmed), Fields: map[string]any{}}
 		} else {
-			entry.Record = rec
+			entry.Record = applyAssumedZone(rec, loc)
 			entry.Parsed = true
 			if entry.Fields == nil {
 				entry.Fields = map[string]any{}
@@ -192,6 +192,30 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 		return stats, err
 	}
 	return stats, nil
+}
+
+// applyAssumedZone reinterprets a zoneless timestamp in the source's assumed
+// timezone.
+//
+// Parsers resolve a timestamp that carries no offset as though it were UTC.
+// That is a neutral carrier, not a claim: it lets a parser stay a pure function
+// of one line, and keeps the assumed-zone question — which belongs to the
+// source, not the format — out of the Parser interface, which is the
+// contribution surface and must stay tiny.
+//
+// Reinterpreting means keeping the wall-clock reading and changing the zone,
+// not shifting the instant. A line saying 14:00 in a source assumed to be
+// Asia/Tokyo happened at 05:00 UTC, and time.Date with the target location is
+// what the tz database gives us for that.
+func applyAssumedZone(rec Record, loc *time.Location) Record {
+	if rec.TimestampZoned || !rec.HasTimestamp() || loc == time.UTC || loc == nil {
+		return rec
+	}
+
+	t := rec.Timestamp
+	rec.Timestamp = time.Date(t.Year(), t.Month(), t.Day(),
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), loc)
+	return rec
 }
 
 // readLine reads one line, returning it without its trailing newline.
