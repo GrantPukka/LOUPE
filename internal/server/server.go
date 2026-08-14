@@ -54,6 +54,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/histogram", s.handleHistogram)
 	s.mux.HandleFunc("GET /api/sources", s.handleSources)
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
+
+	// Everything else is the single-page app. Registered last and on the root
+	// pattern, so the API routes above always win.
+	s.mux.HandleFunc("GET /", s.handleUI)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
