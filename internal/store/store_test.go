@@ -556,3 +556,101 @@ func TestFieldsAreNotDoubleEncoded(t *testing.T) {
 		t.Errorf("json_keys = %s, want [trace_id]", keys)
 	}
 }
+
+// A source whose format carries no timezone is read under an assumption, and
+// changing that assumption must move the instants.
+//
+// This is the trap in docs/FILTER-DSL.md section 2.5: if the server runs UTC
+// and the operator's laptop is on BST, every record from such a source is
+// displayed an hour out with nothing warning anybody.
+func TestSourceTimezoneAssumptionChangesTheInstants(t *testing.T) {
+	dir := t.TempDir()
+
+	// A log4j-style line: local time, no offset anywhere in the format.
+	writeFile(t, dir, "worker.log", "2026-08-13 14:00:00.000 [worker-1] ERROR c.a.p.Handler - read timed out\n")
+
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Skipf("tzdata unavailable: %v", err)
+	}
+
+	read := func(zones map[string]*time.Location) (time.Time, int64) {
+		t.Helper()
+
+		sources, err := source.Walk(dir, nil)
+		if err != nil {
+			t.Fatalf("Walk: %v", err)
+		}
+
+		db := open(t)
+		load, err := db.Load(context.Background(), sources, LoadOptions{SourceZones: zones})
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+
+		var ts time.Time
+		if err := db.QueryRow(context.Background(), `SELECT ts FROM logs`).Scan(&ts); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		return ts, load.Stats.ZoneAssumed
+	}
+
+	utcInstant, assumedUTC := read(nil)
+	tokyoInstant, assumedTokyo := read(map[string]*time.Location{"": tokyo})
+
+	// The default is UTC, not local: servers overwhelmingly run UTC and the
+	// wrong default here is worse than a slightly surprising one.
+	if got := utcInstant.UTC().Format("15:04"); got != "14:00" {
+		t.Errorf("default assumption produced %s UTC, want 14:00 — the default should be UTC", got)
+	}
+
+	// Tokyo is UTC+9, so the same wall clock is nine hours earlier in UTC.
+	if diff := utcInstant.Sub(tokyoInstant); diff != 9*time.Hour {
+		t.Errorf("difference = %v, want 9h; --source-tz was not applied", diff)
+	}
+
+	// Both runs must report that an assumption was made at all, or it is
+	// invisible to the user.
+	if assumedUTC == 0 || assumedTokyo == 0 {
+		t.Errorf("ZoneAssumed = %d and %d; a zoneless source must report its assumption",
+			assumedUTC, assumedTokyo)
+	}
+}
+
+// A per-source --source-tz must beat the blanket default.
+func TestPerSourceTimezoneOverridesTheDefault(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "worker.log", "2026-08-13 14:00:00.000 [worker-1] ERROR c.a.p.Handler - one\n")
+	writeFile(t, dir, "other.log", "2026-08-13 14:00:00.000 [main] INFO c.a.Other - two\n")
+
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Skipf("tzdata unavailable: %v", err)
+	}
+
+	sources, err := source.Walk(dir, nil)
+	if err != nil {
+		t.Fatalf("Walk: %v", err)
+	}
+
+	db := open(t)
+	_, err = db.Load(context.Background(), sources, LoadOptions{
+		SourceZones: map[string]*time.Location{"": time.UTC, "worker": tokyo},
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	var workerTS, otherTS time.Time
+	ctx := context.Background()
+	if err := db.QueryRow(ctx, `SELECT ts FROM logs WHERE source = 'worker'`).Scan(&workerTS); err != nil {
+		t.Fatalf("scan worker: %v", err)
+	}
+	if err := db.QueryRow(ctx, `SELECT ts FROM logs WHERE source = 'other'`).Scan(&otherTS); err != nil {
+		t.Fatalf("scan other: %v", err)
+	}
+
+	if diff := otherTS.Sub(workerTS); diff != 9*time.Hour {
+		t.Errorf("difference = %v, want 9h; the named source did not override the default", diff)
+	}
+}
