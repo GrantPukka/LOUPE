@@ -68,7 +68,7 @@ Six logical sources, one per format:
 | `checkout-api.log` | JSON lines | known — RFC3339 with offset |
 | `auth-svc.log` | logfmt | known — RFC3339 with offset |
 | `access.log` | nginx combined | known — `+0000` in the bracketed date |
-| `payment-worker.log` | Log4j, with Java stack traces | **none — assumed** |
+| `payment-worker.log` | Log4j, with Java stack traces and MDC | **none — assumed** |
 | `postgresql.log` | Postgres server log | abbreviation only (`UTC`) |
 | `syslog` | syslog RFC5424 | known — RFC3339 |
 
@@ -79,6 +79,21 @@ The two sources with no reliable offset are there on purpose: they are the
 `docs/FILTER-DSL.md` §2.5 trap, where a server on UTC and an operator on BST
 silently disagree by an hour. Any change to timezone handling should be checked
 against `payment-worker.log`.
+
+### Trace correlation
+
+Requests fan out across services sharing a `trace_id`, and each format carries
+it the way that format actually does:
+
+| Format | Mechanism |
+|---|---|
+| JSON lines, logfmt | an ordinary field |
+| Log4j | the MDC, written as `[trace_id=a91c40f2, attempt=2]` |
+| syslog | RFC5424 structured data, `[trace@32473 trace_id="a91c40f2"]` |
+
+Nginx and Postgres do not carry one, which is also true in life: an access log
+has no field for it without a custom `log_format`, and Postgres has no notion of
+a request. Those two sources correlate by time rather than by id.
 
 ### manifest.json
 
@@ -118,8 +133,9 @@ most: those four root-cause lines are in four different files in three different
 formats, and they only line up if timestamp normalisation is right.
 
 Requests fan out across services sharing a `trace_id`, so
-`loupe ./demo 'trace_id:a91c40f2'` reconstructs one request's path across every
-source.
+`loupe ./demo 'trace_id:a91c40f2'` reconstructs one request's path across the
+three services that emit one — through a JSON field, a logfmt field, and a Log4j
+MDC. See the trace correlation table in section 3.
 
 ---
 

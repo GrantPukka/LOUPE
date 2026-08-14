@@ -348,10 +348,24 @@ func fmtNginx(e entry) string {
 		e.fields["status"], e.fields["bytes"], e.fields["agent"])
 }
 
+// fmtLog4j writes the Log4j pattern, with the trace id in the MDC.
+//
+// %X{trace_id} in a pattern layout is how a Java service actually propagates a
+// trace id into its logs, and emitting it is what lets the cross-source
+// correlation demo reach the payment worker.
 func fmtLog4j(e entry) string {
-	head := fmt.Sprintf("%s [worker-%d] %s c.a.p.ChargeHandler - %s",
+	mdc := ""
+	if e.traceID != "" {
+		mdc = fmt.Sprintf("[trace_id=%s", e.traceID)
+		if attempt, ok := e.fields["attempt"]; ok {
+			mdc += fmt.Sprintf(", attempt=%v", attempt)
+		}
+		mdc += "] "
+	}
+
+	head := fmt.Sprintf("%s [worker-%d] %s c.a.p.ChargeHandler %s- %s",
 		e.t.Format("2006-01-02 15:04:05.000"),
-		1+len(e.msg)%4, strings.ToUpper(e.level), e.msg)
+		1+len(e.msg)%4, strings.ToUpper(e.level), mdc, e.msg)
 	if len(e.stack) == 0 {
 		return head
 	}
@@ -374,8 +388,15 @@ func fmtSyslog(e entry) string {
 	if v, ok := e.fields["app"].(string); ok {
 		app = v
 	}
-	return fmt.Sprintf("<%d>1 %s host-01 %s %v - - %s",
-		pri, e.t.UTC().Format(time.RFC3339), app, e.fields["pid"], e.msg)
+	// RFC5424 structured data is the mechanism syslog gives an application for
+	// attaching named values, so a correlated record carries its trace id there.
+	sd := "-"
+	if e.traceID != "" {
+		sd = fmt.Sprintf(`[trace@32473 trace_id="%s"]`, e.traceID)
+	}
+
+	return fmt.Sprintf("<%d>1 %s host-01 %s %v - %s %s",
+		pri, e.t.UTC().Format(time.RFC3339), app, e.fields["pid"], sd, e.msg)
 }
 
 // ---------------------------------------------------------------- output
