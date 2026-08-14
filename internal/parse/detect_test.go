@@ -34,9 +34,40 @@ ts=2026-08-13T14:02:02Z level=warn msg="c" user_id=u_3`,
 			want: "logfmt",
 		},
 		{
-			name: "unknown format falls back to text",
+			name: "nginx combined",
+			input: `10.0.0.1 - - [13/Aug/2026:14:02:00 +0000] "POST /api HTTP/1.1" 200 547 "-" "curl/8.4.0"
+10.0.0.2 - - [13/Aug/2026:14:02:01 +0000] "GET /health HTTP/1.1" 200 12 "-" "kube-probe/1.29"`,
+			want: "nginx",
+		},
+		{
+			name: "nginx common, without referer and agent",
 			input: `10.0.0.1 - - [13/Aug/2026:14:02:00 +0000] "POST /api HTTP/1.1" 200 547
 10.0.0.2 - - [13/Aug/2026:14:02:01 +0000] "GET /health HTTP/1.1" 200 12`,
+			want: "nginx",
+		},
+		{
+			name: "syslog RFC5424",
+			input: `<14>1 2026-08-13T14:02:00Z host-01 sshd 3344 - - session opened for user deploy
+<11>1 2026-08-13T14:02:01Z host-01 kernel - - - memory cgroup near limit`,
+			want: "syslog",
+		},
+		{
+			name: "postgres",
+			input: `2026-08-13 14:02:00.100 UTC [20353] LOG:  duration: 178.328 ms
+2026-08-13 14:02:01.200 UTC [20044] ERROR:  remaining connection slots are reserved`,
+			want: "postgres",
+		},
+		{
+			name: "log4j",
+			input: `2026-08-13 14:12:48.146 [worker-1] ERROR c.a.p.ChargeHandler - read timed out
+2026-08-13 14:12:49.001 [worker-2] INFO  c.a.p.Worker - consuming batch`,
+			want: "log4j",
+		},
+		{
+			name: "unknown format falls back to text",
+			input: `--- starting run 4471 ---
+everything is fine so far
+0 errors, 3 warnings`,
 			want: "text",
 		},
 		{
