@@ -245,6 +245,7 @@ internal/
   schema/               inference, type coercion, field promotion
   store/                DuckDB lifecycle, appender ingest, cache management
   query/                filter DSL lexer/parser/AST, SQL compiler
+  session/              the query path shared by every front end
   server/               HTTP handlers, //go:embed of web/dist
   render/               table, json, raw writers
   tui/                  full-screen terminal interface behind `loupe tui`
@@ -255,6 +256,10 @@ docs/                   ARCHITECTURE.md, adding-a-parser.md
 
 **Dependency rule:** `parse` must not import `store`, `query`, or `server`. `store` must not
 import `server`. If a parser needs to know about SQL, the design has gone wrong.
+
+`session` sits above `store` and `query` and below every front end. It exists because the
+CLI, the HTTP API, and the TUI must share one query path; anything that would otherwise be
+duplicated into a second front end belongs there rather than in `cmd/loupe`.
 
 ### 4.1 Third-party dependencies, and why each one is here
 
@@ -282,6 +287,29 @@ POST /api/query   {filter|sql, limit, offset, sort}
 POST /api/histogram {filter, bucket}  → [{bucket_start, count, level_breakdown}]
 GET  /api/tail    (SSE)               → live records, for `loupe serve --follow`
 ```
+
+**As built.** Four endpoints: `/api/schema`, `/api/query`, `/api/histogram`, and
+`/api/sources`, plus `/api/health`. All of them call `internal/session`, which is the same
+code path `cmd/loupe` uses — a capability reachable over HTTP but not from the terminal
+would be a bug.
+
+- **Loopback only, enforced.** `Listen` refuses a non-loopback address rather than
+  documenting the risk. There is no authentication, so binding to a reachable interface
+  would publish the logs; the error suggests an SSH tunnel. No CORS headers are sent.
+- **Errors arrive verbatim.** A typo'd field name returns the same spelling suggestion and
+  field list the CLI prints. A UI that shows "bad request" where the terminal shows a fix is
+  worse than the terminal at the moment the user most needs help.
+- **Every disclosure travels with the response**: the resolved window in both zones, the
+  resolution notes, the count a time filter excluded for having no timestamp, and the
+  explanation for an empty result. The API must not be quieter about its caveats than the
+  CLI is.
+- **Timestamps are UTC instants** and the display timezone is named separately, so a client
+  formats them itself rather than guessing whose clock it is reading.
+
+`/api/tail` is **not built**. Following a growing file is a real feature — incremental reads
+from a stored byte offset, rotation detection — and CLAUDE.md requires it exist in the CLI
+before it appears over HTTP. It belongs with the incremental-cache work described in §3.4,
+not bolted onto the API.
 
 ## 6. The UI — one screen, and it stays one screen
 
