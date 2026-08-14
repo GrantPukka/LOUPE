@@ -43,6 +43,20 @@ engine would eat the entire project.
 > **Escape hatch** if CGO becomes intolerable: the `store` package interface below is narrow
 > enough that a pure-Go Arrow-based backend could be swapped in behind it. Do not build this
 > speculatively.
+>
+> **Measured on linux/amd64, Go 1.24.0, go-duckdb v1.8.5** — a throwaway program creating an
+> in-memory table, appending 100k rows, and reading them back:
+>
+> | | |
+> |---|---|
+> | Cold build, including the CGO link | 40s |
+> | Binary size | 46MB |
+> | Appender ingest | 100k rows in 140ms (713k rows/sec) |
+> | `GROUP BY` over 100k rows | 5ms |
+>
+> Binary size landed inside the predicted 40–60MB and the appender is roughly an order of
+> magnitude clear of what the 1GB-in-20s ingest target needs. go-duckdb requires **Go 1.24 or
+> newer**, which sets the project's floor.
 
 **Frontend: Preact + Vite**, built to static assets and embedded with `//go:embed`. Preact
 over React purely for bundle size — the whole UI should be under 100KB. No component library,
@@ -193,6 +207,7 @@ internal/
   query/                filter DSL lexer/parser/AST, SQL compiler
   server/               HTTP handlers, //go:embed of web/dist
   render/               table, json, raw writers
+  tui/                  full-screen terminal interface behind `loupe tui`
 web/                    Preact + Vite source; `npm run build` → web/dist
 testdata/               golden fixtures, one directory per format
 docs/                   ARCHITECTURE.md, adding-a-parser.md
@@ -200,6 +215,19 @@ docs/                   ARCHITECTURE.md, adding-a-parser.md
 
 **Dependency rule:** `parse` must not import `store`, `query`, or `server`. `store` must not
 import `server`. If a parser needs to know about SQL, the design has gone wrong.
+
+### 4.1 Third-party dependencies, and why each one is here
+
+The allowed set is small on purpose. Additions need a reason recorded in this table.
+
+| Dependency | Why it earns its place |
+|---|---|
+| `spf13/cobra` | Subcommands, flags, and help output. Not worth hand-rolling. |
+| `marcboeker/go-duckdb` | The query engine. Writing one would eat the whole project. |
+| `charmbracelet/bubbletea` + `lipgloss` | The TUI in §6.1. Bubble Tea is the Elm-architecture terminal framework the Go ecosystem has settled on, and lipgloss fills the colour-library slot the allowed set already reserved. |
+
+Explicitly declined, and expected to be proposed again: a logging framework, a DI container,
+a config library, an ORM, and an assertion library for tests. Prefer the standard library.
 
 ---
 
@@ -234,6 +262,18 @@ into the filter box. That single interaction is most of the perceived magic — 
 **Explicit non-goals for the UI:** saved searches, dashboards, user accounts, alerting,
 multiple tabs, a settings page, dark/light toggle (pick one, respect `prefers-color-scheme`,
 move on). Every one of these is how a weekend project becomes an abandoned one.
+
+### 6.1 The TUI
+
+`loupe tui` is the same screen in the terminal, for the common case of being SSH'd into a box
+with no browser and no way to copy a 4GB log directory off it. That case is frequent enough
+in the target user's life to be worth one dependency.
+
+It is a third *view*, not a third *implementation*. It calls the same query path as the CLI
+and the HTTP API. The same rule the web UI lives under applies: if the TUI can do something
+the CLI cannot, that is a bug in the CLI.
+
+Its non-goals are the web UI's non-goals, plus mouse-driven chrome. Keyboard first.
 
 ---
 
