@@ -1,0 +1,283 @@
+/*
+ * Colours, spacing, and density are taken from docs/ui-mockup.html, which is
+ * the design reference.
+ *
+ * The one deliberate departure: the mockup loads IBM Plex from Google Fonts.
+ * loupe makes no outbound connections, so these are system stacks. Everything
+ * else — the steel accent, the severity colours, the 13px base, the row
+ * rhythm — is the mockup's.
+ */
+:root {
+  --bg: #131920;
+  --panel: #19212a;
+  --panel-2: #1e2833;
+  --rule: #26323e;
+  --rule-soft: #1f2a34;
+  --text: #c6d1dc;
+  --text-dim: #7d8d9c;
+  --text-ghost: #4e5c69;
+  --steel: #5b8cad;
+  --steel-soft: rgba(91, 140, 173, .16);
+  --error: #e8705e;
+  --warn: #d9a341;
+  --fatal: #cf4a7e;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas,
+    "DejaVu Sans Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    "DejaVu Sans", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { display: flex; flex-direction: column; }
+
+/* ------------------------------------------------------------------ header */
+
+header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+  flex: none;
+}
+.brand { font-family: var(--mono); font-weight: 600; }
+.path { font-family: var(--mono); color: var(--text-dim); font-size: 12px; }
+.meta {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 11px; color: var(--text-ghost);
+}
+.meta b { color: var(--text-dim); font-weight: 500; }
+
+/* Timezone is never hidden. A user must never have to guess whether the times
+   on screen are theirs or the server's. */
+.tz {
+  font-family: var(--mono); font-size: 11px; color: var(--steel);
+  cursor: help;
+}
+
+/* ----------------------------------------------------------------- sources */
+
+.sources {
+  display: flex; gap: 6px; padding: 8px 14px;
+  overflow-x: auto; flex: none;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+}
+.chip {
+  display: flex; align-items: baseline; gap: 7px; flex: none;
+  cursor: pointer;
+  padding: 4px 9px;
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--src);
+  border-radius: 3px;
+  background: transparent;
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+}
+.chip:hover { background: var(--panel-2); color: var(--text); }
+.chip.off { opacity: .34; }
+.chip .fmt {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-ghost);
+}
+.chip .n { color: var(--text-ghost); font-size: 10px; }
+/* A source read under a guessed timezone is flagged here as well as in
+   `loupe sources`, because an assumption nobody can see is one nobody checks. */
+.chip .assumed { color: var(--warn); font-size: 10px; }
+
+/* --------------------------------------------------------------- filterbar */
+
+.filterbar {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 0 14px; height: 40px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-2);
+}
+.chev { font-family: var(--mono); color: var(--steel); font-weight: 600; }
+.filterbar input {
+  flex: 1; min-width: 0;
+  background: transparent; border: 0; outline: none;
+  font-family: var(--mono); font-size: 13px; color: var(--text);
+  padding: 6px 0;
+}
+.filterbar input::placeholder { color: var(--text-ghost); }
+.filterbar:focus-within { box-shadow: inset 2px 0 0 var(--steel); }
+.filterbar .busy { font-family: var(--mono); font-size: 10px; color: var(--text-ghost); }
+.filterbar .clear {
+  background: none; border: 0; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; color: var(--text-ghost);
+}
+.filterbar .clear:hover { color: var(--text); }
+
+/* A filter error keeps its whole message — the spelling suggestion, the caret,
+   the working example. Truncating it would make the UI worse than the CLI at
+   the moment the user most needs help. */
+.error-bar {
+  flex: none;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: #241a1c;
+  color: var(--error);
+  font-family: var(--mono); font-size: 11.5px;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 30vh; overflow-y: auto;
+}
+
+/* --------------------------------------------------------------- histogram */
+
+.histwrap {
+  flex: none;
+  padding: 9px 14px 6px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+  position: relative;
+  user-select: none;
+}
+.histhead {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: 10px; color: var(--text-ghost);
+  margin-bottom: 5px;
+}
+.hist {
+  display: flex; align-items: flex-end; gap: 1px;
+  height: 50px; cursor: crosshair;
+}
+/* No height: a bar is exactly as tall as its stacked segments, so an empty
+   bucket is invisible rather than a full-height grey block that reads as data. */
+.bar {
+  flex: 1; display: flex; flex-direction: column-reverse;
+  min-width: 2px;
+  background: var(--rule-soft);
+}
+.bar span { display: block; width: 100%; }
+.sel {
+  position: absolute; top: 30px; bottom: 6px;
+  background: var(--steel-soft);
+  border-left: 1px solid var(--steel);
+  border-right: 1px solid var(--steel);
+  pointer-events: none;
+}
+.range { font-family: var(--mono); font-size: 10px; color: var(--steel); }
+.hist-note { font-family: var(--mono); font-size: 10px; color: var(--warn); }
+
+/* -------------------------------------------------------------------- rows */
+
+.colhead {
+  display: flex; flex: none;
+  font-family: var(--mono); font-size: 10px; color: var(--text-ghost);
+  text-transform: uppercase; letter-spacing: .08em;
+  padding: 5px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-2);
+}
+.rows { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; }
+
+.row {
+  display: flex; align-items: baseline;
+  padding: 3px 14px;
+  border-bottom: 1px solid var(--rule-soft);
+  border-left: 2px solid transparent;
+  font-family: var(--mono); font-size: 12px; line-height: 1.45;
+  cursor: pointer;
+}
+.row:hover { background: var(--panel); }
+.row.error { border-left-color: var(--error); }
+.row.fatal { border-left-color: var(--fatal); }
+.row.warn { border-left-color: var(--warn); }
+.row.debug, .row.trace { color: var(--text-ghost); }
+
+.c-ts { width: 104px; flex: none; color: var(--text-ghost); white-space: pre; }
+.c-ts b { color: var(--text-dim); font-weight: 400; }
+.c-lvl {
+  width: 50px; flex: none;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+}
+.c-src {
+  width: 138px; flex: none; padding-right: 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.c-src i {
+  font-style: normal;
+  border-left: 2px solid var(--src);
+  padding-left: 6px;
+  color: var(--text-dim);
+}
+.c-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lvl-error { color: var(--error); }
+.lvl-fatal { color: var(--fatal); }
+.lvl-warn { color: var(--warn); }
+.lvl-info, .lvl-debug, .lvl-trace { color: var(--text-ghost); }
+.multi { color: var(--text-ghost); font-size: 10px; padding-left: 6px; }
+/* A line no parser understood is marked, not hidden. */
+.unparsed { color: var(--warn); font-size: 10px; padding-left: 6px; }
+
+/* ------------------------------------------------------------------ detail */
+
+.detail {
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 14px 12px 16px;
+  font-family: var(--mono); font-size: 11.5px;
+}
+.kv { display: flex; gap: 10px; padding: 2px 0; }
+.kv .k { width: 110px; flex: none; color: var(--text-ghost); }
+.kv .v {
+  color: var(--text); cursor: pointer;
+  border-bottom: 1px dotted var(--text-ghost);
+  word-break: break-all;
+}
+.kv .v:hover { color: var(--steel); border-bottom-color: var(--steel); }
+.rawhead {
+  margin-top: 9px; padding-top: 8px;
+  border-top: 1px solid var(--rule-soft);
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-ghost);
+}
+.raw {
+  color: var(--text-dim);
+  white-space: pre-wrap; word-break: break-all;
+  font-size: 11px; margin-top: 5px; line-height: 1.6;
+}
+
+/* ------------------------------------------------------------------- empty */
+
+.empty {
+  padding: 40px 14px; text-align: center;
+  color: var(--text-dim);
+  font-family: var(--mono); font-size: 12px; line-height: 1.9;
+  white-space: pre-wrap;
+}
+.empty span { color: var(--text-ghost); }
+
+/* ------------------------------------------------------------------ footer */
+
+footer {
+  flex: none; display: flex; gap: 16px; align-items: baseline;
+  padding: 6px 14px;
+  border-top: 1px solid var(--rule);
+  background: var(--panel-2);
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-ghost);
+}
+footer b { color: var(--text-dim); font-weight: 500; }
+footer .right { margin-left: auto; }
+/* Truncation and excluded records are stated, never implied. */
+footer .caution { color: var(--warn); }
+
+:focus-visible { outline: 1px solid var(--steel); outline-offset: 2px; }
+
+@media (max-width: 680px) {
+  .c-src { width: 100px; }
+  .meta { display: none; }
+}
