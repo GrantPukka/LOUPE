@@ -122,6 +122,36 @@ func (i Interval) Describe(loc *time.Location) string {
 		formatUTC(i.Start), formatUTC(i.End))
 }
 
+// DescribeZone renders the interval in one timezone only.
+//
+// Describe puts both zones on a line, which is right for a status banner. A
+// handoff wants them on separate lines — the local reading the operator saw,
+// then the UTC reading the receiver will paste into a ticket — so this renders
+// one at a time.
+func (i Interval) DescribeZone(loc *time.Location) string {
+	if i.Unbounded() {
+		return "all time"
+	}
+
+	switch {
+	case i.Start.IsZero():
+		return "up to " + formatLocal(i.End, loc)
+	case i.End.IsZero():
+		return "from " + formatLocal(i.Start, loc)
+	}
+
+	start := i.Start.In(loc)
+	end := i.End.In(loc)
+	zone, _ := start.Zone()
+
+	if sameDay(start, end) {
+		return fmt.Sprintf("%s–%s %s · %s",
+			start.Format("15:04:05"), end.Format("15:04:05"), zone,
+			start.Format("Mon 2006-01-02"))
+	}
+	return fmt.Sprintf("%s – %s", formatLocal(i.Start, loc), formatLocal(i.End, loc))
+}
+
 func formatLocal(t time.Time, loc *time.Location) string {
 	local := t.In(loc)
 	zone, _ := local.Zone()

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -194,4 +195,21 @@ func (s *DB) Sources(ctx context.Context) ([]SourceInfo, error) {
 		out = append(out, si)
 	}
 	return out, rows.Err()
+}
+
+// DecodeFields parses a stored fields bag.
+//
+// The column holds JSON text rather than a JSON-typed value, for the reason
+// recorded on the schema in store.go. Callers that need the values back as Go
+// types go through here rather than each writing their own unmarshal.
+func DecodeFields(raw string) (map[string]any, error) {
+	if raw == "" {
+		return nil, nil
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil, fmt.Errorf("decode fields: %w", err)
+	}
+	return out, nil
 }
