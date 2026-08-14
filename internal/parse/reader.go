@@ -49,6 +49,12 @@ type Stats struct {
 	Continuation int64 `json:"continuation"` // physical lines folded into a preceding record
 	Truncated    int64 `json:"truncated"`    // lines longer than MaxLineBytes
 	Blank        int64 `json:"blank"`        // blank lines, skipped
+
+	// ZoneAssumed counts records whose timestamp carried no timezone and was
+	// therefore resolved using the source's assumed zone. Non-zero means the
+	// displayed times depend on an assumption, and FILTER-DSL section 2.5
+	// requires saying so.
+	ZoneAssumed int64 `json:"zone_assumed"`
 }
 
 // ReaderOptions configures a read.
@@ -105,6 +111,8 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 		}
 		if !e.HasTimestamp() {
 			stats.NoTimestamp++
+		} else if !e.TimestampZoned {
+			stats.ZoneAssumed++
 		}
 		return fn(e)
 	}
@@ -273,4 +281,5 @@ func (s *Stats) Add(other Stats) {
 	s.Continuation += other.Continuation
 	s.Truncated += other.Truncated
 	s.Blank += other.Blank
+	s.ZoneAssumed += other.ZoneAssumed
 }
