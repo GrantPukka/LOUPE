@@ -418,3 +418,44 @@ func TestWalkMissingPathErrors(t *testing.T) {
 		t.Fatal("expected an error for a missing path")
 	}
 }
+
+// Log directories are full of package.json and metadata files. Reading a
+// pretty-printed JSON document as logs produces dozens of junk records that
+// crowd out the real ones.
+func TestWalkSkipsJSONDocumentsButKeepsJSONLines(t *testing.T) {
+	dir := t.TempDir()
+
+	write(t, dir, "manifest.json", "{\n  \"scenario\": \"incident\",\n  \"seed\": 42\n}\n")
+	write(t, dir, "package.json", "{\n  \"name\": \"app\"\n}\n")
+	write(t, dir, "app.jsonl",
+		`{"ts":"2026-08-13T14:00:00Z","msg":"a"}`+"\n"+`{"ts":"2026-08-13T14:00:01Z","msg":"b"}`+"\n")
+	// A JSON-lines file that happens to be named .json is still logs.
+	write(t, dir, "cloudtrail.json",
+		`{"eventTime":"2026-08-13T14:00:00Z","eventName":"AssumeRole"}`+"\n")
+
+	opts := &WalkOptions{}
+	got, err := Walk(dir, opts)
+	if err != nil {
+		t.Fatalf("Walk: %v", err)
+	}
+
+	want := []string{"app.jsonl", "cloudtrail.json"}
+	if strings.Join(names(got), ",") != strings.Join(want, ",") {
+		t.Errorf("got %v, want %v", names(got), want)
+	}
+}
+
+// An array-of-objects document is also not a log stream.
+func TestWalkSkipsJSONArrayDocument(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "records.json", "[\n  {\"a\":1},\n  {\"a\":2}\n]\n")
+	write(t, dir, "real.log", "a real log line\n")
+
+	got, err := Walk(dir, nil)
+	if err != nil {
+		t.Fatalf("Walk: %v", err)
+	}
+	if len(got) != 1 || filepath.Base(got[0].Name()) != "real.log" {
+		t.Errorf("got %v, want only real.log", names(got))
+	}
+}

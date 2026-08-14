@@ -1,6 +1,8 @@
 package source
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -190,7 +192,52 @@ func consider(path string, d fs.DirEntry, opts *WalkOptions) (*File, string) {
 		return nil, "appears to be binary"
 	}
 
+	if doc, err := looksJSONDocument(path); err != nil {
+		return nil, err.Error()
+	} else if doc {
+		return nil, "a JSON document, not JSON lines"
+	}
+
 	return f, ""
+}
+
+// looksJSONDocument reports whether a file is one pretty-printed JSON value
+// rather than a stream of JSON-lines records.
+//
+// Directories people point loupe at are full of package.json, tsconfig.json,
+// and metadata files. Reading those as logs produces dozens of junk records
+// that crowd out the real ones. JSON lines put one complete object per line, so
+// an opening brace followed by an unterminated first line is the distinguishing
+// feature and it needs only the first two lines to spot.
+func looksJSONDocument(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("open %s: %w", path, err)
+	}
+	defer f.Close()
+
+	buf := make([]byte, 4096)
+	n, err := io.ReadFull(f, buf)
+	if err != nil && n == 0 {
+		return false, nil
+	}
+	buf = bytes.TrimLeft(buf[:n], " \t\r\n")
+
+	if len(buf) == 0 || (buf[0] != '{' && buf[0] != '[') {
+		return false, nil
+	}
+
+	first := buf
+	if i := bytes.IndexByte(buf, '\n'); i >= 0 {
+		first = buf[:i]
+	} else if n == len(buf) {
+		// No newline in the whole prefix, so this is one very long line, which
+		// is a plausible single-line JSON record.
+		return false, nil
+	}
+
+	// A complete JSON value on the first line means JSON lines.
+	return !json.Valid(bytes.TrimSpace(first)), nil
 }
 
 // matches reports whether name matches any pattern. An empty pattern list
