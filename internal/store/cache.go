@@ -1,0 +1,432 @@
+package store
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/VIGIL-OPS/loupe/internal/source"
+)
+
+// IngestVersion is bumped whenever a change would make a cached database
+// disagree with a fresh ingest of the same files.
+//
+// Any change to the table schema, to a parser's output, to level
+// normalisation, or to timestamp handling belongs here. Forgetting to bump it
+// means users silently keep reading data produced by the old code, which is a
+// nastier bug than a slow re-ingest.
+const IngestVersion = 4
+
+// cacheMetaTable holds one row describing how the cached database was built.
+const cacheMetaTable = `
+CREATE TABLE IF NOT EXISTS loupe_cache_meta (
+    fingerprint     VARCHAR NOT NULL,
+    ingest_version  BIGINT  NOT NULL,
+    created_at      TIMESTAMP NOT NULL,
+    summary         VARCHAR NOT NULL   -- JSON, see cachedSummary
+)`
+
+// CacheOptions controls the on-disk cache.
+type CacheOptions struct {
+	// Dir overrides the cache location. Empty means ~/.cache/loupe.
+	Dir string
+
+	// Disabled bypasses the cache entirely, for --no-cache.
+	Disabled bool
+}
+
+// cachedSummary is what a cache hit restores so the status line can report the
+// same counts and assumptions a cold run would have.
+//
+// Without this, a cached run would silently stop mentioning unparsed records
+// and assumed timezones — the tool would get quieter about its own caveats the
+// second time you ran it, which is precisely backwards.
+type cachedSummary struct {
+	Results []IngestResult `json:"results"`
+	Stats   parseStatsJSON `json:"stats"`
+	Took    time.Duration  `json:"took"`
+}
+
+// parseStatsJSON mirrors parse.Stats for storage. It exists so the cache format
+// does not silently change shape when that struct gains a field.
+type parseStatsJSON struct {
+	Lines        int64 `json:"lines"`
+	Records      int64 `json:"records"`
+	Unparsed     int64 `json:"unparsed"`
+	NoTimestamp  int64 `json:"no_timestamp"`
+	Continuation int64 `json:"continuation"`
+	Truncated    int64 `json:"truncated"`
+	Blank        int64 `json:"blank"`
+	ZoneAssumed  int64 `json:"zone_assumed"`
+}
+
+// Fingerprint identifies an ingested state.
+//
+// It covers everything that could change what ends up in the table: each
+// source's path, size, and mtime; the ingest version; and the options that
+// affect parsing. --source-tz is included because it moves timestamps, and a
+// cache keyed without it would serve records an hour out.
+//
+// It returns false when any source is uncacheable, which is the case for
+// stdin: a stream cannot be re-read, so there is nothing to invalidate against.
+func Fingerprint(sources []source.Source, opts LoadOptions) (string, bool) {
+	h := sha256.New()
+
+	fmt.Fprintf(h, "v%d\n", IngestVersion)
+	fmt.Fprintf(h, "parser=%s\n", opts.Parser)
+
+	// Map iteration order is random, so the zone overrides are sorted before
+	// hashing. An unstable fingerprint would miss the cache every time.
+	zones := make([]string, 0, len(opts.SourceZones))
+	for name, loc := range opts.SourceZones {
+		if loc != nil {
+			zones = append(zones, name+"="+loc.String())
+		}
+	}
+	sort.Strings(zones)
+	fmt.Fprintf(h, "zones=%s\n", strings.Join(zones, ","))
+
+	// Sources are hashed in walk order, which is already deterministic.
+	for _, s := range sources {
+		fp := s.Fingerprint()
+		if fp == "" {
+			return "", false
+		}
+		fmt.Fprintf(h, "src=%s\n", fp)
+	}
+
+	return hex.EncodeToString(h.Sum(nil))[:32], true
+}
+
+// CacheDir resolves where cached databases live.
+func CacheDir(override string) (string, error) {
+	if override != "" {
+		return override, nil
+	}
+
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("locate cache directory: %w", err)
+	}
+	return filepath.Join(base, "loupe"), nil
+}
+
+// Cached is the outcome of opening a set of sources, from cache or freshly
+// ingested.
+type Cached struct {
+	DB   *DB
+	Load Load
+
+	// Hit is true when ingestion was skipped.
+	Hit bool
+
+	// Path is the cache file backing this database, empty when uncached.
+	Path string
+
+	// Reason explains why the cache was not used, for the status line. A user
+	// wondering why the second run was not instant deserves an answer.
+	Reason string
+}
+
+// OpenCached opens the sources, reusing a cached database when one matches.
+//
+// This is what makes a re-open feel instant, and ARCHITECTURE.md 3.4 rates it a
+// bigger perceived-quality win than any amount of query optimisation.
+func OpenCached(ctx context.Context, sources []source.Source, load LoadOptions, cache CacheOptions) (*Cached, error) {
+	if cache.Disabled {
+		return ingestFresh(ctx, sources, load, "", "--no-cache")
+	}
+
+	fingerprint, ok := Fingerprint(sources, load)
+	if !ok {
+		return ingestFresh(ctx, sources, load, "", "a source is a stream and cannot be cached")
+	}
+
+	dir, err := CacheDir(cache.Dir)
+	if err != nil {
+		return ingestFresh(ctx, sources, load, "", err.Error())
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return ingestFresh(ctx, sources, load, "", fmt.Sprintf("cannot create %s: %v", dir, err))
+	}
+
+	path := filepath.Join(dir, fingerprint+".duckdb")
+
+	if hit, err := openHit(ctx, path, fingerprint); err == nil && hit != nil {
+		hit.Path = path
+		return hit, nil
+	} else if err != nil {
+		// A corrupt or unreadable cache file must never block the tool. Say so
+		// and re-ingest over the top.
+		os.Remove(path)
+		return ingestFresh(ctx, sources, load, path, fmt.Sprintf("cache unusable, rebuilding: %v", err))
+	}
+
+	return ingestFresh(ctx, sources, load, path, "")
+}
+
+// openHit returns a Cached when the file exists and matches the fingerprint.
+func openHit(ctx context.Context, path, fingerprint string) (*Cached, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, nil // No cache file yet, which is not an error.
+	}
+
+	db, err := Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	summary, storedVersion, storedFingerprint, err := readCacheMeta(ctx, db)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	// The fingerprint is in the file name too, but checking the stored copy
+	// catches a file that was renamed or half-written.
+	if storedFingerprint != fingerprint || storedVersion != IngestVersion {
+		db.Close()
+		return nil, fmt.Errorf("stale cache (version %d, want %d)", storedVersion, IngestVersion)
+	}
+
+	if n, err := db.Count(ctx); err != nil || n == 0 {
+		db.Close()
+		return nil, fmt.Errorf("cache holds no records")
+	}
+
+	return &Cached{DB: db, Load: summary.toLoad(), Hit: true}, nil
+}
+
+func readCacheMeta(ctx context.Context, db *DB) (cachedSummary, int64, string, error) {
+	var (
+		summary     cachedSummary
+		version     int64
+		fingerprint string
+		raw         string
+	)
+
+	row := db.QueryRow(ctx, `SELECT fingerprint, ingest_version, summary FROM loupe_cache_meta LIMIT 1`)
+	if err := row.Scan(&fingerprint, &version, &raw); err != nil {
+		return summary, 0, "", fmt.Errorf("read cache metadata: %w", err)
+	}
+	if err := json.Unmarshal([]byte(raw), &summary); err != nil {
+		return summary, 0, "", fmt.Errorf("decode cache metadata: %w", err)
+	}
+	return summary, version, fingerprint, nil
+}
+
+// ingestFresh reads the sources, writing to path when one is given.
+func ingestFresh(ctx context.Context, sources []source.Source, load LoadOptions, path, reason string) (*Cached, error) {
+	// Ingest into a temporary file and rename on success, so an interrupted
+	// run never leaves a half-built database that a later run would trust.
+	target, finalise := "", func() error { return nil }
+
+	if path != "" {
+		target = path + ".partial"
+		os.Remove(target)
+		finalise = func() error { return os.Rename(target, path) }
+	}
+
+	db, err := Open(target)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := db.Load(ctx, sources, load)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	out := &Cached{DB: db, Load: result, Path: path, Reason: reason}
+
+	if target == "" {
+		return out, nil
+	}
+
+	if err := writeCacheMeta(ctx, db, filepath.Base(path), result); err != nil {
+		// Failing to record metadata makes the file unusable as a cache, but
+		// the data in memory is fine, so carry on without caching.
+		out.Path, out.Reason = "", fmt.Sprintf("could not write cache metadata: %v", err)
+		return out, nil
+	}
+
+	// DuckDB flushes on close, so the file has to be closed before it can be
+	// renamed into place and reopened.
+	if err := db.Close(); err != nil {
+		out.Path, out.Reason = "", fmt.Sprintf("could not finalise cache: %v", err)
+		return ingestFresh(ctx, sources, load, "", out.Reason)
+	}
+	if err := finalise(); err != nil {
+		os.Remove(target)
+		return ingestFresh(ctx, sources, load, "", fmt.Sprintf("could not install cache: %v", err))
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		return ingestFresh(ctx, sources, load, "", fmt.Sprintf("could not reopen cache: %v", err))
+	}
+	out.DB = reopened
+
+	// Eviction failures are not worth reporting: the data the user asked for is
+	// already in hand, and a cache that is too large is a tidiness problem.
+	PruneCache(filepath.Dir(path), DefaultCacheLimit, path)
+
+	return out, nil
+}
+
+func writeCacheMeta(ctx context.Context, db *DB, fileName string, result Load) error {
+	fingerprint := strings.TrimSuffix(fileName, ".duckdb")
+
+	if err := db.Exec(ctx, cacheMetaTable); err != nil {
+		return err
+	}
+
+	summary := cachedSummary{
+		Results: result.Results,
+		Stats: parseStatsJSON{
+			Lines:        result.Stats.Lines,
+			Records:      result.Stats.Records,
+			Unparsed:     result.Stats.Unparsed,
+			NoTimestamp:  result.Stats.NoTimestamp,
+			Continuation: result.Stats.Continuation,
+			Truncated:    result.Stats.Truncated,
+			Blank:        result.Stats.Blank,
+			ZoneAssumed:  result.Stats.ZoneAssumed,
+		},
+		Took: result.Took,
+	}
+
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		return fmt.Errorf("encode cache metadata: %w", err)
+	}
+
+	return db.Exec(ctx,
+		`INSERT INTO loupe_cache_meta VALUES (?, ?, ?, ?)`,
+		fingerprint, int64(IngestVersion), time.Now().UTC(), string(encoded))
+}
+
+func (s cachedSummary) toLoad() Load {
+	load := Load{Results: s.Results, Took: s.Took}
+	load.Stats.Lines = s.Stats.Lines
+	load.Stats.Records = s.Stats.Records
+	load.Stats.Unparsed = s.Stats.Unparsed
+	load.Stats.NoTimestamp = s.Stats.NoTimestamp
+	load.Stats.Continuation = s.Stats.Continuation
+	load.Stats.Truncated = s.Stats.Truncated
+	load.Stats.Blank = s.Stats.Blank
+	load.Stats.ZoneAssumed = s.Stats.ZoneAssumed
+	return load
+}
+
+// CacheEntry describes one cached database on disk.
+type CacheEntry struct {
+	Path     string
+	Size     int64
+	Modified time.Time
+}
+
+// ListCache returns the cached databases, newest first.
+func ListCache(dir string) ([]CacheEntry, error) {
+	resolved, err := CacheDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := os.ReadDir(resolved)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read cache directory: %w", err)
+	}
+
+	var out []CacheEntry
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".duckdb" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		out = append(out, CacheEntry{
+			Path:     filepath.Join(resolved, e.Name()),
+			Size:     info.Size(),
+			Modified: info.ModTime(),
+		})
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Modified.After(out[j].Modified) })
+	return out, nil
+}
+
+// DefaultCacheLimit caps the total size of the cache directory.
+//
+// Each entry is tens of megabytes and every distinct directory state leaves one
+// behind, so without a cap the directory grows until somebody notices.
+const DefaultCacheLimit = 2 << 30 // 2GiB
+
+// PruneCache deletes the least recently modified entries until the cache fits
+// within limit, and returns what it removed.
+//
+// keep is never deleted, so the entry just written survives even when it alone
+// exceeds the limit — evicting the result of the run in progress would mean the
+// next run re-ingests, forever.
+func PruneCache(dir string, limit int64, keep string) (removed int, freed int64, err error) {
+	if limit <= 0 {
+		limit = DefaultCacheLimit
+	}
+
+	entries, err := ListCache(dir)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var total int64
+	for _, e := range entries {
+		total += e.Size
+	}
+
+	// ListCache returns newest first, so walking backwards evicts the coldest.
+	for i := len(entries) - 1; i >= 0 && total > limit; i-- {
+		if entries[i].Path == keep {
+			continue
+		}
+		if rmErr := os.Remove(entries[i].Path); rmErr != nil {
+			// A file we cannot remove is not worth failing the run over; the
+			// data the user asked for is already in hand.
+			continue
+		}
+		total -= entries[i].Size
+		freed += entries[i].Size
+		removed++
+	}
+
+	return removed, freed, nil
+}
+
+// ClearCache removes every cached database and returns how many and how much.
+func ClearCache(dir string) (removed int, freed int64, err error) {
+	entries, err := ListCache(dir)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for _, e := range entries {
+		if rmErr := os.Remove(e.Path); rmErr != nil {
+			return removed, freed, fmt.Errorf("remove %s: %w", e.Path, rmErr)
+		}
+		removed++
+		freed += e.Size
+	}
+	return removed, freed, nil
+}
