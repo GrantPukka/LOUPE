@@ -1,0 +1,653 @@
+{
+  "parser": "logfmt",
+  "stats": {
+    "lines": 46,
+    "records": 45,
+    "unparsed": 1,
+    "no_timestamp": 2,
+    "continuation": 0,
+    "truncated": 0,
+    "blank": 1
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "1b763ba1",
+        "ttl_s": 3600,
+        "user_id": "u_1208"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:00Z level=info msg=\"token validated\" issuer=auth.internal trace_id=1b763ba1 ttl_s=3600 user_id=u_1208"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "51e31edc",
+        "ttl_s": 3600,
+        "user_id": "u_3749"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:00Z level=info msg=\"token validated\" issuer=auth.internal trace_id=51e31edc ttl_s=3600 user_id=u_3749"
+    },
+    {
+      "line_no": 3,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "a0792029",
+        "ttl_s": 3600,
+        "user_id": "u_7887"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:00Z level=info msg=\"token validated\" issuer=auth.internal trace_id=a0792029 ttl_s=3600 user_id=u_7887"
+    },
+    {
+      "line_no": 4,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "6fe095b2",
+        "ttl_s": 3600,
+        "user_id": "u_9022"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:00Z level=info msg=\"token validated\" issuer=auth.internal trace_id=6fe095b2 ttl_s=3600 user_id=u_9022"
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "refreshing jwks cache",
+      "fields": {
+        "keys": 3,
+        "next_refresh_s": 300
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:00Z level=debug msg=\"refreshing jwks cache\" keys=3 next_refresh_s=300"
+    },
+    {
+      "line_no": 6,
+      "ts": "2026-08-13T14:16:01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "7110238b",
+        "ttl_s": 3600,
+        "user_id": "u_1828"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:01Z level=info msg=\"token validated\" issuer=auth.internal trace_id=7110238b ttl_s=3600 user_id=u_1828"
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "01b2fbd2",
+        "ttl_s": 3600,
+        "user_id": "u_6493"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:02Z level=info msg=\"token validated\" issuer=auth.internal trace_id=01b2fbd2 ttl_s=3600 user_id=u_6493"
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "9cb4c167",
+        "ttl_s": 3600,
+        "user_id": "u_4855"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:03Z level=info msg=\"token validated\" issuer=auth.internal trace_id=9cb4c167 ttl_s=3600 user_id=u_4855"
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "844f7f07",
+        "ttl_s": 3600,
+        "user_id": "u_4056"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:03Z level=info msg=\"token validated\" issuer=auth.internal trace_id=844f7f07 ttl_s=3600 user_id=u_4056"
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "ad00f47f",
+        "ttl_s": 3600,
+        "user_id": "u_5924"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:03Z level=info msg=\"token validated\" issuer=auth.internal trace_id=ad00f47f ttl_s=3600 user_id=u_5924"
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "6b673a44",
+        "ttl_s": 3600,
+        "user_id": "u_2615"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:03Z level=info msg=\"token validated\" issuer=auth.internal trace_id=6b673a44 ttl_s=3600 user_id=u_2615"
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "9f669c01",
+        "ttl_s": 3600,
+        "user_id": "u_4044"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:03Z level=info msg=\"token validated\" issuer=auth.internal trace_id=9f669c01 ttl_s=3600 user_id=u_4044"
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "b5bc877f",
+        "ttl_s": 3600,
+        "user_id": "u_3412"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:03Z level=info msg=\"token validated\" issuer=auth.internal trace_id=b5bc877f ttl_s=3600 user_id=u_3412"
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "662125c8",
+        "ttl_s": 3600,
+        "user_id": "u_5942"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:04Z level=info msg=\"token validated\" issuer=auth.internal trace_id=662125c8 ttl_s=3600 user_id=u_5942"
+    },
+    {
+      "line_no": 15,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "da78b7a2",
+        "ttl_s": 3600,
+        "user_id": "u_4208"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:04Z level=info msg=\"token validated\" issuer=auth.internal trace_id=da78b7a2 ttl_s=3600 user_id=u_4208"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "174b1497",
+        "ttl_s": 3600,
+        "user_id": "u_6133"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:04Z level=info msg=\"token validated\" issuer=auth.internal trace_id=174b1497 ttl_s=3600 user_id=u_6133"
+    },
+    {
+      "line_no": 17,
+      "ts": "2026-08-13T14:16:05Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "94ccb5bd",
+        "ttl_s": 3600,
+        "user_id": "u_2656"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:05Z level=info msg=\"token validated\" issuer=auth.internal trace_id=94ccb5bd ttl_s=3600 user_id=u_2656"
+    },
+    {
+      "line_no": 18,
+      "ts": "2026-08-13T14:16:05Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": 3.6782e+70,
+        "ttl_s": 3600,
+        "user_id": "u_7721"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:05Z level=info msg=\"token validated\" issuer=auth.internal trace_id=36782e66 ttl_s=3600 user_id=u_7721"
+    },
+    {
+      "line_no": 19,
+      "ts": "2026-08-13T14:16:05Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "fef6f399",
+        "ttl_s": 3600,
+        "user_id": "u_6519"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:05Z level=info msg=\"token validated\" issuer=auth.internal trace_id=fef6f399 ttl_s=3600 user_id=u_6519"
+    },
+    {
+      "line_no": 20,
+      "ts": "2026-08-13T14:16:06Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "3a3d5050",
+        "ttl_s": 3600,
+        "user_id": "u_5558"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:06Z level=info msg=\"token validated\" issuer=auth.internal trace_id=3a3d5050 ttl_s=3600 user_id=u_5558"
+    },
+    {
+      "line_no": 21,
+      "ts": "2026-08-13T14:16:07Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "7948007a",
+        "ttl_s": 3600,
+        "user_id": "u_4429"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:07Z level=info msg=\"token validated\" issuer=auth.internal trace_id=7948007a ttl_s=3600 user_id=u_4429"
+    },
+    {
+      "line_no": 22,
+      "ts": "2026-08-13T14:16:07Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "6674447b",
+        "ttl_s": 3600,
+        "user_id": "u_8907"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:07Z level=info msg=\"token validated\" issuer=auth.internal trace_id=6674447b ttl_s=3600 user_id=u_8907"
+    },
+    {
+      "line_no": 23,
+      "ts": "2026-08-13T14:16:08Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "7ecadce7",
+        "ttl_s": 3600,
+        "user_id": "u_4329"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:08Z level=info msg=\"token validated\" issuer=auth.internal trace_id=7ecadce7 ttl_s=3600 user_id=u_4329"
+    },
+    {
+      "line_no": 24,
+      "ts": "2026-08-13T14:16:09Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "iss\u0000\u0000uer": "auth.internal",
+        "trace_id": "38274df4",
+        "ttl_s": 3600,
+        "user_id": "u_3131"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:09Z level=info msg=\"token validated\" iss\u0000\u0000uer=auth.internal trace_id=38274df4 ttl_s=3600 user_id=u_3131"
+    },
+    {
+      "line_no": 25,
+      "ts": "2026-08-13T14:16:09Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "d99212d9",
+        "ttl_s": 3600,
+        "user_id": "u_7642"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:09Z level=info msg=\"token validated\" issuer=auth.internal trace_id=d99212d9 ttl_s=3600 user_id=u_7642"
+    },
+    {
+      "line_no": 26,
+      "ts": "2026-08-13T14:16:09Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "0be97a86",
+        "ttl_s": 3600,
+        "user_id": "u_5970"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:09Z level=info msg=\"token validated\" issuer=auth.internal trace_id=0be97a86 ttl_s=3600 user_id=u_5970"
+    },
+    {
+      "line_no": 27,
+      "ts": "2026-08-13T14:16:09Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "9d76a4f3",
+        "ttl_s": 3600,
+        "user_id": "u_6720"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:09Z level=info msg=\"token validated\" issuer=auth.internal trace_id=9d76a4f3 ttl_s=3600 user_id=u_6720"
+    },
+    {
+      "line_no": 28,
+      "ts": "2026-08-13T14:16:10Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "5c093026",
+        "ttl_s": 3600,
+        "user_id": "u_9479"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:10Z level=info msg=\"token validated\" issuer=auth.internal trace_id=5c093026 ttl_s=3600 user_id=u_9479"
+    },
+    {
+      "line_no": 29,
+      "ts": "2026-08-13T14:16:10Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "refreshing jwks cache",
+      "fields": {
+        "keys": 3,
+        "next_refresh_s": 300
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:10Z level=debug msg=\"refreshing jwks cache\" keys=3 next_refresh_s=300"
+    },
+    {
+      "line_no": 30,
+      "ts": "2026-08-13T14:16:10Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "56ed4d8a",
+        "ttl_s": 3600,
+        "user_id": "u_8792"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:10Z level=info msg=\"token validated\" issuer=auth.internal trace_id=56ed4d8a ttl_s=3600 user_id=u_8792"
+    },
+    {
+      "line_no": 31,
+      "ts": "2026-08-13T14:16:10Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "27a601db",
+        "ttl_s": 3600,
+        "user_id": "u_3475"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:10Z level=info msg=\"token validated\" issuer=auth.internal trace_id=27a601db ttl_s=3600 user_id=u_3475"
+    },
+    {
+      "line_no": 32,
+      "ts": "2026-08-13T14:16:12Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "e34d5d8d",
+        "ttl_s": 3600,
+        "user_id": "u_5051"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:12Z level=info msg=\"token validated\" issuer=auth.internal trace_id=e34d5d8d ttl_s=3600 user_id=u_5051"
+    },
+    {
+      "line_no": 33,
+      "ts": "2026-08-13T14:16:12Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "b64a6b64",
+        "ttl_s": 3600,
+        "user_id": "u_1347"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:12Z level=info msg=\"token validated\" issuer=auth.internal trace_id=b64a6b64 ttl_s=3600 user_id=u_1347"
+    },
+    {
+      "line_no": 34,
+      "ts": "2026-08-13T14:16:12Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "8b20874e",
+        "ttl_s": 3600,
+        "user_id": "u_7384"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:12Z level=info msg=\"token validated\" issuer=auth.internal trace_id=8b20874e ttl_s=3600 user_id=u_7384"
+    },
+    {
+      "line_no": 35,
+      "ts": "2026-08-13T14:16:13Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "refreshing jwks cache",
+      "fields": {
+        "keys": 3,
+        "next_refresh_s": 300
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:13Z level=debug msg=\"refreshing jwks cache\" keys=3 next_refresh_s=300"
+    },
+    {
+      "line_no": 36,
+      "ts": "2026-08-13T14:16:13Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "ac710fa9",
+        "ttl_s": 3600,
+        "user_id": "u_9234"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:13Z level=info msg=\"token validated\" issuer=auth.internal trace_id=ac710fa9 ttl_s=3600 user_id=u_9234"
+    },
+    {
+      "line_no": 37,
+      "ts": "2026-08-13T14:16:13Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "5af3d38f",
+        "ttl_s": 3600,
+        "user_id": "u_6597"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:13Z level=info msg=\"token validated\" issuer=auth.internal trace_id=5af3d38f ttl_s=3600 user_id=u_6597"
+    },
+    {
+      "line_no": 38,
+      "ts": "2026-08-13T14:16:14Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "token validated",
+      "fields": {
+        "issuer": "auth.internal",
+        "trace_id": "3d7a24ef",
+        "ttl_s": 3600,
+        "user_id": "u_6152"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:14Z level=info msg=\"token validated\" issuer=auth.internal trace_id=3d7a24ef ttl_s=3600 user_id=u_6152"
+    },
+    {
+      "line_no": 40,
+      "ts": "2026-08-13T14:16:41Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "upstream refused the conn",
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:41Z level=error msg=\"upstream refused the conn"
+    },
+    {
+      "line_no": 41,
+      "ts": "2026-08-13T14:16:42Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "token near expiry",
+      "fields": {
+        "ttl_s": 12,
+        "user\u0000\u0000_id": "u_5512"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:42Z level=warn msg=\"token near expiry\" ttl_s=12 user\u0000\u0000_id=u_5512"
+    },
+    {
+      "line_no": 42,
+      "message": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812",
+      "parsed": false,
+      "raw": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812"
+    },
+    {
+      "line_no": 43,
+      "ts": "2026-08-13T14:16:44Z",
+      "ts_zoned": true,
+      "level": "audit",
+      "message": "unrecognised severity",
+      "fields": {
+        "actor": "svc-rotate"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:44Z level=audit msg=\"unrecognised severity\" actor=svc-rotate"
+    },
+    {
+      "line_no": 44,
+      "ts": "2026-08-13T14:16:45Z",
+      "ts_zoned": true,
+      "message": "no level at all",
+      "fields": {
+        "code": "007",
+        "enabled": true,
+        "ratio": 0.5
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:45Z msg=\"no level at all\" code=007 ratio=0.5 enabled=true"
+    },
+    {
+      "line_no": 45,
+      "level": "info",
+      "message": "no timestamp on this one",
+      "fields": {
+        "issuer": "auth.internal"
+      },
+      "parsed": true,
+      "raw": "level=info msg=\"no timestamp on this one\" issuer=auth.internal"
+    },
+    {
+      "line_no": 46,
+      "ts": "2026-08-13T14:16:47Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "final line, no trailing newline",
+      "fields": {
+        "user_id": "u_9001"
+      },
+      "parsed": true,
+      "raw": "ts=2026-08-13T14:16:47Z level=info msg=\"final line, no trailing newline\" user_id=u_9001"
+    }
+  ]
+}

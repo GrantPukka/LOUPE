@@ -1,0 +1,681 @@
+{
+  "parser": "jsonl",
+  "stats": {
+    "lines": 46,
+    "records": 45,
+    "unparsed": 7,
+    "no_timestamp": 8,
+    "continuation": 0,
+    "truncated": 0,
+    "blank": 1
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:16:00.171048632Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 102,
+        "path": "/api/cart",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "1b763ba1",
+        "user_id": "u_1208"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":102,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"1b763ba1\",\"ts\":\"2026-08-13T14:16:00.171048632Z\",\"user_id\":\"u_1208\"}"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:16:00.271913555Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 74,
+        "path": "/api/checkout",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "51e31edc",
+        "user_id": "u_3749"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":74,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"51e31edc\",\"ts\":\"2026-08-13T14:16:00.271913555Z\",\"user_id\":\"u_3749\"}"
+    },
+    {
+      "line_no": 3,
+      "message": "{\"latency_ms\":102,\"level\":\"info\",\"msg\":\"request",
+      "parsed": false,
+      "raw": "{\"latency_ms\":102,\"level\":\"info\",\"msg\":\"request"
+    },
+    {
+      "line_no": 4,
+      "message": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"a92c9b6d\",\"ts\":\"2026-08-13T14:16:00.43225776Z\",\"user_id\":\"u_4702\"}",
+      "parsed": false,
+      "raw": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"a92c9b6d\",\"ts\":\"2026-08-13T14:16:00.43225776Z\",\"user_id\":\"u_4702\"}"
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:16:00.701929614Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "evaluating feature flag",
+      "fields": {
+        "enabled": false,
+        "flag": "new_checkout_flow"
+      },
+      "parsed": true,
+      "raw": "{\"enabled\":false,\"flag\":\"new_checkout_flow\",\"level\":\"debug\",\"msg\":\"evaluating feature flag\",\"ts\":\"2026-08-13T14:16:00.701929614Z\"}"
+    },
+    {
+      "line_no": 6,
+      "ts": "2026-08-13T14:16:00.709071585Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 48,
+        "path": "/api/checkout",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "a0792029",
+        "user_id": "u_7887"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":48,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"a0792029\",\"ts\":\"2026-08-13T14:16:00.709071585Z\",\"user_id\":\"u_7887\"}"
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:16:00.790606769Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 93,
+        "path": "/api/cart",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "39a61e62",
+        "user_id": "u_4807"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":93,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"39a61e62\",\"ts\":\"2026-08-13T14:16:00.790606769Z\",\"user_id\":\"u_4807\"}"
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:16:00.952178169Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 190,
+        "path": "/api/session",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "6fe095b2",
+        "user_id": "u_9022"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":190,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"6fe095b2\",\"ts\":\"2026-08-13T14:16:00.952178169Z\",\"user_id\":\"u_9022\"}"
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:16:01.279942843Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 186,
+        "path": "/api/session",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "88323683",
+        "user_id": "u_6083"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":186,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"88323683\",\"ts\":\"2026-08-13T14:16:01.279942843Z\",\"user_id\":\"u_6083\"}"
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:16:01.481116884Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 176,
+        "path": "/api/checkout",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "f065f37a",
+        "user_id": "u_7201"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":176,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"f065f37a\",\"ts\":\"2026-08-13T14:16:01.481116884Z\",\"user_id\":\"u_7201\"}"
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:16:01.64325214Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 56,
+        "path": "/api/cart",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "7110238b",
+        "user_id": "u_1828"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":56,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"7110238b\",\"ts\":\"2026-08-13T14:16:01.64325214Z\",\"user_id\":\"u_1828\"}"
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:16:02.083278779Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 161,
+        "path": "/api/session",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "19d344da",
+        "user_id": "u_3227"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":161,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"19d344da\",\"ts\":\"2026-08-13T14:16:02.083278779Z\",\"user_id\":\"u_3227\"}"
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:16:02.09341308Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 46,
+        "path": "/api/checkout",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "9fd00f2b",
+        "user_id": "u_8235"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":46,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"9fd00f2b\",\"ts\":\"2026-08-13T14:16:02.09341308Z\",\"user_id\":\"u_8235\"}"
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:16:02.13662525Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 210,
+        "path": "/api/cart",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "f8971123",
+        "user_id": "u_8655"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":210,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"f8971123\",\"ts\":\"2026-08-13T14:16:02.13662525Z\",\"user_id\":\"u_8655\"}"
+    },
+    {
+      "line_no": 15,
+      "message": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812",
+      "parsed": false,
+      "raw": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:16:02.266936419Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 112,
+        "path": "/healthz",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "dcb74378",
+        "user_id": "u_7938"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":112,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"dcb74378\",\"ts\":\"2026-08-13T14:16:02.266936419Z\",\"user_id\":\"u_7938\"}"
+    },
+    {
+      "line_no": 17,
+      "ts": "2026-08-13T14:16:02.504516114Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 54,
+        "path": "/api/orders/2291",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "01b2fbd2",
+        "user_id": "u_6493"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":54,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"01b2fbd2\",\"ts\":\"2026-08-13T14:16:02.504516114Z\",\"user_id\":\"u_6493\"}"
+    },
+    {
+      "line_no": 18,
+      "ts": "2026-08-13T14:16:02.614948447Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 164,
+        "path": "/api/session",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "cf7fe901",
+        "user_id": "u_4941"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":164,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"cf7fe901\",\"ts\":\"2026-08-13T14:16:02.614948447Z\",\"user_id\":\"u_4941\"}"
+    },
+    {
+      "line_no": 19,
+      "ts": "2026-08-13T14:16:02.842144887Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 107,
+        "path": "/api/session",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "9a94bd5f",
+        "user_id": "u_7061"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":107,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"9a94bd5f\",\"ts\":\"2026-08-13T14:16:02.842144887Z\",\"user_id\":\"u_7061\"}"
+    },
+    {
+      "line_no": 20,
+      "ts": "2026-08-13T14:16:03.225255725Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 66,
+        "path": "/api/orders/2291",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "844f7f07",
+        "user_id": "u_4056"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":66,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"844f7f07\",\"ts\":\"2026-08-13T14:16:03.225255725Z\",\"user_id\":\"u_4056\"}"
+    },
+    {
+      "line_no": 21,
+      "ts": "2026-08-13T14:16:03.226662796Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 96,
+        "path": "/api/cart",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "9cb4c167",
+        "user_id": "u_4855"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":96,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"9cb4c167\",\"ts\":\"2026-08-13T14:16:03.226662796Z\",\"user_id\":\"u_4855\"}"
+    },
+    {
+      "line_no": 22,
+      "ts": "2026-08-13T14:16:03.402320699Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 175,
+        "path": "/healthz",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "ad00f47f",
+        "user_id": "u_5924"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":175,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"ad00f47f\",\"ts\":\"2026-08-13T14:16:03.402320699Z\",\"user_id\":\"u_5924\"}"
+    },
+    {
+      "line_no": 23,
+      "message": "{\"latency_ms\":100,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/a",
+      "parsed": false,
+      "raw": "{\"latency_ms\":100,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/a"
+    },
+    {
+      "line_no": 24,
+      "ts": "2026-08-13T14:16:03.579821449Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 127,
+        "path": "/api/orders/2291",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "9f669c01",
+        "user_id": "u_4044"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":127,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"9f669c01\",\"ts\":\"2026-08-13T14:16:03.579821449Z\",\"user_id\":\"u_4044\"}"
+    },
+    {
+      "line_no": 25,
+      "ts": "2026-08-13T14:16:03.595240568Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 196,
+        "path": "/api/session",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "cb17feba",
+        "user_id": "u_1259"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":196,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"cb17feba\",\"ts\":\"2026-08-13T14:16:03.595240568Z\",\"user_id\":\"u_1259\"}"
+    },
+    {
+      "line_no": 26,
+      "ts": "2026-08-13T14:16:03.647401368Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 167,
+        "path": "/healthz",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "b5bc877f",
+        "user_id": "u_3412"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":167,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"b5bc877f\",\"ts\":\"2026-08-13T14:16:03.647401368Z\",\"user_id\":\"u_3412\"}"
+    },
+    {
+      "line_no": 27,
+      "ts": "2026-08-13T14:16:03.903345099Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 93,
+        "path": "/api/cart",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "94f9a142",
+        "user_id": "u_8703"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":93,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"94f9a142\",\"ts\":\"2026-08-13T14:16:03.903345099Z\",\"user_id\":\"u_8703\"}"
+    },
+    {
+      "line_no": 28,
+      "ts": "2026-08-13T14:16:03.925361999Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 44,
+        "path": "/api/cart",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "076498d6",
+        "user_id": "u_7252"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":44,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"076498d6\",\"ts\":\"2026-08-13T14:16:03.925361999Z\",\"user_id\":\"u_7252\"}"
+    },
+    {
+      "line_no": 29,
+      "ts": "2026-08-13T14:16:04.003219799Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 178,
+        "path": "/healthz",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "662125c8",
+        "user_id": "u_5942"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":178,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"662125c8\",\"ts\":\"2026-08-13T14:16:04.003219799Z\",\"user_id\":\"u_5942\"}"
+    },
+    {
+      "line_no": 30,
+      "ts": "2026-08-13T14:16:04.110791956Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 188,
+        "path": "/api/cart",
+        "region": "eu-west-1",
+        "status": 200,
+        "trace_id": "47e6c58d",
+        "user_id": "u_6030"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":188,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"47e6c58d\",\"ts\":\"2026-08-13T14:16:04.110791956Z\",\"user_id\":\"u_6030\"}"
+    },
+    {
+      "line_no": 31,
+      "ts": "2026-08-13T14:16:04.153771804Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 135,
+        "path": "/api/cart",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "da78b7a2",
+        "user_id": "u_4208"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":135,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/cart\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"da78b7a2\",\"ts\":\"2026-08-13T14:16:04.153771804Z\",\"user_id\":\"u_4208\"}"
+    },
+    {
+      "line_no": 32,
+      "ts": "2026-08-13T14:16:04.276485931Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 132,
+        "path": "/api/checkout",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "c1aff98e",
+        "user_id": "u_2641"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":132,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"c1aff98e\",\"ts\":\"2026-08-13T14:16:04.276485931Z\",\"user_id\":\"u_2641\"}"
+    },
+    {
+      "line_no": 33,
+      "ts": "2026-08-13T14:16:04.464203889Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 79,
+        "path": "/api/orders/2291",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "562dbac4",
+        "user_id": "u_7140"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":79,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"562dbac4\",\"ts\":\"2026-08-13T14:16:04.464203889Z\",\"user_id\":\"u_7140\"}"
+    },
+    {
+      "line_no": 34,
+      "ts": "2026-08-13T14:16:04.578240205Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 52,
+        "path": "/healthz",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "d05a730e",
+        "user_id": "u_6982"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":52,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"d05a730e\",\"ts\":\"2026-08-13T14:16:04.578240205Z\",\"user_id\":\"u_6982\"}"
+    },
+    {
+      "line_no": 35,
+      "ts": "2026-08-13T14:16:04.740578399Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 105,
+        "path": "/api/orders/2291",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "174b1497",
+        "user_id": "u_6133"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":105,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"174b1497\",\"ts\":\"2026-08-13T14:16:04.740578399Z\",\"user_id\":\"u_6133\"}"
+    },
+    {
+      "line_no": 36,
+      "ts": "2026-08-13T14:16:04.774852281Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 140,
+        "path": "/api/orders/2291",
+        "region": "ap-south-1",
+        "status": 200,
+        "trace_id": "58d4337e",
+        "user_id": "u_1512"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":140,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"58d4337e\",\"ts\":\"2026-08-13T14:16:04.774852281Z\",\"user_id\":\"u_1512\"}"
+    },
+    {
+      "line_no": 37,
+      "ts": "2026-08-13T14:16:04.955513926Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 133,
+        "path": "/api/checkout",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "c443c7be",
+        "user_id": "u_9722"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":133,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"c443c7be\",\"ts\":\"2026-08-13T14:16:04.955513926Z\",\"user_id\":\"u_9722\"}"
+    },
+    {
+      "line_no": 38,
+      "ts": "2026-08-13T14:16:05.213926717Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 43,
+        "path": "/api/checkout",
+        "region": "us-east-1",
+        "status": 200,
+        "trace_id": "2325a8b5",
+        "user_id": "u_2924"
+      },
+      "parsed": true,
+      "raw": "{\"latency_ms\":43,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/checkout\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"2325a8b5\",\"ts\":\"2026-08-13T14:16:05.213926717Z\",\"user_id\":\"u_2924\"}"
+    },
+    {
+      "line_no": 40,
+      "message": "{\"ts\":\"2026-08-13T14:16:41Z\",\"level\":\"error\",\"msg\":\"upstream timeout\",\"status\":502,\"latency",
+      "parsed": false,
+      "raw": "{\"ts\":\"2026-08-13T14:16:41Z\",\"level\":\"error\",\"msg\":\"upstream timeout\",\"status\":502,\"latency"
+    },
+    {
+      "line_no": 41,
+      "message": "{\"ts\":\"2026-08-13T14:16:42Z\",\"level\":\"warn\",\"msg\":\"partial write\",\"trace\u0000\u0000_id\":\"c41a90b2\"}",
+      "parsed": false,
+      "raw": "{\"ts\":\"2026-08-13T14:16:42Z\",\"level\":\"warn\",\"msg\":\"partial write\",\"trace\u0000\u0000_id\":\"c41a90b2\"}"
+    },
+    {
+      "line_no": 42,
+      "message": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812",
+      "parsed": false,
+      "raw": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812"
+    },
+    {
+      "line_no": 43,
+      "ts": "2026-08-13T14:16:44Z",
+      "level": "info",
+      "message": "no offset on this timestamp",
+      "fields": {
+        "region": "eu-west-1"
+      },
+      "parsed": true,
+      "raw": "{\"ts\":\"2026-08-13T14:16:44\",\"level\":\"info\",\"msg\":\"no offset on this timestamp\",\"region\":\"eu-west-1\"}"
+    },
+    {
+      "line_no": 44,
+      "level": "audit",
+      "message": "unrecognised severity and no timestamp",
+      "fields": {
+        "span_id": 7241398234123456789
+      },
+      "parsed": true,
+      "raw": "{\"level\":\"audit\",\"msg\":\"unrecognised severity and no timestamp\",\"span_id\":7241398234123456789}"
+    },
+    {
+      "line_no": 45,
+      "ts": "2026-08-13T14:16:46Z",
+      "ts_zoned": true,
+      "message": "nested fields",
+      "fields": {
+        "http": {
+          "method": "GET",
+          "status": 500
+        },
+        "tags": [
+          "a",
+          "b"
+        ]
+      },
+      "parsed": true,
+      "raw": "{\"ts\":\"2026-08-13T14:16:46Z\",\"msg\":\"nested fields\",\"http\":{\"status\":500,\"method\":\"GET\"},\"tags\":[\"a\",\"b\"]}"
+    },
+    {
+      "line_no": 46,
+      "ts": "2026-08-13T14:16:47Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "final line, no trailing newline",
+      "fields": {
+        "user_id": "u_9001"
+      },
+      "parsed": true,
+      "raw": "{\"ts\":\"2026-08-13T14:16:47Z\",\"level\":\"info\",\"msg\":\"final line, no trailing newline\",\"user_id\":\"u_9001\"}"
+    }
+  ]
+}
