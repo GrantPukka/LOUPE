@@ -31,7 +31,16 @@ The table is:
 
 Reach into the fields bag with DuckDB's JSON operators:
 
-    SELECT fields->>'$.trace_id' AS trace, count(*) FROM logs GROUP BY 1`,
+    SELECT fields->>'$.trace_id' AS trace, count(*) FROM logs GROUP BY 1
+
+Parenthesise a JSON extraction before IS NULL or a comparison. DuckDB binds
+IS NULL tighter than ->>, so the unparenthesised form is a confusing type
+error rather than the filter you meant:
+
+    WHERE (fields->>'$.trace_id') IS NOT NULL      correct
+    WHERE fields->>'$.trace_id' IS NOT NULL        parses as fields ->> (... IS NOT NULL)
+
+The filter DSL handles this for you: trace_id:* says the same thing.`,
 		Example: `  loupe sql ./logs "SELECT level, count(*) FROM logs GROUP BY 1 ORDER BY 2 DESC"
   loupe sql ./logs "SELECT * FROM logs WHERE ts IS NULL"
   loupe sql "SELECT source, count(*) FROM logs GROUP BY 1"`,
