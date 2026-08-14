@@ -4,18 +4,23 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/VIGIL-OPS/loupe/internal/query"
 	"github.com/spf13/cobra"
 )
 
-// defaultColumns are what the bare `loupe ./logs` view shows.
+// The columns the bare `loupe ./logs` view shows.
 //
 // raw is deliberately absent: it duplicates message for parsed records and
 // makes the table unreadable. It is one --format raw away, and always present
 // in a handoff.
-const defaultQuery = `
-	SELECT ts, level, source, message
-	FROM logs
-	ORDER BY ts NULLS LAST, seq`
+//
+// Ordering puts records with no timestamp last rather than first, then falls
+// back to ingest order so their position relative to the surrounding lines in
+// their own file is preserved.
+const (
+	selectClause = `SELECT ts, level, source, message FROM logs WHERE `
+	orderClause  = ` ORDER BY ts NULLS LAST, seq`
+)
 
 // runDefault handles `loupe`, `loupe ./logs`, and `loupe ./logs '<filter>'`.
 //
@@ -24,12 +29,11 @@ const defaultQuery = `
 func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	path, filter := resolveArgs(args)
 
-	if filter != "" {
-		// The filter DSL lands in the next milestone. Say so precisely rather
-		// than silently ignoring the argument and showing everything, which
-		// would be a wrong answer presented confidently.
-		return fmt.Errorf("filter expressions are not implemented yet; "+
-			"use `loupe sql %q \"SELECT ...\"` for now", path)
+	// Parse before opening anything. A syntax error should come back
+	// immediately rather than after ingesting a gigabyte.
+	q, err := query.Parse(filter)
+	if err != nil {
+		return err
 	}
 
 	sess, err := g.open(cmd.Context(), path)
@@ -40,15 +44,34 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 
 	if !g.quiet {
 		sess.statusLine(os.Stderr)
-		fmt.Fprintln(os.Stderr)
 	}
 
-	res, err := sess.db.QueryResult(cmd.Context(), g.limit, defaultQuery)
+	sql, err := sess.compile(cmd.Context(), q)
 	if err != nil {
 		return err
 	}
 
-	return sess.writer.Result(res)
+	if !g.quiet {
+		fmt.Fprintln(os.Stderr)
+	}
+
+	res, err := sess.db.QueryResult(cmd.Context(), g.limit,
+		selectClause+sql.Where+orderClause, sql.Args...)
+	if err != nil {
+		return err
+	}
+
+	if err := sess.writer.Result(res); err != nil {
+		return err
+	}
+
+	// An empty result is where this tool most easily misleads, so explain it
+	// rather than leaving the user to guess whether their filter was wrong or
+	// their data genuinely contains nothing.
+	if res.RowCount() == 0 && !q.IsEmpty() {
+		return sess.explainEmpty(cmd.Context(), q)
+	}
+	return nil
 }
 
 // resolveArgs works out which argument is the path and which is the filter.

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/VIGIL-OPS/loupe/internal/query"
 	"github.com/VIGIL-OPS/loupe/internal/render"
 	"github.com/VIGIL-OPS/loupe/internal/source"
 	"github.com/VIGIL-OPS/loupe/internal/store"
@@ -42,9 +43,11 @@ func newRootCommand() *cobra.Command {
 normalises them onto one timeline, and lets you filter it.
 
 Read-only, local-only, no daemon, no network.`,
-		Version:       version,
-		SilenceUsage:  true,
-		SilenceErrors: false,
+		Version:      version,
+		SilenceUsage: true,
+		// main prints the error. Leaving this false makes cobra print it too,
+		// so every failure appears twice.
+		SilenceErrors: true,
 		Args:          cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDefault(cmd, g, args)
@@ -81,6 +84,10 @@ type session struct {
 	loc    *time.Location
 	writer *render.Writer
 	limit  int
+
+	// schema is resolved lazily and cached: it costs two queries and both the
+	// filter and the empty-result explanation need it.
+	schema *query.Schema
 }
 
 func (s *session) Close() error { return s.db.Close() }
