@@ -1,0 +1,36 @@
+2026-08-13 14:16:12.179 UTC [20177] INFO: duration: 11.647 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:12.904 UTC [20149] INFO: duration: 208.226 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:15.204 UTC [20805] INFO: duration: 93.002 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:20.747 UTC [20708] INFO: duration: 253.849 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:23.396 UTC [20280] INFO: duration: 287.700 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:25.855 UTC [20159] INFO: duration: 250.115 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:42.616 UTC [20874] INFO: duration: 193.075 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:46.399 UTC [20061] INFO: duration: 288.694 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:49.010 UTC [20248] INFO: duration: 334.515 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:50.048 UTC [20607] INFO: duration: 270.647 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:54.971 UTC [20753] INFO: duration: 21.794 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:16:59.843 UTC [20890] INFO: duration: 208.839 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:00.350 UTC [20643] INFO: duration: 200.598 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:27.135 UTC [20843] INFO: duration: 149.592 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:33.064 UTC [20735] INFO: duration: 106.865 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:39.109 UTC [20558] INFO: duration: 137.398 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:39.453 UTC [20176] INFO: duration: 127.253 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:40.488 UTC [20613] INFO: duration: 334.122 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:17:58.449 UTC [20137] INFO: duration: 368.541 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:18:03.406 UTC [20248] INFO: duration: 77.322 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:18:04.035 UTC [20257] INFO: duration: 242.441 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:18:17.293 UTC [20705] INFO: duration: 274.843 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:18:18.000 UTC [20001] WARN: connection pool exhausted, 100 of 100 connections in use
+2026-08-13 14:18:18.900 UTC [20044] ERROR: FATAL: remaining connection slots are reserved for superusers
+2026-08-13 14:18:20.314 UTC [20863] INFO: duration: 88.317 ms  statement: SELECT * FROM orders WHERE user_id = $1
+2026-08-13 14:18:22.210 UTC [20795] INFO: duration: 58.568 ms  statement: SELECT * FROM orders WHERE user_id = $1
+
+2026-08-13 14:16:41.100 UTC [20044] alice@checkout ERROR:  relation "orders" does not exist
+2026-08-13 14:16:41.101 UTC [20044] alice@checkout STATEMENT:  SELECT * FROM orders
+	WHERE user_id = $1
+	ORDER BY created_at DESC
+2026-08-13 14:16:42.000 CST [20045] LOG:  an ambiguous zone abbreviation
+2026-08-13 14:16:43.000 [20046] FATAL:  no zone at all
+2026-08-13 14:16:44.000 UTC [20047] DEBUG1:  a numbered debug level
+not a postgres line
+2026-08-13 14:16:45.000 UTC [20048] PANIC:  final line, no trailing newline

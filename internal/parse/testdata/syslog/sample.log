@@ -1,0 +1,38 @@
+<14>1 2026-08-13T14:16:00Z host-01 sshd 9061 - - session opened for user deploy
+<14>1 2026-08-13T14:16:01Z host-01 sshd 8085 - - session opened for user deploy
+<14>1 2026-08-13T14:16:03Z host-01 sshd 3500 - - session opened for user deploy
+<14>1 2026-08-13T14:16:08Z host-01 sshd 4415 - - session opened for user deploy
+<14>1 2026-08-13T14:16:15Z host-01 sshd 3342 - - session opened for user deploy
+<14>1 2026-08-13T14:16:22
+<14>1 2026-08-13T14:16:26Z host-01 sshd 9845 - - session opened for user deploy
+<14>1 2026-08-13T14:16:30Z host-01 sshd 1672 - - session opened for user deploy
+<14>1 2026-08-13T14:16:30Z host-01 sshd 1347 - - session opened for user deploy
+<14>1 2026-08-13T14:16:32Z host-01 sshd 4469 - - session opened for user deploy
+<14>1 2026-08-13T14:16:35Z host-01 sshd 7194 - - session opened for user deploy
+<14>1 2026-08-13T14:16:44Z host-01 sshd 7358 - - session opened for user deploy
+<14>1 2026-08-13T14:16:45Z host-01 sshd 2628 - - session opened for user deploy
+<14>1 2026-08-13T14:16:48Z host-01 sshd 6147 - - session opened for user deploy
+<14>1 2026-08-13T14:16:53Z host-01 sshd 4284 - - session opened for user deploy
+<14>1 2026-08-13T14:17:01Z host-01 sshd 2883 - - session opened for user deploy
+<14>1 2026-08-13T14:17:02Z host-01 sshd 9004 - - session opened for user deploy
+<14>1 2026-08-13T14:17:03Z host-01 sshd 8777 - - session opened for user deploy
+<14>1 2026-08-13T14:17:03Z host-01 sshd 6332 - - session opened for user deploy
+<14>1 2026-08-13T14:17:09Z host-01 sshd 3135 - - session opened for user deploy
+2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812
+<14>1 2026-08-13T14:17:19Z host-01 sshd 5636 - - session opened for user deploy
+<14>1 2026-08-13T14:17:44Z host-01 sshd 5574 - - session opened for user deploy
+<14>1 2026-08-13T14:17:44Z host-01 sshd 5620 - - session opened for user deploy
+<14>1 2026-08-13T14:17:44Z host-01 sshd 3752 - - session opened for user deploy
+<14>1 2026-08-13T14:17:46Z host-01 sshd 5002 - - session opened for user deploy
+<14>1 2026-08-13T14:17:52Z host-01 sshd 2962 - - session opened for user deploy
+<14>1 2026-08-13T14:17:52Z host-01 sshd 9683 - - session opened for user deploy
+<14>1 2026-08-13T14:17:55Z host-01 sshd 2823 - - session opened for user deploy
+<14>1 2026-08-13T14:17:57Z host-01 sshd 4649 - - session opened for user deploy
+
+<11>1 2026-08-13T14:16:41Z host-01 kernel - - - out of memory: killed process 4471
+<9>1 2026-08-13T14:16:42Z host-01 systemd 1 ID47 [origin software="rsyslogd"] unit entered failed state
+<14>1 2026-08-13T14:16:43Z host-01 api 42 - [trace@32473 trace_id="a91c40f2" iut="3"] correlated through structured data
+<14>1 2026-08-13T14:16:44Z host-01 api 43 - [ex@1 msg="he said \"stop\""] escaped characters
+not a syslog line
+<15>1 2026-08-13T14:16:45Z host-01 sshd 9001 - - debug1: channel 0
+<14>1 2026-08-13T14:16:46Z host-01 sshd 9002 - - final line with no trailing newline

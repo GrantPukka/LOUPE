@@ -1,0 +1,405 @@
+{
+  "parser": "postgres",
+  "stats": {
+    "lines": 36,
+    "records": 33,
+    "unparsed": 2,
+    "no_timestamp": 2,
+    "continuation": 2,
+    "truncated": 0,
+    "blank": 1,
+    "zone_assumed": 2
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:16:12.179Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 11.647 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20177
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:12.179 UTC [20177] INFO: duration: 11.647 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:16:12.904Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 208.226 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20149
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:12.904 UTC [20149] INFO: duration: 208.226 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 3,
+      "ts": "2026-08-13T14:16:15.204Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 93.002 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20805
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:15.204 UTC [20805] INFO: duration: 93.002 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 4,
+      "ts": "2026-08-13T14:16:20.747Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 253.849 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20708
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:20.747 UTC [20708] INFO: duration: 253.849 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:16:23.396Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 287.700 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20280
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:23.396 UTC [20280] INFO: duration: 287.700 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 6,
+      "ts": "2026-08-13T14:16:25.855Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 250.115 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20159
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:25.855 UTC [20159] INFO: duration: 250.115 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:16:42.616Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 193.075 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20874
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:42.616 UTC [20874] INFO: duration: 193.075 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:16:46.399Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 288.694 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20061
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:46.399 UTC [20061] INFO: duration: 288.694 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:16:49.01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 334.515 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20248
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:49.010 UTC [20248] INFO: duration: 334.515 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:16:50.048Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 270.647 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20607
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:50.048 UTC [20607] INFO: duration: 270.647 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:16:54.971Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 21.794 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20753
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:54.971 UTC [20753] INFO: duration: 21.794 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:16:59.843Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 208.839 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20890
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:59.843 UTC [20890] INFO: duration: 208.839 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:17:00.35Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 200.598 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20643
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:00.350 UTC [20643] INFO: duration: 200.598 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:17:27.135Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 149.592 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20843
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:27.135 UTC [20843] INFO: duration: 149.592 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 15,
+      "ts": "2026-08-13T14:17:33.064Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 106.865 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20735
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:33.064 UTC [20735] INFO: duration: 106.865 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:17:39.109Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 137.398 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20558
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:39.109 UTC [20558] INFO: duration: 137.398 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 17,
+      "ts": "2026-08-13T14:17:39.453Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 127.253 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20176
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:39.453 UTC [20176] INFO: duration: 127.253 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 18,
+      "ts": "2026-08-13T14:17:40.488Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 334.122 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20613
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:40.488 UTC [20613] INFO: duration: 334.122 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 19,
+      "ts": "2026-08-13T14:17:58.449Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 368.541 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20137
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:17:58.449 UTC [20137] INFO: duration: 368.541 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 20,
+      "ts": "2026-08-13T14:18:03.406Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 77.322 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20248
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:03.406 UTC [20248] INFO: duration: 77.322 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 21,
+      "ts": "2026-08-13T14:18:04.035Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 242.441 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20257
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:04.035 UTC [20257] INFO: duration: 242.441 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 22,
+      "ts": "2026-08-13T14:18:17.293Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 274.843 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20705
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:17.293 UTC [20705] INFO: duration: 274.843 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 23,
+      "message": "2026-08-13 14:18:18.000 UTC [20001] WARN: connection pool exhausted, 100 of 100 connections in use",
+      "parsed": false,
+      "raw": "2026-08-13 14:18:18.000 UTC [20001] WARN: connection pool exhausted, 100 of 100 connections in use"
+    },
+    {
+      "line_no": 24,
+      "ts": "2026-08-13T14:18:18.9Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "FATAL: remaining connection slots are reserved for superusers",
+      "fields": {
+        "pid": 20044
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:18.900 UTC [20044] ERROR: FATAL: remaining connection slots are reserved for superusers"
+    },
+    {
+      "line_no": 25,
+      "ts": "2026-08-13T14:18:20.314Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 88.317 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20863
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:20.314 UTC [20863] INFO: duration: 88.317 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 26,
+      "ts": "2026-08-13T14:18:22.21Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "duration: 58.568 ms  statement: SELECT * FROM orders WHERE user_id = $1",
+      "fields": {
+        "pid": 20795
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:22.210 UTC [20795] INFO: duration: 58.568 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "line_no": 28,
+      "ts": "2026-08-13T14:16:41.1Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "relation \"orders\" does not exist",
+      "fields": {
+        "db": "checkout",
+        "pid": 20044,
+        "user": "alice"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:41.100 UTC [20044] alice@checkout ERROR:  relation \"orders\" does not exist"
+    },
+    {
+      "line_no": 29,
+      "ts": "2026-08-13T14:16:41.101Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "SELECT * FROM orders\n\tWHERE user_id = $1\n\tORDER BY created_at DESC",
+      "fields": {
+        "db": "checkout",
+        "pg_severity": "STATEMENT",
+        "pid": 20044,
+        "user": "alice"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:41.101 UTC [20044] alice@checkout STATEMENT:  SELECT * FROM orders\n\tWHERE user_id = $1\n\tORDER BY created_at DESC"
+    },
+    {
+      "line_no": 32,
+      "ts": "2026-08-13T14:16:42Z",
+      "level": "info",
+      "message": "an ambiguous zone abbreviation",
+      "fields": {
+        "pg_severity": "LOG",
+        "pid": 20045
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:42.000 CST [20045] LOG:  an ambiguous zone abbreviation"
+    },
+    {
+      "line_no": 33,
+      "ts": "2026-08-13T14:16:43Z",
+      "level": "fatal",
+      "message": "no zone at all",
+      "fields": {
+        "pid": 20046
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:43.000 [20046] FATAL:  no zone at all"
+    },
+    {
+      "line_no": 34,
+      "ts": "2026-08-13T14:16:44Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "a numbered debug level",
+      "fields": {
+        "pg_severity": "DEBUG1",
+        "pid": 20047
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:44.000 UTC [20047] DEBUG1:  a numbered debug level"
+    },
+    {
+      "line_no": 35,
+      "message": "not a postgres line",
+      "parsed": false,
+      "raw": "not a postgres line"
+    },
+    {
+      "line_no": 36,
+      "ts": "2026-08-13T14:16:45Z",
+      "ts_zoned": true,
+      "level": "fatal",
+      "message": "final line, no trailing newline",
+      "fields": {
+        "pg_severity": "PANIC",
+        "pid": 20048
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:45.000 UTC [20048] PANIC:  final line, no trailing newline"
+    }
+  ]
+}

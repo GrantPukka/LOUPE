@@ -1,0 +1,120 @@
+2026-08-13 14:18:22.000 [worker-4] WARN c.a.p.ChargeHandler - HikariPool-1 - Connection is not available, request timed out after 30000ms
+2026-08-13 14:18:24.103 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=cad4727d, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:24.552 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=0667a2d9, attempt=2] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:25.126 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=8b73036e, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:25.194 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=341cc424, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:25.444 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=6e36ced8, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:26.657 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=782a32b9, attempt=3] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:27.245 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=5e822e78, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:27.686 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=01f67fe2, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:27.729 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=e8deec21, attempt=3] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:28.428 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=aad5d111, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:28.594 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=ebc319d3, attempt=2] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:29.130 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=8adaf109, attempt=2] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:29.235 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=56218565, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:29.397 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=c0d0a260, attempt=2] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:29.533 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=0bb144c8, attempt=1] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+	Caused by: java.net.SocketTimeoutException: Read timed out
+		at java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)
+		... 14 more
+2026-08-13 14:18:29.545 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=707e19a5, attempt=3] - PaymentGatewayException: read timed out after 3000ms
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+	at com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)
+	at com.acme.pay.Worker.consume(Worker.java:141)
+
+2026-08-13 14:16:41.146 [worker-2] ERROR c.a.p.ChargeHandler [trace_id=a91c40f2, attempt=2] - PaymentGatewayException: read timed out
+	at com.acme.pay.GatewayClient.charge(GatewayClient.java:214)
+Caused by: java.net.SocketTimeoutException: Read timed out
+		... 14 more
+2026-08-13 14:16:42,146 WARN  [main] com.acme.Boot - comma milliseconds, level before thread
+14:16:43.146 [main] INFO  com.acme.Bar - a time with no date
+2026-08-13 14:16:44.000 [worker-1] INFO  c.a.p.Worker - [batch 7] a bracket that is not an MDC
+not a log4j line
+2026-08-13 14:16:45.000 [worker-3] FATAL c.a.p.Worker - final line, no trailing newline

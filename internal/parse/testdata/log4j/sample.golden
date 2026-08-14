@@ -1,0 +1,318 @@
+{
+  "parser": "log4j",
+  "stats": {
+    "lines": 120,
+    "records": 23,
+    "unparsed": 1,
+    "no_timestamp": 2,
+    "continuation": 96,
+    "truncated": 0,
+    "blank": 1,
+    "zone_assumed": 21
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:18:22Z",
+      "level": "warn",
+      "message": "HikariPool-1 - Connection is not available, request timed out after 30000ms",
+      "fields": {
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-4"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:22.000 [worker-4] WARN c.a.p.ChargeHandler - HikariPool-1 - Connection is not available, request timed out after 30000ms"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:18:24.103Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "cad4727d"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:24.103 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=cad4727d, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:18:24.552Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 2,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "0667a2d9"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:24.552 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=0667a2d9, attempt=2] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:18:25.126Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "8b73036e"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:25.126 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=8b73036e, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 23,
+      "ts": "2026-08-13T14:18:25.194Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "341cc424"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:25.194 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=341cc424, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 30,
+      "ts": "2026-08-13T14:18:25.444Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "6e36ced8"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:25.444 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=6e36ced8, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 37,
+      "ts": "2026-08-13T14:18:26.657Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 3,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "782a32b9"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:26.657 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=782a32b9, attempt=3] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 44,
+      "ts": "2026-08-13T14:18:27.245Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "5e822e78"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:27.245 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=5e822e78, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 51,
+      "ts": "2026-08-13T14:18:27.686Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "01f67fe2"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:27.686 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=01f67fe2, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 58,
+      "ts": "2026-08-13T14:18:27.729Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 3,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "e8deec21"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:27.729 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=e8deec21, attempt=3] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 65,
+      "ts": "2026-08-13T14:18:28.428Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "aad5d111"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:28.428 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=aad5d111, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 72,
+      "ts": "2026-08-13T14:18:28.594Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 2,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "ebc319d3"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:28.594 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=ebc319d3, attempt=2] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 79,
+      "ts": "2026-08-13T14:18:29.13Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 2,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "8adaf109"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:29.130 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=8adaf109, attempt=2] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 86,
+      "ts": "2026-08-13T14:18:29.235Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": 56218565
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:29.235 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=56218565, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 93,
+      "ts": "2026-08-13T14:18:29.397Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 2,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "c0d0a260"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:29.397 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=c0d0a260, attempt=2] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 100,
+      "ts": "2026-08-13T14:18:29.533Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more",
+      "fields": {
+        "attempt": 1,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "0bb144c8"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:29.533 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=0bb144c8, attempt=1] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "line_no": 107,
+      "ts": "2026-08-13T14:18:29.545Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)",
+      "fields": {
+        "attempt": 3,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-1",
+        "trace_id": "707e19a5"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:18:29.545 [worker-1] ERROR c.a.p.ChargeHandler [trace_id=707e19a5, attempt=3] - PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)"
+    },
+    {
+      "line_no": 112,
+      "ts": "2026-08-13T14:16:41.146Z",
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\nCaused by: java.net.SocketTimeoutException: Read timed out\n\t\t... 14 more",
+      "fields": {
+        "attempt": 2,
+        "logger": "c.a.p.ChargeHandler",
+        "thread": "worker-2",
+        "trace_id": "a91c40f2"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:41.146 [worker-2] ERROR c.a.p.ChargeHandler [trace_id=a91c40f2, attempt=2] - PaymentGatewayException: read timed out\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\nCaused by: java.net.SocketTimeoutException: Read timed out\n\t\t... 14 more"
+    },
+    {
+      "line_no": 116,
+      "ts": "2026-08-13T14:16:42.146Z",
+      "level": "warn",
+      "message": "comma milliseconds, level before thread",
+      "fields": {
+        "logger": "com.acme.Boot",
+        "thread": "main"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:42,146 WARN  [main] com.acme.Boot - comma milliseconds, level before thread"
+    },
+    {
+      "line_no": 117,
+      "level": "info",
+      "message": "a time with no date",
+      "fields": {
+        "logger": "com.acme.Bar",
+        "thread": "main"
+      },
+      "parsed": true,
+      "raw": "14:16:43.146 [main] INFO  com.acme.Bar - a time with no date"
+    },
+    {
+      "line_no": 118,
+      "ts": "2026-08-13T14:16:44Z",
+      "level": "info",
+      "message": "[batch 7] a bracket that is not an MDC",
+      "fields": {
+        "logger": "c.a.p.Worker",
+        "thread": "worker-1"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:44.000 [worker-1] INFO  c.a.p.Worker - [batch 7] a bracket that is not an MDC"
+    },
+    {
+      "line_no": 119,
+      "message": "not a log4j line",
+      "parsed": false,
+      "raw": "not a log4j line"
+    },
+    {
+      "line_no": 120,
+      "ts": "2026-08-13T14:16:45Z",
+      "level": "fatal",
+      "message": "final line, no trailing newline",
+      "fields": {
+        "logger": "c.a.p.Worker",
+        "thread": "worker-3"
+      },
+      "parsed": true,
+      "raw": "2026-08-13 14:16:45.000 [worker-3] FATAL c.a.p.Worker - final line, no trailing newline"
+    }
+  ]
+}

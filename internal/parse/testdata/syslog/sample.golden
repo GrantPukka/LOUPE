@@ -1,0 +1,584 @@
+{
+  "parser": "syslog",
+  "stats": {
+    "lines": 38,
+    "records": 37,
+    "unparsed": 3,
+    "no_timestamp": 3,
+    "continuation": 0,
+    "truncated": 0,
+    "blank": 1,
+    "zone_assumed": 0
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 9061,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:00Z host-01 sshd 9061 - - session opened for user deploy"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:16:01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 8085,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:01Z host-01 sshd 8085 - - session opened for user deploy"
+    },
+    {
+      "line_no": 3,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 3500,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:03Z host-01 sshd 3500 - - session opened for user deploy"
+    },
+    {
+      "line_no": 4,
+      "ts": "2026-08-13T14:16:08Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 4415,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:08Z host-01 sshd 4415 - - session opened for user deploy"
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:16:15Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 3342,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:15Z host-01 sshd 3342 - - session opened for user deploy"
+    },
+    {
+      "line_no": 6,
+      "message": "\u003c14\u003e1 2026-08-13T14:16:22",
+      "parsed": false,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:22"
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:16:26Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 9845,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:26Z host-01 sshd 9845 - - session opened for user deploy"
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:16:30Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 1672,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:30Z host-01 sshd 1672 - - session opened for user deploy"
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:16:30Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 1347,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:30Z host-01 sshd 1347 - - session opened for user deploy"
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:16:32Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 4469,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:32Z host-01 sshd 4469 - - session opened for user deploy"
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:16:35Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 7194,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:35Z host-01 sshd 7194 - - session opened for user deploy"
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:16:44Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 7358,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:44Z host-01 sshd 7358 - - session opened for user deploy"
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:16:45Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 2628,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:45Z host-01 sshd 2628 - - session opened for user deploy"
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:16:48Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 6147,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:48Z host-01 sshd 6147 - - session opened for user deploy"
+    },
+    {
+      "line_no": 15,
+      "ts": "2026-08-13T14:16:53Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 4284,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:53Z host-01 sshd 4284 - - session opened for user deploy"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:17:01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 2883,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:01Z host-01 sshd 2883 - - session opened for user deploy"
+    },
+    {
+      "line_no": 17,
+      "ts": "2026-08-13T14:17:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 9004,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:02Z host-01 sshd 9004 - - session opened for user deploy"
+    },
+    {
+      "line_no": 18,
+      "ts": "2026-08-13T14:17:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 8777,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:03Z host-01 sshd 8777 - - session opened for user deploy"
+    },
+    {
+      "line_no": 19,
+      "ts": "2026-08-13T14:17:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 6332,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:03Z host-01 sshd 6332 - - session opened for user deploy"
+    },
+    {
+      "line_no": 20,
+      "ts": "2026-08-13T14:17:09Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 3135,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:09Z host-01 sshd 3135 - - session opened for user deploy"
+    },
+    {
+      "line_no": 21,
+      "message": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812",
+      "parsed": false,
+      "raw": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812"
+    },
+    {
+      "line_no": 22,
+      "ts": "2026-08-13T14:17:19Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 5636,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:19Z host-01 sshd 5636 - - session opened for user deploy"
+    },
+    {
+      "line_no": 23,
+      "ts": "2026-08-13T14:17:44Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 5574,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:44Z host-01 sshd 5574 - - session opened for user deploy"
+    },
+    {
+      "line_no": 24,
+      "ts": "2026-08-13T14:17:44Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 5620,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:44Z host-01 sshd 5620 - - session opened for user deploy"
+    },
+    {
+      "line_no": 25,
+      "ts": "2026-08-13T14:17:44Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 3752,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:44Z host-01 sshd 3752 - - session opened for user deploy"
+    },
+    {
+      "line_no": 26,
+      "ts": "2026-08-13T14:17:46Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 5002,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:46Z host-01 sshd 5002 - - session opened for user deploy"
+    },
+    {
+      "line_no": 27,
+      "ts": "2026-08-13T14:17:52Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 2962,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:52Z host-01 sshd 2962 - - session opened for user deploy"
+    },
+    {
+      "line_no": 28,
+      "ts": "2026-08-13T14:17:52Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 9683,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:52Z host-01 sshd 9683 - - session opened for user deploy"
+    },
+    {
+      "line_no": 29,
+      "ts": "2026-08-13T14:17:55Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 2823,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:55Z host-01 sshd 2823 - - session opened for user deploy"
+    },
+    {
+      "line_no": 30,
+      "ts": "2026-08-13T14:17:57Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 4649,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:17:57Z host-01 sshd 4649 - - session opened for user deploy"
+    },
+    {
+      "line_no": 32,
+      "ts": "2026-08-13T14:16:41Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "out of memory: killed process 4471",
+      "fields": {
+        "app": "kernel",
+        "facility": 1,
+        "host": "host-01",
+        "severity": 3
+      },
+      "parsed": true,
+      "raw": "\u003c11\u003e1 2026-08-13T14:16:41Z host-01 kernel - - - out of memory: killed process 4471"
+    },
+    {
+      "line_no": 33,
+      "ts": "2026-08-13T14:16:42Z",
+      "ts_zoned": true,
+      "level": "fatal",
+      "message": "unit entered failed state",
+      "fields": {
+        "app": "systemd",
+        "facility": 1,
+        "host": "host-01",
+        "msgid": "ID47",
+        "pid": 1,
+        "sd_id": "origin",
+        "severity": 1,
+        "software": "rsyslogd"
+      },
+      "parsed": true,
+      "raw": "\u003c9\u003e1 2026-08-13T14:16:42Z host-01 systemd 1 ID47 [origin software=\"rsyslogd\"] unit entered failed state"
+    },
+    {
+      "line_no": 34,
+      "ts": "2026-08-13T14:16:43Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "correlated through structured data",
+      "fields": {
+        "app": "api",
+        "facility": 1,
+        "host": "host-01",
+        "iut": 3,
+        "pid": 42,
+        "sd_id": "trace@32473",
+        "severity": 6,
+        "trace_id": "a91c40f2"
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:43Z host-01 api 42 - [trace@32473 trace_id=\"a91c40f2\" iut=\"3\"] correlated through structured data"
+    },
+    {
+      "line_no": 35,
+      "ts": "2026-08-13T14:16:44Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "escaped characters",
+      "fields": {
+        "app": "api",
+        "facility": 1,
+        "host": "host-01",
+        "msg": "he said \"stop\"",
+        "pid": 43,
+        "sd_id": "ex@1",
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:44Z host-01 api 43 - [ex@1 msg=\"he said \\\"stop\\\"\"] escaped characters"
+    },
+    {
+      "line_no": 36,
+      "message": "not a syslog line",
+      "parsed": false,
+      "raw": "not a syslog line"
+    },
+    {
+      "line_no": 37,
+      "ts": "2026-08-13T14:16:45Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "debug1: channel 0",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 9001,
+        "severity": 7
+      },
+      "parsed": true,
+      "raw": "\u003c15\u003e1 2026-08-13T14:16:45Z host-01 sshd 9001 - - debug1: channel 0"
+    },
+    {
+      "line_no": 38,
+      "ts": "2026-08-13T14:16:46Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "final line with no trailing newline",
+      "fields": {
+        "app": "sshd",
+        "facility": 1,
+        "host": "host-01",
+        "pid": 9002,
+        "severity": 6
+      },
+      "parsed": true,
+      "raw": "\u003c14\u003e1 2026-08-13T14:16:46Z host-01 sshd 9002 - - final line with no trailing newline"
+    }
+  ]
+}

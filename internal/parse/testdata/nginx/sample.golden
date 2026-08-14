@@ -1,0 +1,712 @@
+{
+  "parser": "nginx",
+  "stats": {
+    "lines": 42,
+    "records": 41,
+    "unparsed": 3,
+    "no_timestamp": 3,
+    "continuation": 0,
+    "truncated": 0,
+    "blank": 1,
+    "zone_assumed": 0
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 807,
+        "client": "10.0.0.190",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.190 - - [13/Aug/2026:14:16:00 +0000] \"POST /api/cart HTTP/1.1\" 200 807 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 930,
+        "client": "10.0.3.146",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.146 - - [13/Aug/2026:14:16:00 +0000] \"POST /api/checkout HTTP/1.1\" 200 930 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 3,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/orders/2291",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 766,
+        "client": "10.0.1.126",
+        "method": "POST",
+        "path": "/api/orders/2291",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.126 - - [13/Aug/2026:14:16:00 +0000] \"POST /api/orders/2291 HTTP/1.1\" 200 766 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 4,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 653,
+        "client": "10.0.1.38",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.38 - - [13/Aug/2026:14:16:00 +0000] \"POST /api/checkout HTTP/1.1\" 200 653 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 3437,
+        "client": "10.0.0.115",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.115 - - [13/Aug/2026:14:16:00 +0000] \"POST /api/cart HTTP/1.1\" 200 3437 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 6,
+      "ts": "2026-08-13T14:16:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 2671,
+        "client": "10.0.0.161",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.161 - - [13/Aug/2026:14:16:00 +0000] \"POST /api/session HTTP/1.1\" 200 2671 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:16:01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 2626,
+        "client": "10.0.1.40",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.40 - - [13/Aug/2026:14:16:01 +0000] \"POST /api/session HTTP/1.1\" 200 2626 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:16:01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 1722,
+        "client": "10.0.0.210",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.210 - - [13/Aug/2026:14:16:01 +0000] \"POST /api/checkout HTTP/1.1\" 200 1722 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:16:01Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 2993,
+        "client": "10.0.2.226",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.2.226 - - [13/Aug/2026:14:16:01 +0000] \"POST /api/cart HTTP/1.1\" 200 2993 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 2341,
+        "client": "10.0.3.201",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.201 - - [13/Aug/2026:14:16:02 +0000] \"POST /api/session HTTP/1.1\" 200 2341 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 3003,
+        "client": "10.0.0.165",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.165 - - [13/Aug/2026:14:16:02 +0000] \"POST /api/checkout HTTP/1.1\" 200 3003 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 2852,
+        "client": "10.0.2.152",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.2.152 - - [13/Aug/2026:14:16:02 +0000] \"POST /api/cart HTTP/1.1\" 200 2852 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /healthz",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 4053,
+        "client": "10.0.0.231",
+        "method": "POST",
+        "path": "/healthz",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.231 - - [13/Aug/2026:14:16:02 +0000] \"POST /healthz HTTP/1.1\" 200 4053 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/orders/2291",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 1721,
+        "client": "10.0.1.24",
+        "method": "POST",
+        "path": "/api/orders/2291",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.24 - - [13/Aug/2026:14:16:02 +0000] \"POST /api/orders/2291 HTTP/1.1\" 200 1721 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 15,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 511,
+        "client": "10.0.3.213",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.213 - - [13/Aug/2026:14:16:02 +0000] \"POST /api/session HTTP/1.1\" 200 511 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:16:02Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 1938,
+        "client": "10.0.3.251",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.251 - - [13/Aug/2026:14:16:02 +0000] \"POST /api/session HTTP/1.1\" 200 1938 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 17,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 3513,
+        "client": "10.0.3.180",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.180 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/cart HTTP/1.1\" 200 3513 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 18,
+      "message": "10.0.2.191 - - [13/Aug/2026:14:16:03 +0000] \"",
+      "parsed": false,
+      "raw": "10.0.2.191 - - [13/Aug/2026:14:16:03 +0000] \""
+    },
+    {
+      "line_no": 19,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /healthz",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 3513,
+        "client": "10.0.2.190",
+        "method": "POST",
+        "path": "/healthz",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.2.190 - - [13/Aug/2026:14:16:03 +0000] \"POST /healthz HTTP/1.1\" 200 3513 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 20,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 496,
+        "client": "10.0.2.52",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.2.52 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/session HTTP/1.1\" 200 496 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 21,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/orders/2291",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 908,
+        "client": "10.0.3.16",
+        "method": "POST",
+        "path": "/api/orders/2291",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.16 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/orders/2291 HTTP/1.1\" 200 908 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 22,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/session",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 3571,
+        "client": "10.0.1.11",
+        "method": "POST",
+        "path": "/api/session",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.11 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/session HTTP/1.1\" 200 3571 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 23,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /healthz",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 1298,
+        "client": "10.0.1.17",
+        "method": "POST",
+        "path": "/healthz",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.17 - - [13/Aug/2026:14:16:03 +0000] \"POST /healthz HTTP/1.1\" 200 1298 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 24,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 788,
+        "client": "10.0.3.172",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.172 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/cart HTTP/1.1\" 200 788 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 25,
+      "message": "10.0.1.24 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/cart H",
+      "parsed": false,
+      "raw": "10.0.1.24 - - [13/Aug/2026:14:16:03 +0000] \"POST /api/cart H"
+    },
+    {
+      "line_no": 26,
+      "ts": "2026-08-13T14:16:03Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /healthz",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 3433,
+        "client": "10.0.0.21",
+        "method": "POST",
+        "path": "/healthz",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.21 - - [13/Aug/2026:14:16:03 +0000] \"POST /healthz HTTP/1.1\" 200 3433 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 27,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 1840,
+        "client": "10.0.3.117",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.3.117 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/cart HTTP/1.1\" 200 1840 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 28,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/cart",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 4129,
+        "client": "10.0.1.28",
+        "method": "POST",
+        "path": "/api/cart",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.28 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/cart HTTP/1.1\" 200 4129 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 29,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 2397,
+        "client": "10.0.0.58",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.58 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/checkout HTTP/1.1\" 200 2397 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 30,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/orders/2291",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 2115,
+        "client": "10.0.0.28",
+        "method": "POST",
+        "path": "/api/orders/2291",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.28 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/orders/2291 HTTP/1.1\" 200 2115 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 31,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /healthz",
+      "fields": {
+        "agent": "checkout-web/2.1",
+        "bytes": 1671,
+        "client": "10.0.1.65",
+        "method": "POST",
+        "path": "/healthz",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.1.65 - - [13/Aug/2026:14:16:04 +0000] \"POST /healthz HTTP/1.1\" 200 1671 \"-\" \"checkout-web/2.1\""
+    },
+    {
+      "line_no": 32,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/orders/2291",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 896,
+        "client": "10.0.2.87",
+        "method": "POST",
+        "path": "/api/orders/2291",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.2.87 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/orders/2291 HTTP/1.1\" 200 896 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 33,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/orders/2291",
+      "fields": {
+        "agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "bytes": 3934,
+        "client": "10.0.0.246",
+        "method": "POST",
+        "path": "/api/orders/2291",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.246 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/orders/2291 HTTP/1.1\" 200 3934 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)\""
+    },
+    {
+      "line_no": 34,
+      "ts": "2026-08-13T14:16:04Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 2353,
+        "client": "10.0.0.226",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.226 - - [13/Aug/2026:14:16:04 +0000] \"POST /api/checkout HTTP/1.1\" 200 2353 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 36,
+      "ts": "2026-08-13T14:16:41Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "GET /api/orders",
+      "fields": {
+        "agent": "Mozilla/5.0",
+        "bytes": 0,
+        "client": "10.0.0.7",
+        "method": "GET",
+        "path": "/api/orders",
+        "protocol": "HTTP/1.1",
+        "referer": "https://shop.example/cart",
+        "status": 500,
+        "user": "alice"
+      },
+      "parsed": true,
+      "raw": "10.0.0.7 - alice [13/Aug/2026:14:16:41 +0000] \"GET /api/orders HTTP/1.1\" 500 0 \"https://shop.example/cart\" \"Mozilla/5.0\""
+    },
+    {
+      "line_no": 37,
+      "ts": "2026-08-13T14:16:42Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "GET /admin",
+      "fields": {
+        "bytes": 153,
+        "client": "10.0.0.8",
+        "method": "GET",
+        "path": "/admin",
+        "protocol": "HTTP/1.1",
+        "status": 404
+      },
+      "parsed": true,
+      "raw": "10.0.0.8 - - [13/Aug/2026:14:16:42 +0000] \"GET /admin HTTP/1.1\" 404 153"
+    },
+    {
+      "line_no": 38,
+      "ts": "2026-08-13T14:16:43Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "\\x16\\x03\\x01",
+      "fields": {
+        "bytes": 0,
+        "client": "10.0.0.9",
+        "status": 400
+      },
+      "parsed": true,
+      "raw": "10.0.0.9 - - [13/Aug/2026:14:16:43 +0000] \"\\x16\\x03\\x01\" 400 0 \"-\" \"-\""
+    },
+    {
+      "line_no": 39,
+      "ts": "2026-08-13T14:16:44Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "GET /big",
+      "fields": {
+        "client": "10.0.0.10",
+        "method": "GET",
+        "path": "/big",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.10 - - [13/Aug/2026:14:16:44 +0000] \"GET /big HTTP/1.1\" 200 -"
+    },
+    {
+      "line_no": 40,
+      "message": "this line is not an access log at all",
+      "parsed": false,
+      "raw": "this line is not an access log at all"
+    },
+    {
+      "line_no": 41,
+      "ts": "2026-08-13T14:16:45Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "POST /api/checkout",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 0,
+        "client": "10.0.0.11",
+        "method": "POST",
+        "path": "/api/checkout",
+        "protocol": "HTTP/1.1",
+        "status": 502
+      },
+      "parsed": true,
+      "raw": "10.0.0.11 - - [13/Aug/2026:14:16:45 +0000] \"POST /api/checkout HTTP/1.1\" 502 0 \"-\" \"curl/8.4.0\""
+    },
+    {
+      "line_no": 42,
+      "ts": "2026-08-13T14:16:46Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "GET /last",
+      "fields": {
+        "agent": "curl/8.4.0",
+        "bytes": 44,
+        "client": "10.0.0.12",
+        "method": "GET",
+        "path": "/last",
+        "protocol": "HTTP/1.1",
+        "status": 200
+      },
+      "parsed": true,
+      "raw": "10.0.0.12 - - [13/Aug/2026:14:16:46 +0000] \"GET /last HTTP/1.1\" 200 44 \"-\" \"curl/8.4.0\""
+    }
+  ]
+}
