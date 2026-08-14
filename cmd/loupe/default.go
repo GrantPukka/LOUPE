@@ -4,22 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/VIGIL-OPS/loupe/internal/query"
+	"github.com/VIGIL-OPS/loupe/internal/session"
 	"github.com/spf13/cobra"
-)
-
-// The columns the bare `loupe ./logs` view shows.
-//
-// raw is deliberately absent: it duplicates message for parsed records and
-// makes the table unreadable. It is one --format raw away, and always present
-// in a handoff.
-//
-// Ordering puts records with no timestamp last rather than first, then falls
-// back to ingest order so their position relative to the surrounding lines in
-// their own file is preserved.
-const (
-	selectClause = `SELECT ts, level, source, message FROM logs WHERE `
-	orderClause  = ` ORDER BY ts NULLS LAST, seq`
 )
 
 // runDefault handles `loupe`, `loupe ./logs`, and `loupe ./logs '<filter>'`.
@@ -29,13 +15,6 @@ const (
 func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	path, filter := resolveArgs(args)
 
-	// Parse before opening anything. A syntax error should come back
-	// immediately rather than after ingesting a gigabyte.
-	q, err := query.Parse(filter)
-	if err != nil {
-		return err
-	}
-
 	sess, err := g.open(cmd.Context(), path)
 	if err != nil {
 		return err
@@ -43,34 +22,37 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	defer sess.Close()
 
 	if !g.quiet {
-		sess.statusLine(os.Stderr)
+		statusLine(os.Stderr, sess)
 	}
 
-	sql, err := sess.compile(cmd.Context(), q)
+	plan, err := sess.Plan(cmd.Context(), filter)
 	if err != nil {
 		return err
 	}
 
 	if !g.quiet {
-		sess.timeBanner(os.Stderr)
+		timeBanner(os.Stderr, sess, plan)
 		fmt.Fprintln(os.Stderr)
 	}
 
-	res, err := sess.db.QueryResult(cmd.Context(), g.limit,
-		selectClause+sql.Where+orderClause, sql.Args...)
+	res, err := sess.Records(cmd.Context(), plan, session.RecordQuery{Limit: g.limit})
 	if err != nil {
 		return err
 	}
 
-	if err := sess.writer.Result(res); err != nil {
+	writer, err := g.renderer(sess.Loc)
+	if err != nil {
+		return err
+	}
+	if err := writer.Result(res); err != nil {
 		return err
 	}
 
 	// An empty result is where this tool most easily misleads, so explain it
 	// rather than leaving the user to guess whether their filter was wrong or
 	// their data genuinely contains nothing.
-	if res.RowCount() == 0 && !q.IsEmpty() {
-		return sess.explainEmpty(cmd.Context(), q)
+	if res.RowCount() == 0 && !plan.Query.IsEmpty() {
+		fmt.Fprintf(os.Stderr, "\n%s\n", sess.Explain(cmd.Context(), plan).Text)
 	}
 	return nil
 }

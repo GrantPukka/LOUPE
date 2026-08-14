@@ -1,13 +1,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"text/tabwriter"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/schema"
 	"github.com/VIGIL-OPS/loupe/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -150,15 +148,4 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
-}
-
-// resolvePromotions runs schema inference on a fresh ingest, or reads back the
-// decision a cached database already recorded.
-func resolvePromotions(ctx context.Context, db *store.DB, cacheHit bool) ([]schema.Promotion, error) {
-	if cacheHit {
-		return db.Promotions(ctx)
-	}
-
-	promotions, _, err := db.InferAndPromote(ctx, schema.Options{})
-	return promotions, err
 }

@@ -38,7 +38,7 @@ func runSources(cmd *cobra.Command, g *globals, path string) error {
 	}
 	defer sess.Close()
 
-	infos, err := sess.db.Sources(cmd.Context())
+	infos, err := sess.DB.Sources(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func runSources(cmd *cobra.Command, g *globals, path string) error {
 			si.Records,
 			count(si.Unparsed),
 			count(si.NoTimestamp),
-			timeRange(si.Oldest, si.Newest, sess.loc),
+			timeRange(si.Oldest, si.Newest, sess.Loc),
 			si.TimezoneStatus(),
 		)
 	}
@@ -62,7 +62,7 @@ func runSources(cmd *cobra.Command, g *globals, path string) error {
 		return fmt.Errorf("write table: %w", err)
 	}
 
-	for _, skip := range sess.walk.Skipped {
+	for _, skip := range sess.Walk.Skipped {
 		fmt.Fprintf(os.Stderr, "Skipped %s: %s\n", skip.Path, skip.Reason)
 	}
 	return nil

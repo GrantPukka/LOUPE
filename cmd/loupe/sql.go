@@ -68,14 +68,18 @@ func runSQL(cmd *cobra.Command, g *globals, path, query string) error {
 	defer sess.Close()
 
 	if !g.quiet {
-		sess.statusLine(os.Stderr)
+		statusLine(os.Stderr, sess)
 		fmt.Fprintln(os.Stderr)
 	}
 
-	res, err := sess.db.QueryResult(cmd.Context(), g.limit, query)
+	res, err := sess.DB.QueryResult(cmd.Context(), g.limit, query)
 	if err != nil {
 		return err
 	}
 
-	return sess.writer.Result(res)
+	writer, err := g.renderer(sess.Loc)
+	if err != nil {
+		return err
+	}
+	return writer.Result(res)
 }

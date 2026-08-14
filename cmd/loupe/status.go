@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/VIGIL-OPS/loupe/internal/session"
 	"github.com/VIGIL-OPS/loupe/internal/store"
 )
 
@@ -17,12 +18,8 @@ import (
 // times are in, how many records were skipped or damaged, and which sources
 // depend on a guessed zone. Nothing here is optional decoration — an omitted
 // count is how a handoff misleads.
-func (s *session) statusLine(w io.Writer) {
-	stats := s.load.Stats
-
-	fmt.Fprintf(w, "%s · %s\n",
-		describeSources(s.load),
-		stats.Describe())
+func statusLine(w io.Writer, s *session.Session) {
+	fmt.Fprintf(w, "%s · %s\n", describeSources(s.Load), s.Load.Stats.Describe())
 
 	// The display timezone, always, even when it is UTC. A user must never
 	// have to guess whose clock they are reading.
@@ -31,24 +28,24 @@ func (s *session) statusLine(w io.Writer) {
 	// during the fortnight after a clock change those differ, and the offset
 	// that matters is the one the records were written under.
 	at := time.Now()
-	if newest := s.newestRecord(); !newest.IsZero() {
+	if _, newest, _, err := s.DB.TimeRange(context.Background()); err == nil && !newest.IsZero() {
 		at = newest
 	}
-	zone, offset := at.In(s.loc).Zone()
-	fmt.Fprintf(w, "Times shown in %s (%s, %s)\n", s.loc, zone, formatOffset(offset))
+	zone, offset := at.In(s.Loc).Zone()
+	fmt.Fprintf(w, "Times shown in %s (%s, %s)\n", s.Loc, zone, formatOffset(offset))
 
-	for _, a := range s.load.AssumedZones() {
+	for _, a := range s.Load.AssumedZones() {
 		fmt.Fprintf(w, "Note: %s has %d record(s) with no timezone in the format, read as %s (%s)\n",
 			a.Source.Name, a.Records, a.Source.Zone, a.Source.ZoneSource)
 	}
 
-	s.cacheLine(w)
+	cacheLine(w, s)
 
-	for _, skip := range s.walk.Skipped {
+	for _, skip := range s.Walk.Skipped {
 		fmt.Fprintf(w, "Skipped %s: %s\n", skip.Path, skip.Reason)
 	}
 
-	for _, err := range s.load.Errors {
+	for _, err := range s.Load.Errors {
 		fmt.Fprintf(w, "Warning: %v\n", err)
 	}
 }
@@ -58,46 +55,66 @@ func (s *session) statusLine(w io.Writer) {
 // A miss states its reason. Someone who expected the second run to be instant
 // and got a full re-ingest is owed an explanation, and the commonest one — a
 // log file that is still being written to — is not obvious.
-func (s *session) cacheLine(w io.Writer) {
+func cacheLine(w io.Writer, s *session.Session) {
 	switch {
-	case s.cacheHit:
+	case s.CacheHit:
 		// The stored duration is what the original ingest cost, not this run.
 		// Saying which is the difference between a reassuring number and a
 		// confusing one.
 		fmt.Fprintf(w, "Reused a cached ingest — the original read took %s. Pass --no-cache to re-read the files.\n",
-			s.load.Took.Round(time.Millisecond))
-	case s.cacheReason != "":
-		fmt.Fprintf(w, "Re-read the log files: %s\n", s.cacheReason)
+			s.Load.Took.Round(time.Millisecond))
+	case s.CacheReason != "":
+		fmt.Fprintf(w, "Re-read the log files: %s\n", s.CacheReason)
 	}
 
 	// A directory with many sources can promote dozens of fields, and a status
 	// line that wraps four times is one nobody reads. Name the most widely
 	// covered and count the rest; `loupe sql "DESCRIBE logs"` has the full list.
-	if len(s.promoted) > 0 {
+	if len(s.Promoted) > 0 {
 		const show = 6
 
 		names := make([]string, 0, show)
-		for _, p := range s.promoted[:min(show, len(s.promoted))] {
+		for _, p := range s.Promoted[:min(show, len(s.Promoted))] {
 			names = append(names, fmt.Sprintf("%s (%s)", p.Field, p.Kind))
 		}
 
 		more := ""
-		if len(s.promoted) > show {
-			more = fmt.Sprintf(", and %d more", len(s.promoted)-show)
+		if len(s.Promoted) > show {
+			more = fmt.Sprintf(", and %d more", len(s.Promoted)-show)
 		}
 		fmt.Fprintf(w, "Promoted %d field(s) to columns: %s%s\n",
-			len(s.promoted), strings.Join(names, ", "), more)
+			len(s.Promoted), strings.Join(names, ", "), more)
 	}
 }
 
-// newestRecord is the latest timestamp in the loaded data, or the zero time
-// when nothing carried one.
-func (s *session) newestRecord() time.Time {
-	_, newest, _, err := s.db.TimeRange(context.Background())
-	if err != nil {
-		return time.Time{}
+// timeBanner prints the resolved window in both timezones, and every note the
+// resolver produced.
+//
+// docs/FILTER-DSL.md section 2.3 calls this the feature rather than a nicety.
+// Somebody working an incident at four in the morning should never have to do
+// offset arithmetic, and the UTC line is what they paste into the ticket.
+func timeBanner(w io.Writer, s *session.Session, plan session.Plan) {
+	res := plan.Resolution
+
+	if res.HasTimeFilter() {
+		fmt.Fprintf(w, "Window: %s\n", res.Interval.Describe(s.Loc))
+		for _, ex := range res.Exclude {
+			fmt.Fprintf(w, "Excluding: %s\n", ex.Describe(s.Loc))
+		}
 	}
-	return newest
+
+	for _, note := range res.Notes {
+		fmt.Fprintf(w, "Note: %s\n", note.Text)
+	}
+
+	// A time filter necessarily excludes records with no timestamp. Silently
+	// dropping them is a bug, so the count is always stated and the term that
+	// finds them is offered.
+	if res.HasTimeFilter() {
+		if n := s.NoTimestamp(context.Background()); n > 0 {
+			fmt.Fprintf(w, "%d record(s) excluded for having no timestamp — use ts:none to inspect them\n", n)
+		}
+	}
 }
 
 func describeSources(load store.Load) string {

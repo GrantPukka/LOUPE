@@ -7,20 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/query"
 	"github.com/VIGIL-OPS/loupe/internal/render"
-	"github.com/VIGIL-OPS/loupe/internal/schema"
+	"github.com/VIGIL-OPS/loupe/internal/session"
 	"github.com/VIGIL-OPS/loupe/internal/source"
-	"github.com/VIGIL-OPS/loupe/internal/store"
 	"github.com/spf13/cobra"
 )
 
 // globals holds the flags shared by every command that reads logs.
 type globals struct {
-	// path is the directory or file to read. Defaults to the current
-	// directory, so `loupe` alone does something sensible.
-	path string
-
 	parser      string
 	format      string
 	limit       int
@@ -80,106 +74,62 @@ Read-only, local-only, no daemon, no network.`,
 		newSQLCommand(g),
 		newSourcesCommand(g),
 		newCacheCommand(g),
+		newHistogramCommand(g),
+		newServeCommand(g),
 	)
 
 	return root
 }
 
-// session is an opened set of logs, ready to query.
-type session struct {
-	db     *store.DB
-	load   store.Load
-	walk   *source.WalkOptions
-	loc    *time.Location
-	writer *render.Writer
-	limit  int
+// open resolves the flags into session options and opens the logs.
+func (g *globals) open(ctx context.Context, path string) (*session.Session, error) {
+	opts, err := g.sessionOptions(path)
+	if err != nil {
+		return nil, err
+	}
 
-	// schema is resolved lazily and cached: it costs two queries and both the
-	// filter and the empty-result explanation need it.
-	schema *query.Schema
-
-	// resolution records how the query's time terms were interpreted, so the
-	// banner can report every assumption made on the user's behalf.
-	resolution *query.Resolution
-
-	// noTimestamp is how many records carry no timestamp and are therefore
-	// excluded by any time filter.
-	noTimestamp int64
-
-	// relativeToNow makes last: measure from the wall clock rather than the
-	// newest record.
-	relativeToNow bool
-
-	// cache records whether the ingest was reused and, if not, why.
-	cacheHit    bool
-	cacheReason string
-	cachePath   string
-
-	// promoted are the fields given real columns by schema inference.
-	promoted []schema.Promotion
+	sess, err := session.Open(ctx, opts)
+	if err != nil {
+		// A walk that found nothing has to say what it passed over. An empty
+		// result with no explanation is the most misleading outcome possible.
+		var none session.NoSourcesError
+		if errorsAs(err, &none) {
+			return nil, describeNoSources(none)
+		}
+		return nil, err
+	}
+	return sess, nil
 }
 
-func (s *session) Close() error { return s.db.Close() }
-
-// open walks the path, ingests everything, and returns a queryable session.
-func (g *globals) open(ctx context.Context, path string) (*session, error) {
-	loc, err := g.location()
+func (g *globals) sessionOptions(path string) (session.Options, error) {
+	loc, err := session.ParseLocation(g.utc, g.tz)
 	if err != nil {
-		return nil, err
+		return session.Options{}, err
 	}
 
-	walk := &source.WalkOptions{
-		MaxFileSize: g.maxFileSize,
-		Include:     g.include,
-		Exclude:     g.exclude,
-	}
-
-	sources, err := source.Walk(path, walk)
+	zones, err := session.ParseSourceZones(g.sourceTZ)
 	if err != nil {
-		return nil, err
-	}
-	if len(sources) == 0 {
-		return nil, noSourcesError(path, walk)
-	}
-
-	zones, err := parseSourceTZ(g.sourceTZ)
-	if err != nil {
-		return nil, err
-	}
-
-	cached, err := store.OpenCached(ctx, sources,
-		store.LoadOptions{Parser: g.parser, SourceZones: zones},
-		store.CacheOptions{Dir: g.cacheDir, Disabled: g.noCache})
-	if err != nil {
-		return nil, err
-	}
-	db, load := cached.DB, cached.Load
-
-	// Inference runs only on a fresh ingest; a hit already has the columns and
-	// reads the decision back from the database.
-	promoted, err := resolvePromotions(ctx, db, cached.Hit)
-	if err != nil {
-		db.Close()
-		return nil, err
-	}
-
-	writer, err := g.renderer(loc)
-	if err != nil {
-		db.Close()
-		return nil, err
+		return session.Options{}, err
 	}
 
 	relativeToNow, err := g.parseRelativeTo()
 	if err != nil {
-		db.Close()
-		return nil, err
+		return session.Options{}, err
 	}
 
-	return &session{
-		db: db, load: load, walk: walk, loc: loc, writer: writer,
-		limit: g.limit, relativeToNow: relativeToNow,
-		cacheHit: cached.Hit, cacheReason: cached.Reason, cachePath: cached.Path,
-		promoted: promoted,
+	return session.Options{
+		Path:          path,
+		Parser:        g.parser,
+		SourceZones:   zones,
+		Location:      loc,
+		RelativeToNow: relativeToNow,
+		NoCache:       g.noCache,
+		CacheDir:      g.cacheDir,
+		Walk: source.WalkOptions{
+			MaxFileSize: g.maxFileSize,
+			Include:     g.include,
+			Exclude:     g.exclude,
+		},
 	}, nil
 }
 
@@ -214,100 +164,32 @@ func (g *globals) renderer(loc *time.Location) (*render.Writer, error) {
 	return render.New(os.Stdout, opts), nil
 }
 
-// location resolves the display timezone.
-//
-// One timezone for the whole session, defaulting to the system zone, and always
-// stated on screen. A user must never have to guess whether the times they are
-// reading are theirs or the server's.
-func (g *globals) location() (*time.Location, error) {
-	switch {
-	case g.utc && g.tz != "":
-		return nil, fmt.Errorf("--utc and --tz are mutually exclusive")
-	case g.utc:
-		return time.UTC, nil
-	case g.tz != "":
-		loc, err := time.LoadLocation(g.tz)
-		if err != nil {
-			return nil, fmt.Errorf("unknown timezone %q: try a name from the tz database, e.g. Europe/London or UTC", g.tz)
-		}
-		return loc, nil
-	default:
-		return systemLocation(), nil
-	}
-}
-
-// systemLocation resolves the local zone to a named one.
-//
-// time.Local stringifies as "Local", which tells a user nothing and cannot be
-// pasted into a ticket. The spec requires the active timezone be visible and
-// unambiguous, so dig out the real name and only fall back to time.Local when
-// the system will not say.
-func systemLocation() *time.Location {
-	if tz := os.Getenv("TZ"); tz != "" {
-		if loc, err := time.LoadLocation(tz); err == nil {
-			return loc
-		}
-	}
-
-	// /etc/localtime is a symlink into the zoneinfo tree on Linux and macOS.
-	if target, err := os.Readlink("/etc/localtime"); err == nil {
-		if i := strings.Index(target, "zoneinfo/"); i >= 0 {
-			name := target[i+len("zoneinfo/"):]
-			if loc, err := time.LoadLocation(name); err == nil {
-				return loc
-			}
-		}
-	}
-
-	return time.Local
-}
-
-// parseSourceTZ reads --source-tz values.
-//
-// Two shapes: a bare zone applying to every source, and source:zone naming one.
-// Both may be given, and the named one wins.
-func parseSourceTZ(values []string) (map[string]*time.Location, error) {
-	if len(values) == 0 {
-		return nil, nil
-	}
-
-	out := map[string]*time.Location{}
-	for _, v := range values {
-		name, zone := "", v
-		if i := strings.LastIndex(v, ":"); i > 0 {
-			name, zone = v[:i], v[i+1:]
-		}
-
-		loc, err := time.LoadLocation(zone)
-		if err != nil {
-			return nil, fmt.Errorf("unknown timezone %q in --source-tz %q: "+
-				"use a tz database name, e.g. --source-tz=UTC or --source-tz=postgres:Europe/London", zone, v)
-		}
-		out[name] = loc
-	}
-	return out, nil
-}
-
-// noSourcesError explains why nothing was read, listing what was skipped.
-//
-// An empty result with no explanation is the single most misleading thing this
-// tool could do, so a walk that found nothing has to say what it passed over.
-func noSourcesError(path string, walk *source.WalkOptions) error {
-	if len(walk.Skipped) == 0 {
-		return fmt.Errorf("no log files found in %s", path)
+// describeNoSources expands the error with the list of skipped files.
+func describeNoSources(none session.NoSourcesError) error {
+	if len(none.Skipped) == 0 {
+		return none
 	}
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "no readable log files in %s, but %d file(s) were skipped:",
-		path, len(walk.Skipped))
+		none.Path, len(none.Skipped))
 
 	const show = 10
-	for i, s := range walk.Skipped {
+	for i, s := range none.Skipped {
 		if i == show {
-			fmt.Fprintf(&sb, "\n  ... and %d more", len(walk.Skipped)-show)
+			fmt.Fprintf(&sb, "\n  ... and %d more", len(none.Skipped)-show)
 			break
 		}
 		fmt.Fprintf(&sb, "\n  %s: %s", s.Path, s.Reason)
 	}
 	return fmt.Errorf("%s", sb.String())
+}
+
+// errorsAs is errors.As for a concrete error value.
+func errorsAs(err error, target *session.NoSourcesError) bool {
+	if v, ok := err.(session.NoSourcesError); ok {
+		*target = v
+		return true
+	}
+	return false
 }
