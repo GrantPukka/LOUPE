@@ -45,6 +45,12 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 		fmt.Fprintln(os.Stderr)
 	}
 
+	// A handoff is generated from this same plan. It must never be possible
+	// for the exported records to differ from what was on screen.
+	if g.handoff != "" {
+		return runHandoff(cmd, g, sess, plan)
+	}
+
 	res, err := sess.Records(cmd.Context(), plan, session.RecordQuery{Limit: g.limit})
 	if err != nil {
 		return err

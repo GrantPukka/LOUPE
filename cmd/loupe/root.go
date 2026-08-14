@@ -14,6 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// defaultDisplayLimit is how many rows the terminal shows by default.
+const defaultDisplayLimit = 200
+
 // globals holds the flags shared by every command that reads logs.
 type globals struct {
 	parser      string
@@ -32,6 +35,8 @@ type globals struct {
 	cacheDir    string
 	ui          bool
 	uiAddr      string
+	handoff     string
+	redact      []string
 }
 
 func newRootCommand() *cobra.Command {
@@ -58,7 +63,7 @@ Read-only, local-only, no daemon, no network.`,
 	pf := root.PersistentFlags()
 	pf.StringVar(&g.parser, "parser", "", "force a log format instead of detecting it")
 	pf.StringVar(&g.format, "format", "", "output format: table, json, ndjson, raw, csv")
-	pf.IntVar(&g.limit, "limit", 200, "maximum rows to display (0 for no limit)")
+	pf.IntVar(&g.limit, "limit", defaultDisplayLimit, "maximum rows to display (0 for no limit)")
 	pf.BoolVar(&g.noColour, "no-color", false, "disable colour output")
 	pf.BoolVar(&g.utc, "utc", false, "show times in UTC")
 	pf.StringVar(&g.tz, "tz", "", "display timezone, e.g. Europe/London")
@@ -72,6 +77,10 @@ Read-only, local-only, no daemon, no network.`,
 		"what last: counts back from: newest (the newest record) or now (the wall clock)")
 	pf.BoolVar(&g.noCache, "no-cache", false, "re-read the log files instead of reusing a cached ingest")
 	pf.StringVar(&g.cacheDir, "cache-dir", "", "override the cache location (default ~/.cache/loupe)")
+	pf.StringVar(&g.handoff, "handoff", "",
+		"write a pasteable extract to this file instead of printing records (.md, .json, .zip, or - for stdout)")
+	pf.StringSliceVar(&g.redact, "redact", nil,
+		"replace these field values with a stable hash in the handoff, e.g. --redact user_id,email")
 
 	// The README's headline invocation. It is the same thing `loupe serve`
 	// does, so it delegates rather than growing a second code path.
