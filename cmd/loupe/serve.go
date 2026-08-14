@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/VIGIL-OPS/loupe/internal/server"
@@ -13,8 +15,9 @@ import (
 
 func newServeCommand(g *globals) *cobra.Command {
 	var (
-		addr    string
-		verbose bool
+		addr        string
+		verbose     bool
+		openBrowser bool
 	)
 
 	cmd := &cobra.Command{
@@ -41,17 +44,18 @@ Endpoints:
   curl -s localhost:7717/api/schema | jq`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runServe(cmd, g, args, addr, verbose)
+			return runServe(cmd, g, args, addr, verbose, openBrowser)
 		},
 	}
 
 	cmd.Flags().StringVar(&addr, "addr", server.DefaultAddr, "loopback address to listen on")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "log every request")
+	cmd.Flags().BoolVar(&openBrowser, "open", false, "open the UI in a browser once it is listening")
 
 	return cmd
 }
 
-func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbose bool) error {
+func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbose, openBrowser bool) error {
 	path, filter := resolveArgs(args)
 	if filter != "" {
 		return fmt.Errorf("serve takes a directory, not a filter — "+
@@ -80,9 +84,21 @@ func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbos
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "\nListening on http://%s\n", ln.Addr())
-	fmt.Fprintf(os.Stderr, "  curl -s http://%s/api/schema | jq\n", ln.Addr())
+	url := fmt.Sprintf("http://%s", ln.Addr())
+
+	fmt.Fprintf(os.Stderr, "\nListening on %s\n", url)
+	if server.UIAvailable() {
+		fmt.Fprintf(os.Stderr, "  open %s\n", url)
+	} else {
+		// Saying so up front beats sending someone to a page that explains it.
+		fmt.Fprintln(os.Stderr, "  (no web UI in this binary — run `make web && make build`)")
+	}
+	fmt.Fprintf(os.Stderr, "  curl -s %s/api/schema | jq\n", url)
 	fmt.Fprintln(os.Stderr, "Ctrl-C to stop.")
+
+	if openBrowser {
+		go launchBrowser(url)
+	}
 
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -93,4 +109,25 @@ func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbos
 
 	fmt.Fprintln(os.Stderr, "Stopped.")
 	return nil
+}
+
+// launchBrowser opens the UI.
+//
+// This runs a local command, not a network request: loupe still makes no
+// outbound connections of its own. A failure is silent because the URL is
+// already printed and the user can click it.
+func launchBrowser(url string) {
+	var command string
+	var args []string
+
+	switch runtime.GOOS {
+	case "darwin":
+		command = "open"
+	case "windows":
+		command, args = "rundll32", []string{"url.dll,FileProtocolHandler"}
+	default:
+		command = "xdg-open"
+	}
+
+	exec.Command(command, append(args, url)...).Start()
 }

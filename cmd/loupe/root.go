@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/VIGIL-OPS/loupe/internal/render"
+	"github.com/VIGIL-OPS/loupe/internal/server"
 	"github.com/VIGIL-OPS/loupe/internal/session"
 	"github.com/VIGIL-OPS/loupe/internal/source"
 	"github.com/spf13/cobra"
@@ -29,6 +30,8 @@ type globals struct {
 	relativeTo  string
 	noCache     bool
 	cacheDir    string
+	ui          bool
+	uiAddr      string
 }
 
 func newRootCommand() *cobra.Command {
@@ -69,6 +72,11 @@ Read-only, local-only, no daemon, no network.`,
 		"what last: counts back from: newest (the newest record) or now (the wall clock)")
 	pf.BoolVar(&g.noCache, "no-cache", false, "re-read the log files instead of reusing a cached ingest")
 	pf.StringVar(&g.cacheDir, "cache-dir", "", "override the cache location (default ~/.cache/loupe)")
+
+	// The README's headline invocation. It is the same thing `loupe serve`
+	// does, so it delegates rather than growing a second code path.
+	root.Flags().BoolVar(&g.ui, "ui", false, "open the results in a local web UI instead of printing them")
+	root.Flags().StringVar(&g.uiAddr, "addr", server.DefaultAddr, "loopback address for --ui")
 
 	root.AddCommand(
 		newSQLCommand(g),

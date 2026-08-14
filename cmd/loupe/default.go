@@ -15,6 +15,16 @@ import (
 func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	path, filter := resolveArgs(args)
 
+	// `loupe ./logs --ui` is the README's headline invocation and is exactly
+	// `loupe serve ./logs`, so it runs the same code rather than a parallel one.
+	if g.ui {
+		if filter != "" {
+			return fmt.Errorf("--ui takes a directory, not a filter — "+
+				"type %q into the filter box once it opens", filter)
+		}
+		return runServe(cmd, g, []string{path}, g.uiAddr, false, true)
+	}
+
 	sess, err := g.open(cmd.Context(), path)
 	if err != nil {
 		return err
