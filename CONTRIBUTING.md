@@ -120,8 +120,10 @@ That is the whole process. No other file in the repository needs to change.
 
 - **Sources** — new places to read bytes from (`internal/source/`). Same shape: one file, one
   interface, one fixture.
-- **Timestamp formats** — `internal/schema/timestamps.go` holds the layouts tried during
-  inference. Adding one is a two-line PR with a test, and genuinely useful.
+- **Timestamp formats** — `internal/parse/timestamp.go` holds the layouts tried during
+  inference. Adding one is a two-line PR with a test, and genuinely useful. If the layout
+  carries no timezone, add it to `zonelessLayouts` too, or times from that format will be
+  reported as known when they are actually assumed.
 - **Performance** — bring a benchmark. `go test -bench` before and after, both numbers in the
   PR description.
 - **Bug reports with a fixture** — a 20-line sample that reproduces the problem is worth more
