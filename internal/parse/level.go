@@ -35,6 +35,9 @@ var levelAliases = map[string]string{
 	"verbose": LevelTrace, "v": LevelTrace,
 
 	"d": LevelDebug, "dbg": LevelDebug, "debug": LevelDebug, "fine": LevelDebug,
+	// Postgres numbers its debug levels 1 to 5.
+	"debug1": LevelDebug, "debug2": LevelDebug, "debug3": LevelDebug,
+	"debug4": LevelDebug, "debug5": LevelDebug,
 
 	"i": LevelInfo, "inf": LevelInfo, "info": LevelInfo, "information": LevelInfo,
 	"informational": LevelInfo, "notice": LevelInfo, "note": LevelInfo,

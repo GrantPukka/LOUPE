@@ -16,13 +16,15 @@ import (
 // This table lives in parse rather than schema because parsers need it
 // directly, and parse may not import anything downstream of it.
 var Layouts = []string{
-	time.RFC3339Nano,                 // 2026-08-13T14:02:00.021472370Z
-	time.RFC3339,                     // 2026-08-13T14:02:00Z
-	"2006-01-02T15:04:05.999999999",  // no zone: caller applies the assumed one
-	"2006-01-02T15:04:05",            //
-	"2006-01-02 15:04:05.999999 MST", // postgres
-	"2006-01-02 15:04:05.999999-07",  // postgres with a numeric offset
+	time.RFC3339Nano,                       // 2026-08-13T14:02:00.021472370Z
+	time.RFC3339,                           // 2026-08-13T14:02:00Z
+	"2006-01-02T15:04:05.999999999",        // no zone: caller applies the assumed one
+	"2006-01-02T15:04:05",                  //
+	"2006-01-02 15:04:05.999999 MST",       // postgres
+	"2006-01-02 15:04:05.999999-07",        // postgres with a numeric offset
+	"2006-01-02 15:04:05.999999999 -07:00", // colon-separated offset
 	"2006-01-02 15:04:05.999999999 -0700",
+	"2006-01-02 15:04:05.999999999 -07",
 	"2006-01-02 15:04:05.999999999",    // log4j default
 	"2006-01-02 15:04:05",              //
 	"02/Jan/2006:15:04:05 -0700",       // nginx and apache combined
