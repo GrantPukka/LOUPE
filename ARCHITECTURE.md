@@ -358,6 +358,11 @@ instead of `grep` on your own machine, unprompted.
 **M3 — the UI (week 3).** HTTP API; Preact single screen; virtualised table; click-to-filter;
 embedded assets; `loupe serve`. Success test: the ten-second demo GIF is recordable.
 
+**As built.** Also a Bubble Tea TUI (`loupe tui`) and the handoff export, which the milestone
+list put in M4. Both are views over `internal/session`, so all three front ends — terminal,
+browser, and extract — run the same query path. `/api/tail` and `--follow` remain unbuilt;
+see §5.
+
 **M4 — the launch (week 4).** Cross-platform CI matrix and release binaries; Homebrew tap;
 README with the GIF; `docs/adding-a-parser.md`; **15 labelled `good first issue` tickets
 merged before you post anywhere.**
