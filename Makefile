@@ -98,17 +98,23 @@ demo: build
 .PHONY: demo-ui
 demo-ui: build
 	CGO_ENABLED=0 $(GO) run ./cmd/blaster -out $(DEMO) -seed $(SEED) -scenario incident
-	./$(BIN) $(DEMO) --ui
+	./$(BIN) $(DEMO) --ui --open
 
 ## demo-follow: stream a live incident into $(DEMO) for testing --follow
 .PHONY: demo-follow
 demo-follow:
 	CGO_ENABLED=0 $(GO) run ./cmd/blaster -out $(DEMO) -follow -rate 40
 
-## web: build the frontend into web/dist for embedding
+## web: build the frontend into internal/server/dist for embedding
 .PHONY: web
 web:
-	cd web && npm ci && npm run build
+	cd web && npm install && npm run build
+
+## ui: build the frontend and the binary, then open the demo in a browser
+.PHONY: ui
+ui: web build
+	CGO_ENABLED=0 $(GO) run ./cmd/blaster -out $(DEMO) -seed $(SEED) -scenario incident
+	./$(BIN) $(DEMO) --ui --open
 
 ## dist: release binary for the host platform (CGO forbids cross-compiling)
 .PHONY: dist
@@ -121,4 +127,5 @@ dist:
 .PHONY: clean
 clean:
 	rm -rf $(BIN) blaster $(DIST) $(DEMO) coverage.out
+	rm -rf internal/server/dist/assets internal/server/dist/index.html
 	$(GO) clean -cache -testcache
