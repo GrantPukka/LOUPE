@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/VIGIL-OPS/loupe/internal/store"
@@ -41,12 +42,51 @@ func (s *session) statusLine(w io.Writer) {
 			a.Source.Name, a.Records, a.Source.Zone, a.Source.ZoneSource)
 	}
 
+	s.cacheLine(w)
+
 	for _, skip := range s.walk.Skipped {
 		fmt.Fprintf(w, "Skipped %s: %s\n", skip.Path, skip.Reason)
 	}
 
 	for _, err := range s.load.Errors {
 		fmt.Fprintf(w, "Warning: %v\n", err)
+	}
+}
+
+// cacheLine reports whether the ingest was reused.
+//
+// A miss states its reason. Someone who expected the second run to be instant
+// and got a full re-ingest is owed an explanation, and the commonest one — a
+// log file that is still being written to — is not obvious.
+func (s *session) cacheLine(w io.Writer) {
+	switch {
+	case s.cacheHit:
+		// The stored duration is what the original ingest cost, not this run.
+		// Saying which is the difference between a reassuring number and a
+		// confusing one.
+		fmt.Fprintf(w, "Reused a cached ingest — the original read took %s. Pass --no-cache to re-read the files.\n",
+			s.load.Took.Round(time.Millisecond))
+	case s.cacheReason != "":
+		fmt.Fprintf(w, "Re-read the log files: %s\n", s.cacheReason)
+	}
+
+	// A directory with many sources can promote dozens of fields, and a status
+	// line that wraps four times is one nobody reads. Name the most widely
+	// covered and count the rest; `loupe sql "DESCRIBE logs"` has the full list.
+	if len(s.promoted) > 0 {
+		const show = 6
+
+		names := make([]string, 0, show)
+		for _, p := range s.promoted[:min(show, len(s.promoted))] {
+			names = append(names, fmt.Sprintf("%s (%s)", p.Field, p.Kind))
+		}
+
+		more := ""
+		if len(s.promoted) > show {
+			more = fmt.Sprintf(", and %d more", len(s.promoted)-show)
+		}
+		fmt.Fprintf(w, "Promoted %d field(s) to columns: %s%s\n",
+			len(s.promoted), strings.Join(names, ", "), more)
 	}
 }
 

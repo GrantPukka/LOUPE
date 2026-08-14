@@ -106,7 +106,11 @@ func (s *session) querySchema(ctx context.Context) (query.Schema, error) {
 		return query.Schema{}, err
 	}
 
-	schema := query.Schema{Fields: fields}
+	schema := query.Schema{Fields: fields, Promoted: map[string]string{}}
+	for _, p := range s.promoted {
+		schema.Promoted[p.Field] = p.Column
+	}
+
 	seen := map[string]bool{}
 	for _, info := range infos {
 		if !seen[info.Name] {

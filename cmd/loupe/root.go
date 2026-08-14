@@ -9,6 +9,7 @@ import (
 
 	"github.com/VIGIL-OPS/loupe/internal/query"
 	"github.com/VIGIL-OPS/loupe/internal/render"
+	"github.com/VIGIL-OPS/loupe/internal/schema"
 	"github.com/VIGIL-OPS/loupe/internal/source"
 	"github.com/VIGIL-OPS/loupe/internal/store"
 	"github.com/spf13/cobra"
@@ -32,6 +33,8 @@ type globals struct {
 	exclude     []string
 	quiet       bool
 	relativeTo  string
+	noCache     bool
+	cacheDir    string
 }
 
 func newRootCommand() *cobra.Command {
@@ -70,10 +73,13 @@ Read-only, local-only, no daemon, no network.`,
 	pf.BoolVarP(&g.quiet, "quiet", "q", false, "suppress the status line")
 	pf.StringVar(&g.relativeTo, "relative-to", "newest",
 		"what last: counts back from: newest (the newest record) or now (the wall clock)")
+	pf.BoolVar(&g.noCache, "no-cache", false, "re-read the log files instead of reusing a cached ingest")
+	pf.StringVar(&g.cacheDir, "cache-dir", "", "override the cache location (default ~/.cache/loupe)")
 
 	root.AddCommand(
 		newSQLCommand(g),
 		newSourcesCommand(g),
+		newCacheCommand(g),
 	)
 
 	return root
@@ -103,6 +109,14 @@ type session struct {
 	// relativeToNow makes last: measure from the wall clock rather than the
 	// newest record.
 	relativeToNow bool
+
+	// cache records whether the ingest was reused and, if not, why.
+	cacheHit    bool
+	cacheReason string
+	cachePath   string
+
+	// promoted are the fields given real columns by schema inference.
+	promoted []schema.Promotion
 }
 
 func (s *session) Close() error { return s.db.Close() }
@@ -133,16 +147,17 @@ func (g *globals) open(ctx context.Context, path string) (*session, error) {
 		return nil, err
 	}
 
-	// In-memory for now. The fingerprint cache arrives in a later milestone.
-	db, err := store.Open("")
+	cached, err := store.OpenCached(ctx, sources,
+		store.LoadOptions{Parser: g.parser, SourceZones: zones},
+		store.CacheOptions{Dir: g.cacheDir, Disabled: g.noCache})
 	if err != nil {
 		return nil, err
 	}
+	db, load := cached.DB, cached.Load
 
-	load, err := db.Load(ctx, sources, store.LoadOptions{
-		Parser:      g.parser,
-		SourceZones: zones,
-	})
+	// Inference runs only on a fresh ingest; a hit already has the columns and
+	// reads the decision back from the database.
+	promoted, err := resolvePromotions(ctx, db, cached.Hit)
 	if err != nil {
 		db.Close()
 		return nil, err
@@ -163,6 +178,8 @@ func (g *globals) open(ctx context.Context, path string) (*session, error) {
 	return &session{
 		db: db, load: load, walk: walk, loc: loc, writer: writer,
 		limit: g.limit, relativeToNow: relativeToNow,
+		cacheHit: cached.Hit, cacheReason: cached.Reason, cachePath: cached.Path,
+		promoted: promoted,
 	}, nil
 }
 
