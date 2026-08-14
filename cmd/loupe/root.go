@@ -84,6 +84,7 @@ Read-only, local-only, no daemon, no network.`,
 		newCacheCommand(g),
 		newHistogramCommand(g),
 		newServeCommand(g),
+		newTUICommand(g),
 	)
 
 	return root
