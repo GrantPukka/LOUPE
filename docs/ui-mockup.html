@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>loupe — six sources, six formats, one timeline</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#131920;--panel:#19212a;--panel-2:#1e2833;--rule:#26323e;--rule-soft:#1f2a34;
+  --text:#c6d1dc;--text-dim:#7d8d9c;--text-ghost:#4e5c69;
+  --steel:#5b8cad;--steel-soft:rgba(91,140,173,.16);
+  --error:#e8705e;--warn:#d9a341;--fatal:#cf4a7e;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+  font-size:13px;display:flex;flex-direction:column;overflow:hidden;
+  -webkit-font-smoothing:antialiased}
+
+header{display:flex;align-items:baseline;gap:10px;padding:9px 14px;
+  border-bottom:1px solid var(--rule);background:var(--panel);flex:none}
+.brand{font-family:var(--mono);font-weight:600}
+.path{font-family:var(--mono);color:var(--text-dim);font-size:12px}
+.meta{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-ghost)}
+.meta b{color:var(--text-dim);font-weight:500}
+
+/* source chips — the thing that proves aggregation is happening */
+.sources{display:flex;gap:6px;padding:8px 14px;overflow-x:auto;flex:none;
+  border-bottom:1px solid var(--rule);background:var(--panel)}
+.chip{display:flex;align-items:baseline;gap:7px;flex:none;cursor:pointer;
+  padding:4px 9px;border:1px solid var(--rule);border-radius:3px;
+  background:transparent;font-family:var(--mono);font-size:11px;color:var(--text-dim);
+  border-left:2px solid var(--src)}
+.chip:hover{background:var(--panel-2);color:var(--text)}
+.chip.off{opacity:.34}
+.chip .fmt{font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-ghost)}
+.chip .n{color:var(--text-ghost);font-size:10px}
+
+.filterbar{display:flex;align-items:center;gap:8px;flex:none;padding:0 14px;
+  height:40px;border-bottom:1px solid var(--rule);background:var(--panel-2)}
+.chev{font-family:var(--mono);color:var(--steel);font-weight:600}
+#filter{flex:1;min-width:0;background:transparent;border:0;outline:none;
+  font-family:var(--mono);font-size:13px;color:var(--text);padding:6px 0}
+#filter::placeholder{color:var(--text-ghost)}
+.filterbar:focus-within{box-shadow:inset 2px 0 0 var(--steel)}
+
+.histwrap{flex:none;padding:9px 14px 6px;border-bottom:1px solid var(--rule);
+  background:var(--panel);position:relative;user-select:none}
+.histhead{display:flex;justify-content:space-between;font-family:var(--mono);
+  font-size:10px;color:var(--text-ghost);margin-bottom:5px}
+#hist{display:flex;align-items:flex-end;gap:1px;height:50px;cursor:crosshair}
+.bar{flex:1;display:flex;flex-direction:column-reverse;min-width:2px;
+  background:var(--rule-soft)}
+.bar span{display:block;width:100%}
+.sel{position:absolute;top:30px;bottom:6px;background:var(--steel-soft);
+  border-left:1px solid var(--steel);border-right:1px solid var(--steel);
+  pointer-events:none;display:none}
+.range{font-family:var(--mono);font-size:10px;color:var(--steel)}
+.range button{background:none;border:0;color:var(--text-ghost);cursor:pointer;
+  font-family:var(--mono);font-size:10px;padding-left:6px;text-decoration:underline}
+
+.colhead{display:flex;flex:none;font-family:var(--mono);font-size:10px;
+  color:var(--text-ghost);text-transform:uppercase;letter-spacing:.08em;
+  padding:5px 14px;border-bottom:1px solid var(--rule);background:var(--panel-2)}
+#rows{flex:1;overflow-y:auto;overflow-x:hidden}
+.row{display:flex;align-items:baseline;padding:3px 14px;
+  border-bottom:1px solid var(--rule-soft);font-family:var(--mono);font-size:12px;
+  line-height:1.45;cursor:pointer;border-left:2px solid transparent}
+.row:hover{background:var(--panel)}
+.row.error{border-left-color:var(--error)}
+.row.fatal{border-left-color:var(--fatal)}
+.row.warn{border-left-color:var(--warn)}
+.row.debug{color:var(--text-ghost)}
+.c-ts{width:104px;flex:none;color:var(--text-ghost);white-space:pre}
+.c-ts b{color:var(--text-dim);font-weight:400}
+.c-lvl{width:50px;flex:none;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em}
+.c-src{width:138px;flex:none;padding-right:10px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.c-src i{font-style:normal;border-left:2px solid var(--src);padding-left:6px;color:var(--text-dim)}
+.c-msg{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lvl-error{color:var(--error)}.lvl-fatal{color:var(--fatal)}
+.lvl-warn{color:var(--warn)}.lvl-info,.lvl-debug{color:var(--text-ghost)}
+.multi{color:var(--text-ghost);font-size:10px;padding-left:6px}
+
+.detail{background:var(--panel);border-bottom:1px solid var(--rule);
+  padding:10px 14px 12px 16px;font-family:var(--mono);font-size:11.5px}
+.kv{display:flex;gap:10px;padding:2px 0}
+.kv .k{width:110px;flex:none;color:var(--text-ghost)}
+.kv .v{color:var(--text);cursor:pointer;border-bottom:1px dotted var(--text-ghost)}
+.kv .v:hover{color:var(--steel);border-bottom-color:var(--steel)}
+.rawhead{margin-top:9px;padding-top:8px;border-top:1px solid var(--rule-soft);
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-ghost)}
+.raw{color:var(--text-dim);white-space:pre-wrap;word-break:break-all;
+  font-size:11px;margin-top:5px;line-height:1.6}
+.empty{padding:40px 14px;text-align:center;color:var(--text-dim);
+  font-family:var(--mono);font-size:12px;line-height:1.9}
+.empty span{color:var(--text-ghost)}
+footer{flex:none;display:flex;gap:16px;padding:6px 14px;border-top:1px solid var(--rule);
+  background:var(--panel-2);font-family:var(--mono);font-size:10.5px;color:var(--text-ghost)}
+footer b{color:var(--text-dim);font-weight:500}
+footer .right{margin-left:auto}
+:focus-visible{outline:1px solid var(--steel);outline-offset:2px}
+@media (max-width:680px){.c-src{width:100px}.meta{display:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="brand">loupe</span>
+  <span class="path">./demo/</span>
+  <span class="meta"><b>8</b> files · <b>6</b> formats · <b>521</b> records · ingested in <b>310ms</b></span>
+</header>
+
+<div class="sources" id="sources"></div>
+
+<div class="filterbar">
+  <span class="chev">›</span>
+  <input id="filter" autocomplete="off" spellcheck="false"
+         placeholder="try:  level:error   ·   trace_id:a91c40f2   ·   status:>=500   ·   -source:nginx">
+</div>
+
+<div class="histwrap">
+  <div class="histhead">
+    <span>14:02:00</span><span class="range" id="rangeLabel"></span><span>14:20:00</span>
+  </div>
+  <div id="hist"></div><div class="sel" id="sel"></div>
+</div>
+
+<div class="colhead">
+  <span class="c-ts">time</span><span class="c-lvl">level</span>
+  <span class="c-src">source</span><span class="c-msg">message</span>
+</div>
+<div id="rows"></div>
+
+<footer>
+  <span id="stat"></span>
+  <span>drag the timeline · click a row for the raw line in its native format</span>
+  <span class="right">local · read-only</span>
+</footer>
+
+<script>
+/* ---------- sources, mirroring what blaster emits ---------- */
+const SRC={
+  'checkout-api'  :{file:'checkout-api.log',   fmt:'jsonl',          c:'#5b8cad'},
+  'auth-svc'      :{file:'auth-svc.log',       fmt:'logfmt',         c:'#6f9c8a'},
+  'nginx'         :{file:'access.log',         fmt:'nginx-combined', c:'#9a8bb0'},
+  'payment-worker':{file:'payment-worker.log', fmt:'log4j',          c:'#b08a6f'},
+  'postgres'      :{file:'postgresql.log',     fmt:'postgres',       c:'#7f95a8'},
+  'host'          :{file:'syslog',             fmt:'rfc5424',        c:'#8a8f99'}
+};
+const off=new Set();
+
+let seed=7;const rnd=()=>(seed=(seed*1103515245+12345)%2147483648)/2147483648;
+const pick=a=>a[Math.floor(rnd()*a.length)];
+const T0=Date.UTC(2026,7,13,14,2,0),SPAN=18*60*1000;
+const INC0=T0+SPAN*0.60,INC1=T0+SPAN*0.72;
+
+/* ---------- native-format renderers ---------- */
+const pad=(n,w=2)=>String(n).padStart(w,'0');
+const iso=t=>new Date(t).toISOString();
+const clock=t=>{const d=new Date(t);return `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}.${pad(d.getUTCMilliseconds(),3)}`};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const RAW={
+  'checkout-api':r=>JSON.stringify({ts:iso(r.ts),level:r.level,msg:r.message,...r.fields}),
+  'auth-svc':r=>`ts=${iso(r.ts).slice(0,19)}Z level=${r.level} msg="${r.message}" `+
+      Object.entries(r.fields).map(([k,v])=>`${k}=${v}`).join(' '),
+  'nginx':r=>{const d=new Date(r.ts);
+      return `${r.fields.client} - - [${pad(d.getUTCDate())}/${MON[d.getUTCMonth()]}/`+
+      `${d.getUTCFullYear()}:${clock(r.ts).slice(0,8)} +0000] "${r.fields.method} `+
+      `${r.fields.path} HTTP/1.1" ${r.fields.status} ${r.fields.bytes} "-" "${r.fields.agent}"`},
+  'payment-worker':r=>`2026-08-13 ${clock(r.ts)} [worker-2] ${r.level.toUpperCase()} `+
+      `c.a.p.ChargeHandler - ${r.message}`+(r.stack?'\n'+r.stack.join('\n'):''),
+  'postgres':r=>`2026-08-13 ${clock(r.ts)} UTC [${r.fields.pid}] ${r.level.toUpperCase()}: ${r.message}`,
+  'host':r=>`<${({debug:15,info:14,warn:12,error:11})[r.level]||14}>1 ${iso(r.ts).slice(0,19)}Z `+
+      `host-01 ${r.fields.app} ${r.fields.pid} - - ${r.message}`
+};
+
+/* ---------- data ---------- */
+const D=[];
+const push=(ts,source,level,message,fields,stack)=>
+  D.push({ts,source,level,message,fields,stack});
+
+for(let i=0;i<170;i++){
+  const t=T0+Math.floor(rnd()*SPAN), bad=t>INC0&&t<INC1;
+  const trace=Math.floor(rnd()*4294967295).toString(16).padStart(8,'0');
+  const user='u_'+Math.floor(rnd()*8999+1000);
+  const path=pick(['/api/checkout','/api/cart','/api/orders/2291','/api/session','/healthz']);
+  let status=200,level='info',lat=40+Math.floor(rnd()*180),msg='request completed';
+  if(bad&&rnd()<.62){status=502;level='error';lat=3000+Math.floor(rnd()*2000);
+    msg='upstream timeout contacting payments'}
+  else if(bad&&rnd()<.5){status=429;level='warn';lat=200+Math.floor(rnd()*400);
+    msg='rate limited by upstream'}
+  else if(rnd()<.04){status=500;level='error';lat=900;msg='failed to reserve stock'}
+
+  push(t,'nginx',level,`${path}  ${status}`,{client:`10.0.${Math.floor(rnd()*4)}.${Math.floor(rnd()*255)}`,
+    method:'POST',path,status,bytes:200+Math.floor(rnd()*4000),trace_id:trace,
+    agent:pick(['curl/8.4.0','checkout-web/2.1','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'])});
+  push(t+Math.floor(rnd()*30),'checkout-api',level,msg,
+    {trace_id:trace,user_id:user,path,status,latency_ms:lat,
+     region:pick(['eu-west-1','us-east-1','ap-south-1'])});
+  if(rnd()<.35) push(t+Math.floor(rnd()*15),'auth-svc','info','token validated',
+    {trace_id:trace,user_id:user,issuer:'auth.internal',ttl_s:3600});
+  if(bad&&rnd()<.45) push(t+40+Math.floor(rnd()*80),'payment-worker','error',
+    'PaymentGatewayException: read timed out after 3000ms',
+    {trace_id:trace,attempt:1+Math.floor(rnd()*3)},
+    ['\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)',
+     '\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)',
+     '\tCaused by: java.net.SocketTimeoutException: Read timed out',
+     '\t\t... 14 more']);
+}
+for(let i=0;i<70;i++){
+  const t=T0+Math.floor(rnd()*SPAN);
+  const k=Math.floor(rnd()*4);
+  if(k===0) push(t,'postgres','info',
+    `duration: ${Math.floor(rnd()*400)}.${Math.floor(rnd()*999)} ms  statement: SELECT * FROM orders WHERE user_id = $1`,
+    {pid:20000+Math.floor(rnd()*900),db:'checkout'});
+  else if(k===1) push(t,'host','info','session opened for user deploy',
+    {app:'sshd',pid:1000+Math.floor(rnd()*9000)});
+  else if(k===2) push(t,'auth-svc','debug','refreshing jwks cache',{keys:3,next_refresh_s:300});
+  else push(t,'checkout-api','debug','evaluating feature flag',
+    {flag:'new_checkout_flow',enabled:rnd()<.5});
+}
+/* the root cause, six seconds before the symptoms */
+const RC=INC0-6000;
+push(RC,'postgres','warn','connection pool exhausted, 100 of 100 connections in use',{pid:20001,db:'checkout'});
+push(RC+900,'postgres','error','FATAL: remaining connection slots are reserved for superusers',{pid:20044,db:'checkout'});
+push(RC+2000,'host','warn','memory cgroup near limit: 3.8G of 4.0G',{app:'kernel',pid:0});
+push(RC+4000,'payment-worker','warn','HikariPool-1 - Connection is not available, request timed out after 30000ms',{pool:'HikariPool-1',active:100});
+
+D.sort((a,b)=>a.ts-b.ts);D.forEach((r,i)=>r.id=i);
+
+/* ---------- filter ---------- */
+function parse(q){const t=[];const re=/(-?)([a-z_]+):(>=|<=|>|<|~)?([^\s]+)|(-?)([^\s]+)/gi;
+  let m;while((m=re.exec(q))!==null){
+    if(m[2])t.push({neg:!!m[1],key:m[2],op:m[3]||'=',val:m[4]});
+    else if(m[6])t.push({neg:!!m[5],free:m[6]});}
+  return t}
+const get=(r,k)=>k==='level'?r.level:k==='source'?r.source:k==='message'?r.message:r.fields[k];
+function match(r,ts){return ts.every(t=>{let ok;
+  if(t.free)ok=(r.message+' '+r.source+' '+JSON.stringify(r.fields)).toLowerCase().includes(t.free.toLowerCase());
+  else{const v=get(r,t.key);
+    if(v===undefined)ok=false;
+    else if(t.op==='~')ok=String(v).toLowerCase().includes(t.val.toLowerCase());
+    else if(t.op==='=')ok=t.val.split(',').some(x=>String(v).toLowerCase()===x.toLowerCase());
+    else{const a=parseFloat(v),b=parseFloat(t.val);
+      ok=t.op==='>='?a>=b:t.op==='<='?a<=b:t.op==='>'?a>b:a<b}}
+  return t.neg?!ok:ok})}
+
+/* ---------- render ---------- */
+const B=90,BW=SPAN/B,LV=['debug','info','warn','error','fatal'];
+const COL={debug:'#2b3742',info:'#3d5666',warn:'var(--warn)',error:'var(--error)',fatal:'var(--fatal)'};
+const $=s=>document.querySelector(s);
+let range=null,open=null;
+
+const cur=()=>{const ts=parse($('#filter').value.trim());
+  return D.filter(r=>!off.has(r.source)&&(!range||(r.ts>=range[0]&&r.ts<=range[1]))&&match(r,ts))};
+
+function chips(){
+  $('#sources').innerHTML=Object.entries(SRC).map(([n,s])=>{
+    const c=D.filter(r=>r.source===n).length;
+    return `<button class="chip ${off.has(n)?'off':''}" data-src="${n}" style="--src:${s.c}">
+      <span>${n}</span><span class="fmt">${s.fmt}</span><span class="n">${c}</span></button>`}).join('');
+}
+function hist(rows){
+  const set=new Set(rows.map(r=>r.id)),bs=Array.from({length:B},()=>({}));
+  D.forEach(r=>{if(!set.has(r.id))return;
+    const b=Math.min(B-1,Math.floor((r.ts-T0)/BW));bs[b][r.level]=(bs[b][r.level]||0)+1});
+  const max=Math.max(1,...bs.map(b=>Object.values(b).reduce((a,c)=>a+c,0)));
+  $('#hist').innerHTML=bs.map(b=>`<div class="bar">${LV.map(l=>b[l]
+    ?`<span style="height:${b[l]/max*50}px;background:${COL[l]}"></span>`:'').join('')}</div>`).join('');
+}
+function rows(rs){
+  const el=$('#rows');
+  if(!rs.length){el.innerHTML=`<div class="empty">No records match.<br>
+    <span>Every source may be toggled off, or the range is too narrow.</span></div>`;return}
+  let prev='';
+  el.innerHTML=rs.map(r=>{
+    const s=clock(r.ts);let i=0;while(i<s.length&&s[i]===prev[i])i++;prev=s;
+    const d=open===r.id?`<div class="detail">
+      ${Object.entries({source:r.source,file:SRC[r.source].file,...r.fields}).map(([k,v])=>
+        `<div class="kv"><span class="k">${k}</span><span class="v" data-k="${k}" data-v="${v}">${v}</span></div>`).join('')}
+      <div class="rawhead">raw line · ${SRC[r.source].fmt} · ${SRC[r.source].file}</div>
+      <div class="raw">${RAW[r.source](r).replace(/</g,'&lt;')}</div></div>`:'';
+    return `<div class="row ${r.level}" data-id="${r.id}">
+      <span class="c-ts">${s.slice(0,i)}<b>${s.slice(i)}</b></span>
+      <span class="c-lvl lvl-${r.level}">${r.level}</span>
+      <span class="c-src" style="--src:${SRC[r.source].c}"><i>${r.source}</i></span>
+      <span class="c-msg">${r.message.replace(/</g,'&lt;')}${
+        r.stack?`<span class="multi">+${r.stack.length} lines</span>`:''}</span></div>${d}`}).join('');
+}
+function render(){
+  const t=performance.now(),rs=cur();
+  chips();hist(rs);rows(rs);
+  const srcs=new Set(rs.map(r=>r.source)).size;
+  $('#stat').innerHTML=`<b>${rs.length}</b> of ${D.length} records · <b>${srcs}</b> sources · <b>${(performance.now()-t).toFixed(0)}ms</b>`;
+  $('#rangeLabel').innerHTML=range?`${clock(range[0]).slice(0,8)} → ${clock(range[1]).slice(0,8)}
+    <button id="clr">clear range</button>`:'';
+  if(range)$('#clr').onclick=()=>{range=null;$('#sel').style.display='none';render()};
+}
+
+$('#filter').addEventListener('input',()=>{open=null;render()});
+$('#sources').addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;
+  const n=c.dataset.src;off.has(n)?off.delete(n):off.add(n);open=null;render()});
+$('#rows').addEventListener('click',e=>{
+  const v=e.target.closest('.v');
+  if(v){const f=$('#filter');f.value=(f.value.trim()+' '+v.dataset.k+':'+v.dataset.v).trim();
+    open=null;render();return}
+  const r=e.target.closest('.row');
+  if(r){open=open===+r.dataset.id?null:+r.dataset.id;render()}});
+
+const H=$('#hist'),S=$('#sel');let drag=false,ax=0;
+H.addEventListener('mousedown',e=>{drag=true;ax=e.clientX;
+  const r=H.getBoundingClientRect();S.style.display='block';
+  S.style.left=(ax-r.left+14)+'px';S.style.width='0px'});
+window.addEventListener('mousemove',e=>{if(!drag)return;
+  const r=H.getBoundingClientRect();
+  S.style.left=(Math.min(ax,e.clientX)-r.left+14)+'px';
+  S.style.width=Math.abs(e.clientX-ax)+'px'});
+window.addEventListener('mouseup',e=>{if(!drag)return;drag=false;
+  const r=H.getBoundingClientRect();
+  const a=Math.max(0,Math.min(ax,e.clientX)-r.left)/r.width;
+  const b=Math.max(0,Math.max(ax,e.clientX)-r.left)/r.width;
+  if(b-a<.01){S.style.display='none';range=null;render();return}
+  range=[T0+a*SPAN,T0+b*SPAN];open=null;render()});
+
+render();
+</script>
+</body>
+</html>

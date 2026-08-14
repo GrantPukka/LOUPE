@@ -1,0 +1,24 @@
+# binaries
+/loupe
+/blaster
+/dist/
+
+# frontend build output (embedded at release time)
+/web/node_modules/
+/web/dist/
+
+# generated demo/fixture data
+/demo/
+
+# local claude settings
+.claude/settings.local.json
+
+# editors
+.idea/
+.vscode/
+
+# scratch
+/loupe-starter.zip
+
+# os
+.DS_Store
