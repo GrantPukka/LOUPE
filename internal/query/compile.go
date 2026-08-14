@@ -48,6 +48,8 @@ func Compile(q Query, schema Schema) (SQL, error) {
 			pred, err = b.fieldTerm(t)
 		case *FreeTerm:
 			pred, err = b.freeTerm(t)
+		case *ResolvedTimeTerm:
+			pred = b.timeTerm(t)
 		case *TimeTerm:
 			err = &UnresolvedTimeError{Term: t.String()}
 		default:
@@ -70,11 +72,50 @@ func Compile(q Query, schema Schema) (SQL, error) {
 
 // UnresolvedTimeError means a time term reached the compiler without being
 // resolved to an interval.
+//
+// This is a programming error rather than a user error: the caller forgot to
+// run ResolveTime. It is reported rather than ignored because silently dropping
+// a time term would widen the query without telling anybody.
 type UnresolvedTimeError struct{ Term string }
 
 func (e *UnresolvedTimeError) Error() string {
-	return fmt.Sprintf("time filters are not implemented yet (%s); "+
-		"filter on other fields for now, or use `loupe sql` with a ts predicate", e.Term)
+	return fmt.Sprintf("internal: time term %q reached the compiler unresolved; "+
+		"ResolveTime must run before Compile", e.Term)
+}
+
+// timeTerm compiles the resolved window.
+//
+// It becomes ts >= ? AND ts < ?, which is index-friendly and, importantly,
+// excludes records with a NULL timestamp automatically. Those records are not
+// lost — ts:none selects them, and the caller reports how many a time filter
+// left out — but they cannot honestly be said to fall inside a window.
+func (b *builder) timeTerm(t *ResolvedTimeTerm) string {
+	var parts []string
+
+	if !t.Interval.Start.IsZero() {
+		parts = append(parts, "ts >= "+b.arg(t.Interval.Start.UTC()))
+	}
+	if !t.Interval.End.IsZero() {
+		parts = append(parts, "ts < "+b.arg(t.Interval.End.UTC()))
+	}
+
+	for _, ex := range t.Exclude {
+		var bounds []string
+		if !ex.Start.IsZero() {
+			bounds = append(bounds, "ts >= "+b.arg(ex.Start.UTC()))
+		}
+		if !ex.End.IsZero() {
+			bounds = append(bounds, "ts < "+b.arg(ex.End.UTC()))
+		}
+		if len(bounds) > 0 {
+			parts = append(parts, negate("("+strings.Join(bounds, " AND ")+")"))
+		}
+	}
+
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " AND ")
 }
 
 // negate wraps a predicate so that it excludes matches without also excluding

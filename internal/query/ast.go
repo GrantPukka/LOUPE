@@ -191,6 +191,39 @@ func (t *TimeTerm) String() string {
 	return sb.String()
 }
 
+// ResolvedTimeTerm is every time term in a query, intersected into one window.
+//
+// ResolveTime produces it and Compile consumes it. Resolving to a single
+// interval before compiling is what makes overlapping terms narrow rather than
+// stack up redundant comparisons, and what keeps the predicate to a single
+// index-friendly ts >= ? AND ts < ?.
+type ResolvedTimeTerm struct {
+	Interval Interval
+	// Exclude holds windows removed by negated time terms.
+	Exclude []Interval
+}
+
+func (t *ResolvedTimeTerm) negated() bool { return false }
+
+// String renders the resolved window as absolute RFC3339 instants.
+//
+// Rendering absolutes rather than the original text is deliberate: this is what
+// the UI's timeline drag puts in the filter box, and a query that gets pasted
+// into a ticket has to mean the same window on the reader's machine as it did
+// on the writer's.
+func (t *ResolvedTimeTerm) String() string {
+	parts := make([]string, 0, 1+len(t.Exclude))
+	if s := t.Interval.String(); s != "" {
+		parts = append(parts, s)
+	}
+	for _, ex := range t.Exclude {
+		if s := ex.String(); s != "" {
+			parts = append(parts, "-"+s)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 // timeKeywords are the prefixes that introduce a time term.
 //
 // since is an alias for after and until for before, because people reach for
