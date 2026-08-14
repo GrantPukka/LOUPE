@@ -31,6 +31,7 @@ type globals struct {
 	include     []string
 	exclude     []string
 	quiet       bool
+	relativeTo  string
 }
 
 func newRootCommand() *cobra.Command {
@@ -67,6 +68,8 @@ Read-only, local-only, no daemon, no network.`,
 	pf.StringSliceVar(&g.include, "include", nil, "only read files matching these globs")
 	pf.StringSliceVar(&g.exclude, "exclude", nil, "skip files matching these globs")
 	pf.BoolVarP(&g.quiet, "quiet", "q", false, "suppress the status line")
+	pf.StringVar(&g.relativeTo, "relative-to", "newest",
+		"what last: counts back from: newest (the newest record) or now (the wall clock)")
 
 	root.AddCommand(
 		newSQLCommand(g),
@@ -88,6 +91,18 @@ type session struct {
 	// schema is resolved lazily and cached: it costs two queries and both the
 	// filter and the empty-result explanation need it.
 	schema *query.Schema
+
+	// resolution records how the query's time terms were interpreted, so the
+	// banner can report every assumption made on the user's behalf.
+	resolution *query.Resolution
+
+	// noTimestamp is how many records carry no timestamp and are therefore
+	// excluded by any time filter.
+	noTimestamp int64
+
+	// relativeToNow makes last: measure from the wall clock rather than the
+	// newest record.
+	relativeToNow bool
 }
 
 func (s *session) Close() error { return s.db.Close() }
@@ -139,7 +154,32 @@ func (g *globals) open(ctx context.Context, path string) (*session, error) {
 		return nil, err
 	}
 
-	return &session{db: db, load: load, walk: walk, loc: loc, writer: writer, limit: g.limit}, nil
+	relativeToNow, err := g.parseRelativeTo()
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+
+	return &session{
+		db: db, load: load, walk: walk, loc: loc, writer: writer,
+		limit: g.limit, relativeToNow: relativeToNow,
+	}, nil
+}
+
+// parseRelativeTo reads --relative-to.
+//
+// The default anchors last: to the newest record rather than the wall clock,
+// because last:15m against a log file from yesterday returning nothing is the
+// single most confusing possible result.
+func (g *globals) parseRelativeTo() (bool, error) {
+	switch strings.ToLower(g.relativeTo) {
+	case "", "newest", "data":
+		return false, nil
+	case "now", "wall", "wallclock":
+		return true, nil
+	default:
+		return false, fmt.Errorf("unknown --relative-to %q: use newest or now", g.relativeTo)
+	}
 }
 
 func (g *globals) renderer(loc *time.Location) (*render.Writer, error) {

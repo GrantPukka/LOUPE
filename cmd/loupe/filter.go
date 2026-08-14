@@ -3,24 +3,92 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/VIGIL-OPS/loupe/internal/query"
 )
 
-// compile resolves a parsed query against the loaded data's schema.
+// compile resolves a parsed query's time terms and field names against the
+// loaded data, then compiles it to parameterised SQL.
 //
-// The schema comes from the store rather than being assumed, which is what
-// makes an unknown field name an error naming the fields that actually exist
-// instead of a guess.
+// Both halves need the data: the schema so that an unknown field names the
+// fields that actually exist, and the date range so that a bare 14:00 lands on
+// a day the logs cover rather than on today.
 func (s *session) compile(ctx context.Context, q query.Query) (query.SQL, error) {
+	tc, err := s.timeContext(ctx)
+	if err != nil {
+		return query.SQL{}, err
+	}
+
+	resolved, resolution, err := query.ResolveTime(q, tc)
+	if err != nil {
+		return query.SQL{}, err
+	}
+	s.resolution = &resolution
+
 	schema, err := s.querySchema(ctx)
 	if err != nil {
 		return query.SQL{}, err
 	}
-	return query.Compile(q, schema)
+	return query.Compile(resolved, schema)
+}
+
+// timeContext gathers what time resolution needs from the loaded data.
+func (s *session) timeContext(ctx context.Context) (query.TimeContext, error) {
+	oldest, newest, noTimestamp, err := s.db.TimeRange(ctx)
+	if err != nil {
+		return query.TimeContext{}, err
+	}
+	s.noTimestamp = noTimestamp
+
+	return query.TimeContext{
+		Loc:           s.loc,
+		Oldest:        oldest,
+		Newest:        newest,
+		Now:           time.Now(),
+		RelativeToNow: s.relativeToNow,
+	}, nil
+}
+
+// timeBanner prints the resolved window in both timezones, and every note the
+// resolver produced.
+//
+// docs/FILTER-DSL.md section 2.3 calls this the feature rather than a nicety.
+// Somebody working an incident at four in the morning should never have to do
+// offset arithmetic, and the UTC line is what they paste into the ticket.
+func (s *session) timeBanner(w io.Writer) {
+	if s.resolution == nil || !s.resolution.HasTimeFilter() {
+		s.printNotes(w)
+		return
+	}
+
+	fmt.Fprintf(w, "Window: %s\n", s.resolution.Interval.Describe(s.loc))
+	for _, ex := range s.resolution.Exclude {
+		fmt.Fprintf(w, "Excluding: %s\n", ex.Describe(s.loc))
+	}
+
+	s.printNotes(w)
+
+	// A time filter necessarily excludes records with no timestamp. Silently
+	// dropping them is a bug, so the count is always stated and the term that
+	// finds them is offered.
+	if s.noTimestamp > 0 {
+		fmt.Fprintf(w, "%d record(s) excluded for having no timestamp — use ts:none to inspect them\n",
+			s.noTimestamp)
+	}
+}
+
+func (s *session) printNotes(w io.Writer) {
+	if s.resolution == nil {
+		return
+	}
+	for _, note := range s.resolution.Notes {
+		fmt.Fprintf(w, "Note: %s\n", note.Text)
+	}
 }
 
 func (s *session) querySchema(ctx context.Context) (query.Schema, error) {
@@ -59,21 +127,35 @@ func (s *session) querySchema(ctx context.Context) (query.Schema, error) {
 // logs genuinely contain nothing. Narrowing the query one term at a time finds
 // the term responsible and names it.
 func (s *session) explainEmpty(ctx context.Context, q query.Query) error {
-	if len(q.Terms) == 1 {
-		fmt.Fprintf(os.Stderr, "\nNo records matched %s.\n", q.Terms[0].String())
-		return nil
-	}
-
 	schema, err := s.querySchema(ctx)
 	if err != nil {
 		return nil // The result is already correct; this is only commentary.
 	}
 
-	// Find the terms that match nothing on their own. Those are the ones worth
-	// naming; a term that matches plenty alone is only guilty in combination.
+	tc, err := s.timeContext(ctx)
+	if err != nil {
+		return nil
+	}
+
+	fmt.Fprintln(os.Stderr)
+
+	// A window that misses the data entirely is the most common cause, and the
+	// most fixable, so check it first and say what the data actually covers.
+	if s.resolution != nil && s.resolution.HasTimeFilter() && !tc.Oldest.IsZero() {
+		data := query.Interval{Start: tc.Oldest, End: tc.Newest.Add(time.Nanosecond)}
+		if !overlaps(s.resolution.Interval, data) {
+			fmt.Fprintf(os.Stderr, "No records in that window. The data covers %s.\n",
+				data.Describe(s.loc))
+			return nil
+		}
+	}
+
+	// Otherwise narrow down which term is responsible. A term that matches
+	// nothing alone is the culprit; one that matches plenty is only guilty in
+	// combination.
 	var barren []string
 	for _, term := range q.Terms {
-		n, err := s.countMatching(ctx, query.Query{Terms: []query.Term{term}}, schema)
+		n, err := s.countMatching(ctx, query.Query{Terms: []query.Term{term}}, schema, tc)
 		if err != nil {
 			continue
 		}
@@ -82,9 +164,10 @@ func (s *session) explainEmpty(ctx context.Context, q query.Query) error {
 		}
 	}
 
-	fmt.Fprintln(os.Stderr)
-	switch len(barren) {
-	case 0:
+	switch {
+	case len(barren) == 0 && len(q.Terms) == 1:
+		fmt.Fprintf(os.Stderr, "No records matched %s.\n", q.Terms[0].String())
+	case len(barren) == 0:
 		fmt.Fprintln(os.Stderr, "No records matched. Each term matches something on its own, "+
 			"so it is the combination that excludes everything.")
 	default:
@@ -94,8 +177,24 @@ func (s *session) explainEmpty(ctx context.Context, q query.Query) error {
 	return nil
 }
 
-func (s *session) countMatching(ctx context.Context, q query.Query, schema query.Schema) (int64, error) {
-	sql, err := query.Compile(q, schema)
+// overlaps reports whether two intervals share any instant.
+func overlaps(a, b query.Interval) bool {
+	if !a.Start.IsZero() && !b.End.IsZero() && !a.Start.Before(b.End) {
+		return false
+	}
+	if !b.Start.IsZero() && !a.End.IsZero() && !b.Start.Before(a.End) {
+		return false
+	}
+	return true
+}
+
+func (s *session) countMatching(ctx context.Context, q query.Query, schema query.Schema, tc query.TimeContext) (int64, error) {
+	resolved, _, err := query.ResolveTime(q, tc)
+	if err != nil {
+		return 0, err
+	}
+
+	sql, err := query.Compile(resolved, schema)
 	if err != nil {
 		return 0, err
 	}

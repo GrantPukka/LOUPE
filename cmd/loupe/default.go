@@ -52,6 +52,7 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	}
 
 	if !g.quiet {
+		sess.timeBanner(os.Stderr)
 		fmt.Fprintln(os.Stderr)
 	}
 
