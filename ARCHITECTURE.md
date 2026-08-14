@@ -142,6 +142,27 @@ and fields whose type changes halfway through a file.
 `line_no`, `raw`, `fields`) and add dynamic promotion in the second pass. Do not let schema
 inference block the first working demo.
 
+**As built (second pass).** Two deliberate departures from the paragraph above, both
+forced by measurement:
+
+- **Coverage is judged per source, not across the directory.** The 60% figure assumes one
+  coherent log stream. Measured on the demo directory, the single most common field of all
+  reaches 59.9%, because six formats each contribute their own vocabulary — so a global
+  threshold promotes nothing at all. A field carried by every Nginx record is a good column
+  even though Postgres never sets it; that is what NULL is for. Both the global and the
+  per-source figures are recorded on each `Promotion` so the decision can be explained.
+- **The sample is stratified and deterministic.** An equal slice from the head of each
+  source, not the head of the table: the first 10,000 records of the demo directory are all
+  Nginx, so a naive head sample promotes Nginx's columns and nothing else. It is not random,
+  because the decision is cached and a schema that wobbled between runs over identical files
+  would be indefensible.
+
+Promotion rebuilds the table once with a single `CREATE TABLE AS`, rather than an `ALTER`
+plus `UPDATE` per column, which would rewrite the whole table once per promoted field.
+`TRY_CAST` means one unparseable value yields NULL for that row rather than failing the
+rebuild. Promoted keys stay in the `fields` bag as well: stripping them needs a per-row JSON
+rewrite, and `raw` already holds a copy of everything.
+
 ### 3.4 Store — *DuckDB wrapper*
 
 ```sql
@@ -164,6 +185,25 @@ fingerprint hashes source paths, sizes, mtimes, and the parser version. A re-run
 unchanged files skips ingestion entirely. This is what makes the tool feel instant on the
 second invocation, and it is a bigger perceived-quality win than any amount of query
 optimisation. `--no-cache` bypasses it.
+
+**As built.** Measured on the demo directory: **1.15s cold, 0.14s warm.**
+
+- `--source-tz` is in the fingerprint. It moves timestamps, so a key without it would serve
+  records hours out.
+- `IngestVersion` is in the fingerprint. See CONTRIBUTING.md — forgetting to bump it means
+  users keep reading data produced by superseded parsers.
+- Ingest writes to `<fingerprint>.duckdb.partial` and renames on success, so an interrupted
+  run never leaves a half-built database a later run would trust.
+- The cached file carries a summary of the load, so a cache hit still reports the same
+  unparsed counts and assumed timezones a cold run did. A tool that gets quieter about its
+  own caveats on the second run is worse than one that never mentioned them.
+- The directory is capped at 2GiB with least-recently-used eviction, never evicting the
+  entry the current run just wrote.
+
+**Known limitation:** an actively written log file changes size and mtime on every run, so a
+live directory re-ingests each time. The cache pays off on archived and rotated logs. Making
+this incremental means storing per-file byte offsets and appending only the tail, which
+interacts with `--follow` and is not yet built.
 
 ### 3.5 Query — *two front doors*
 

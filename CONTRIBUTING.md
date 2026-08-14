@@ -116,6 +116,33 @@ That is the whole process. No other file in the repository needs to change.
 
 ---
 
+## If you change what gets ingested, bump `IngestVersion`
+
+`internal/store/cache.go` has a constant:
+
+```go
+const IngestVersion = 4
+```
+
+It is hashed into every cache key. Bump it whenever a change would make a
+cached database disagree with a fresh ingest of the same files:
+
+- the `logs` table schema
+- any parser's output, including a new field or a changed field name
+- level normalisation
+- timestamp parsing or the assumed-timezone rules
+- schema inference or the promotion rules
+
+Forgetting is the easiest way to introduce a subtle bug in this codebase.
+Nothing breaks on your machine — you will have re-ingested while developing —
+but every existing user keeps silently reading records produced by the code you
+just fixed, with no warning and no way to tell.
+
+`go test ./internal/store -run TestStaleIngestVersionIsRejected` covers the
+mechanism, not your bump. Only you can do that part.
+
+---
+
 ## Other good contributions
 
 - **Sources** — new places to read bytes from (`internal/source/`). Same shape: one file, one
