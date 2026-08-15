@@ -34,6 +34,9 @@ export function App() {
 
   const input = useRef(null);
   const generation = useRef(0);
+  // Set when the next filter change came from a click rather than the keyboard,
+  // so it applies without waiting out the typing debounce.
+  const immediate = useRef(false);
 
   useEffect(() => {
     getSchema().then(setSchema).catch((e) => setError(e.message));
@@ -46,10 +49,28 @@ export function App() {
 
   // Debounce the filter, so a query runs when typing pauses rather than on
   // every keystroke.
+  //
+  // This effect is the only writer of `applied`. Setting it from the click
+  // handlers as well let the two drift apart, leaving the box showing one
+  // filter and the list showing another.
   useEffect(() => {
-    const timer = setTimeout(() => setApplied(filter.trim()), DEBOUNCE_MS);
+    const delay = immediate.current ? 0 : DEBOUNCE_MS;
+    immediate.current = false;
+
+    const timer = setTimeout(() => setApplied((filter ?? '').trim()), delay);
     return () => clearTimeout(timer);
   }, [filter]);
+
+  /**
+   * Change the filter and query at once, skipping the debounce.
+   *
+   * A click is a decision, not typing. Waiting a fifth of a second after one
+   * reads as the filter refusing to let go.
+   */
+  const applyNow = useCallback((next) => {
+    immediate.current = true;
+    setFilter(next);
+  }, []);
 
   const load = useCallback(async (expression) => {
     // Responses can arrive out of order after a fast edit. Only the newest
@@ -82,7 +103,8 @@ export function App() {
   }, [applied, sort, load]);
 
   const loadMore = useCallback(async () => {
-    if (!result || busy || result.rows.length >= result.total) return;
+    const loaded = result?.rows?.length ?? 0;
+    if (!result || busy || loaded >= result.total) return;
 
     const mine = generation.current;
     setBusy(true);
@@ -90,14 +112,14 @@ export function App() {
       const next = await runQuery({
         filter: applied,
         limit: PAGE,
-        offset: result.rows.length,
+        offset: loaded,
         columns: LIST_COLUMNS,
         sort,
       });
       if (mine !== generation.current) return;
 
       setResult((prev) =>
-        prev ? { ...prev, rows: [...prev.rows, ...next.rows] } : next,
+        prev ? { ...prev, rows: [...(prev.rows ?? []), ...(next.rows ?? [])] } : next,
       );
     } catch {
       // Leave what is already loaded on screen.
@@ -114,24 +136,19 @@ export function App() {
    * them. Forcing newest-first and scrolling to the top does that.
    */
   const clearFilter = useCallback(() => {
+    immediate.current = true;
     setFilter('');
+    // Not routed through the debounce: if the box is already empty setFilter
+    // is a no-op, the effect never re-runs, and a stale `applied` would keep
+    // the old results on screen with nothing left to explain them.
     setApplied('');
     setSort('-time');
   }, []);
 
-  /**
-   * Remove one term.
-   *
-   * Applied immediately rather than through the debounce: a click is a
-   * decision, not typing, and waiting a fifth of a second after it reads as
-   * the filter refusing to let go.
-   */
+  /** Remove one term, leaving the rest of the filter alone. */
   const dropTerm = useCallback((term) => {
-    setFilter((current) => {
-      const next = removeTerm(current, term);
-      setApplied(next.trim());
-      return next;
-    });
+    immediate.current = true;
+    setFilter((current) => removeTerm(current, term));
   }, []);
 
   // Keyboard: / focuses the filter, Escape clears it.
@@ -165,6 +182,7 @@ export function App() {
 
   /** A timeline drag replaces any existing time term with the dragged range. */
   const onRange = useCallback((term) => {
+    immediate.current = true;
     setFilter((current) => {
       const base = withoutTimeTerms(current);
       const next = term ? `${base} ${term}`.trim() : base;
@@ -173,6 +191,7 @@ export function App() {
   }, []);
 
   const toggleSource = useCallback((name) => {
+    immediate.current = true;
     setFilter((current) => {
       const exclude = `-source:${name}`;
       const terms = (current || '').split(/\s+/).filter(Boolean);
@@ -185,8 +204,16 @@ export function App() {
 
   const timeZone = schema?.timezone ?? 'UTC';
   const excluded = new Set(
-    (filter.match(/-source:(\S+)/g) ?? []).map((t) => t.slice('-source:'.length)),
+    ((filter ?? '').match(/-source:(\S+)/g) ?? []).map((t) => t.slice('-source:'.length)),
   );
+
+  // Read once, defensively.
+  //
+  // A render that throws stops Preact updating anything, so the page freezes
+  // with the old filter still on screen and every control dead. That is a much
+  // worse failure than a missing row count, and it is not worth risking on an
+  // assumption about a field's shape.
+  const rows = result?.rows ?? [];
 
   return (
     <>
@@ -230,7 +257,7 @@ export function App() {
           placeholder="try:  level:error   ·   trace_id:a91c40f2   ·   status:>=500   ·   -source:nginx   ·   last:15m"
           onInput={(e) => setFilter(e.currentTarget.value)}
         />
-        {busy && <span class="busy">…</span>}
+        <span class="busy">{busy ? '…' : ''}</span>
         {filter && (
           <button class="clear" onClick={clearFilter} title="Escape — returns to the newest records">
             clear
@@ -244,6 +271,18 @@ export function App() {
           ? syntax
         </button>
       </div>
+
+      {/* Above the chips, not below them.
+          The chip row appears and disappears as terms come and go, and anything
+          under it moves when it does. With the panel below, clicking an example
+          shifted the panel — and its close button — out from under the cursor
+          mid-click. */}
+      <FilterHelp
+        open={showHelp}
+        timezone={timeZone}
+        onClose={() => setShowHelp(false)}
+        onInsert={(term) => applyNow(`${filter ?? ''} ${term}`.trim())}
+      />
 
       {applied && (
         <div class="terms">
@@ -265,13 +304,6 @@ export function App() {
         </div>
       )}
 
-      <FilterHelp
-        open={showHelp}
-        timezone={timeZone}
-        onClose={() => setShowHelp(false)}
-        onInsert={(term) => setFilter((f) => `${f} ${term}`.trim())}
-      />
-
       {error && <div class="error-bar">{error}</div>}
 
       <Histogram hist={hist} timeZone={timeZone} onRange={onRange} />
@@ -284,13 +316,13 @@ export function App() {
       </div>
 
       <Rows
-        rows={result?.rows ?? []}
+        rows={rows}
         columns={result?.columns ?? []}
         timeZone={timeZone}
         filter={filter}
-        onFilter={setFilter}
+        onFilter={applyNow}
         onLoadMore={loadMore}
-        hasMore={!!result && result.rows.length < result.total}
+        hasMore={!!result && rows.length < result.total}
         empty={emptyMessage(result, error)}
       />
 

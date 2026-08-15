@@ -112,9 +112,17 @@ header {
 }
 .filterbar input::placeholder { color: var(--text-ghost); }
 .filterbar:focus-within { box-shadow: inset 2px 0 0 var(--steel); }
-.filterbar .busy { font-family: var(--mono); font-size: 10px; color: var(--text-ghost); }
+/* Fixed width, so the buttons to its right do not jump sideways every time a
+   query starts and finishes — a control that moves under the cursor is a
+   control that gets mis-clicked. */
+.filterbar .busy {
+  flex: none; width: 12px; text-align: center;
+  font-family: var(--mono); font-size: 10px; color: var(--text-ghost);
+}
 .filterbar .clear {
+  flex: none;
   background: none; border: 0; cursor: pointer;
+  padding: 6px 4px;
   font-family: var(--mono); font-size: 11px; color: var(--text-ghost);
 }
 .filterbar .clear:hover { color: var(--text); }
@@ -319,6 +327,15 @@ footer .caution { color: var(--warn); }
   border-top: 1px solid var(--rule-soft);
 }
 .help-head b, .help-foot b { color: var(--text-dim); font-weight: 500; }
+/* A bordered target, not 30px of dim text at the edge of the screen. */
+.help-head .clear {
+  flex: none; align-self: flex-start;
+  padding: 3px 10px;
+  border: 1px solid var(--rule); border-radius: 3px;
+  background: none; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+}
+.help-head .clear:hover { color: var(--text); border-color: var(--steel); }
 
 .help-grid {
   display: grid; gap: 4px 22px; margin-top: 9px;
