@@ -237,6 +237,38 @@ func TestQueryExplainsAnEmptyResult(t *testing.T) {
 	}
 }
 
+// An empty result must be an empty array on the wire, never null.
+//
+// Decoding into queryResponse cannot catch this: len(nil) is also 0, so the
+// struct-level test above passes either way. It has to be asserted on the raw
+// JSON. A null here shipped a UI that froze on the first filter matching
+// nothing, because "no rows" arrived as a different shape from every other
+// response.
+func TestEmptyResultSendsAnArrayNotNull(t *testing.T) {
+	srv := newTestServer(t)
+
+	for _, body := range []string{
+		`{"filter":"status:>=999"}`,
+		`{"sql":"SELECT seq FROM logs WHERE false"}`,
+	} {
+		req := httptest.NewRequest("POST", "/api/query", strings.NewReader(body))
+		req.Host = "127.0.0.1:7717"
+		rec := httptest.NewRecorder()
+		srv.ServeHTTP(rec, req)
+
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+			t.Fatalf("decode %s: %v", body, err)
+		}
+
+		for _, field := range []string{"rows", "columns"} {
+			if got := string(raw[field]); got == "null" {
+				t.Errorf("%s: %q is null, want an empty array", body, field)
+			}
+		}
+	}
+}
+
 // A filter error must arrive intact. A UI that shows "bad request" where the
 // CLI shows a spelling suggestion is worse than the CLI at the moment the user
 // most needs help.

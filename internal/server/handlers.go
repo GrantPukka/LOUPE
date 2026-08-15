@@ -241,9 +241,21 @@ func (s *Server) describeWindow(plan session.Plan) *windowInfo {
 }
 
 func (s *Server) resultResponse(res store.Result) queryResponse {
+	// A nil slice marshals to JSON null, and "no records matched" is a normal
+	// answer that every client has to handle. Sending null makes the empty case
+	// a different shape from every other response, which is how it ends up
+	// untested and crashing a caller the first time a filter matches nothing.
+	columns, rows := res.Columns, res.Rows
+	if columns == nil {
+		columns = []string{}
+	}
+	if rows == nil {
+		rows = [][]any{}
+	}
+
 	return queryResponse{
-		Columns:   res.Columns,
-		Rows:      res.Rows,
+		Columns:   columns,
+		Rows:      rows,
 		Total:     res.Total,
 		Truncated: res.Truncated,
 		TookMS:    float64(res.Took.Microseconds()) / 1000,
