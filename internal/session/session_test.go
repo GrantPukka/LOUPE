@@ -29,7 +29,7 @@ func openFixture(t *testing.T, lines ...string) *Session {
 	}
 
 	sess, err := Open(context.Background(), Options{
-		Path:     dir,
+		Paths:    []string{dir},
 		Location: time.UTC,
 		NoCache:  true,
 	})
@@ -302,7 +302,7 @@ func TestNoSourcesErrorNamesTheSkips(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	_, err := Open(context.Background(), Options{Path: dir, NoCache: true})
+	_, err := Open(context.Background(), Options{Paths: []string{dir}, NoCache: true})
 	if err == nil {
 		t.Fatal("opening a directory of unreadable files succeeded")
 	}

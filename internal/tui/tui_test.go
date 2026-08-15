@@ -31,7 +31,7 @@ func openFixture(t *testing.T) *session.Session {
 	}
 
 	sess, err := session.Open(context.Background(), session.Options{
-		Path: dir, Location: time.UTC, NoCache: true,
+		Paths: []string{dir}, Location: time.UTC, NoCache: true,
 	})
 	if err != nil {
 		t.Fatalf("open session: %v", err)
