@@ -70,3 +70,12 @@ export const DETAIL_COLUMNS =
  */
 export const getRecord = (seq) =>
   post('/api/query', { filter: `seq:${seq}`, columns: DETAIL_COLUMNS, limit: 1 });
+
+export const browse = (path) =>
+  request(`/api/browse?path=${encodeURIComponent(path ?? '')}`);
+
+export const getSubscriptions = () => request('/api/subscriptions');
+
+export const subscribe = (path, label) => post('/api/subscribe', { path, label: label ?? '' });
+
+export const unsubscribe = (path) => post('/api/unsubscribe', { path });

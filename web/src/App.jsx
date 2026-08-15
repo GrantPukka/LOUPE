@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { LIST_COLUMNS, getHistogram, getSchema, runQuery } from './api.js';
+import { LIST_COLUMNS, getHistogram, getSchema, getSubscriptions, runQuery } from './api.js';
+import { Browser, Subscriptions } from './Browser.jsx';
+import { FilterHelp } from './FilterHelp.jsx';
 import { Histogram } from './Histogram.jsx';
 import { Rows } from './Rows.jsx';
 import { number, sourceColour, withoutTimeTerms } from './format.js';
@@ -21,11 +23,25 @@ export function App() {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const [showHelp, setShowHelp] = useState(false);
+  const [showBrowser, setShowBrowser] = useState(false);
+  const [showSubs, setShowSubs] = useState(false);
+  const [subs, setSubs] = useState(null);
+
+  // Newest first. The top of the list is where the eye starts, and the most
+  // recent record is almost always the one being looked for.
+  const [sort, setSort] = useState('-time');
+
   const input = useRef(null);
   const generation = useRef(0);
 
   useEffect(() => {
     getSchema().then(setSchema).catch((e) => setError(e.message));
+    getSubscriptions().then(setSubs).catch(() => {
+      // An older binary, or one started without a workspace. The rest of the
+      // UI works; only the subscription controls are unavailable.
+      setSubs(null);
+    });
   }, []);
 
   // Debounce the filter, so a query runs when typing pauses rather than on
@@ -44,7 +60,7 @@ export function App() {
 
     try {
       const [records, histogram] = await Promise.all([
-        runQuery({ filter: expression, limit: PAGE, columns: LIST_COLUMNS }),
+        runQuery({ filter: expression, limit: PAGE, columns: LIST_COLUMNS, sort }),
         getHistogram({ filter: expression, buckets: 90 }),
       ]);
 
@@ -59,11 +75,11 @@ export function App() {
     } finally {
       if (mine === generation.current) setBusy(false);
     }
-  }, []);
+  }, [sort]);
 
   useEffect(() => {
     load(applied);
-  }, [applied, load]);
+  }, [applied, sort, load]);
 
   const loadMore = useCallback(async () => {
     if (!result || busy || result.rows.length >= result.total) return;
@@ -76,6 +92,7 @@ export function App() {
         limit: PAGE,
         offset: result.rows.length,
         columns: LIST_COLUMNS,
+        sort,
       });
       if (mine !== generation.current) return;
 
@@ -87,7 +104,7 @@ export function App() {
     } finally {
       if (mine === generation.current) setBusy(false);
     }
-  }, [applied, busy, result]);
+  }, [applied, busy, result, sort]);
 
   // Keyboard: / focuses the filter, Escape clears it.
   useEffect(() => {
@@ -96,13 +113,23 @@ export function App() {
         e.preventDefault();
         input.current?.focus();
       }
-      if (e.key === 'Escape' && document.activeElement === input.current) {
-        setFilter('');
+      if (e.key === 'Escape') {
+        if (showBrowser || showSubs || showHelp) {
+          setShowBrowser(false);
+          setShowSubs(false);
+          setShowHelp(false);
+          return;
+        }
+        if (document.activeElement === input.current) setFilter('');
+      }
+      if (e.key === '?' && document.activeElement !== input.current) {
+        e.preventDefault();
+        setShowHelp((v) => !v);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [showBrowser, showSubs, showHelp]);
 
   /** A timeline drag replaces any existing time term with the dragged range. */
   const onRange = useCallback((term) => {
@@ -124,6 +151,18 @@ export function App() {
     });
   }, []);
 
+  /**
+   * Clearing the filter returns to the newest records.
+   *
+   * Someone who has narrowed to a window and then clears it wants to be back at
+   * "what is happening now", not left looking at wherever the old range put
+   * them. Forcing newest-first and scrolling to the top does that.
+   */
+  const clearFilter = useCallback(() => {
+    setFilter('');
+    setSort('-time');
+  }, []);
+
   const timeZone = schema?.timezone ?? 'UTC';
   const excluded = new Set(
     (filter.match(/-source:(\S+)/g) ?? []).map((t) => t.slice('-source:'.length)),
@@ -134,6 +173,17 @@ export function App() {
       <Header schema={schema} timeZone={timeZone} />
 
       <div class="sources">
+        {subs && (
+          <>
+            <button class="chip add" onClick={() => setShowBrowser(true)} title="add a log location">
+              + add folder
+            </button>
+            <button class="chip add" onClick={() => setShowSubs(true)} title="manage subscriptions">
+              {(subs.subscriptions ?? []).filter((s) => s.active).length} subscribed
+            </button>
+          </>
+        )}
+
         {groupSources(schema?.sources).map((s) => (
           <button
             class={`chip ${excluded.has(s.name) ? 'off' : ''}`}
@@ -162,11 +212,25 @@ export function App() {
         />
         {busy && <span class="busy">…</span>}
         {filter && (
-          <button class="clear" onClick={() => setFilter('')} title="Escape">
+          <button class="clear" onClick={clearFilter} title="Escape — returns to the newest records">
             clear
           </button>
         )}
+        <button
+          class={`clear ${showHelp ? 'on' : ''}`}
+          onClick={() => setShowHelp((v) => !v)}
+          title="filter syntax (?)"
+        >
+          ? syntax
+        </button>
       </div>
+
+      <FilterHelp
+        open={showHelp}
+        timezone={timeZone}
+        onClose={() => setShowHelp(false)}
+        onInsert={(term) => setFilter((f) => `${f} ${term}`.trim())}
+      />
 
       {error && <div class="error-bar">{error}</div>}
 
@@ -190,7 +254,19 @@ export function App() {
         empty={emptyMessage(result, error)}
       />
 
-      <Footer result={result} hist={hist} schema={schema} />
+      <Footer result={result} hist={hist} schema={schema} sort={sort} onSort={setSort} />
+
+      <Browser
+        open={showBrowser}
+        onClose={() => setShowBrowser(false)}
+        onChanged={() => getSubscriptions().then(setSubs).catch(() => {})}
+      />
+      <Subscriptions
+        open={showSubs}
+        subs={subs}
+        onClose={() => setShowSubs(false)}
+        onChanged={() => getSubscriptions().then(setSubs).catch(() => {})}
+      />
     </>
   );
 }
@@ -263,12 +339,19 @@ function Header({ schema, timeZone }) {
   );
 }
 
-function Footer({ result, hist, schema }) {
+function Footer({ result, hist, schema, sort, onSort }) {
   const shown = result?.rows?.length ?? 0;
   const total = result?.total ?? 0;
 
   return (
     <footer>
+      <button
+        class="clear"
+        onClick={() => onSort(sort === '-time' ? 'time' : '-time')}
+        title="switch between newest and oldest first"
+      >
+        {sort === '-time' ? 'newest first' : 'oldest first'}
+      </button>
       <span>
         <b>{number(shown)}</b> of <b>{number(total)}</b> records
         {result?.took_ms !== undefined && <> · <b>{result.took_ms.toFixed(0)}ms</b></>}
