@@ -15,8 +15,12 @@
 
 ```bash
 loupe ./logs                 # every log file in the directory, one timeline
+loupe ./logs ~/Downloads     # several locations, still one timeline
 loupe ./logs --ui            # same thing, in the browser
-kubectl logs -f api-7d9 | loupe --ui
+loupe tui ./logs             # same thing, in the terminal
+
+loupe subscribe /var/log     # remember it
+loupe                        # read everything subscribed
 ```
 
 ## Why

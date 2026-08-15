@@ -257,6 +257,10 @@ docs/                   ARCHITECTURE.md, adding-a-parser.md
 **Dependency rule:** `parse` must not import `store`, `query`, or `server`. `store` must not
 import `server`. If a parser needs to know about SQL, the design has gone wrong.
 
+`workspace/` holds the remembered log locations and the append-only audit trail. It is a
+list of paths and a history, not an ingestion daemon — the non-goals in §8 still hold, and
+loupe still only reads when you run it.
+
 `session` sits above `store` and `query` and below every front end. It exists because the
 CLI, the HTTP API, and the TUI must share one query path; anything that would otherwise be
 duplicated into a second front end belongs there rather than in `cmd/loupe`.
@@ -296,6 +300,13 @@ would be a bug.
 - **Loopback only, enforced.** `Listen` refuses a non-loopback address rather than
   documenting the risk. There is no authentication, so binding to a reachable interface
   would publish the logs; the error suggests an SSH tunnel. No CORS headers are sent.
+- **The Host header is checked on every request.** Binding to loopback was enough while the
+  API only served a directory named on the command line. It stopped being enough when
+  `/api/browse` was added: a page on another origin can point a hostname it controls at
+  127.0.0.1, wait for the DNS cache to flip, and reach a loopback service as same-origin.
+  The browser sends the attacker's hostname in `Host`, which is what the check catches.
+  Browsing is separately confined to a fixed set of roots, so the two defences are
+  independent.
 - **Errors arrive verbatim.** A typo'd field name returns the same spelling suggestion and
   field list the CLI prints. A UI that shows "bad request" where the terminal shows a fix is
   worse than the terminal at the moment the user most needs help.
