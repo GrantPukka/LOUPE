@@ -375,6 +375,13 @@ func ListCache(dir string) ([]CacheEntry, error) {
 // behind, so without a cap the directory grows until somebody notices.
 const DefaultCacheLimit = 2 << 30 // 2GiB
 
+// DefaultRetention is how long a cached ingest survives without being used.
+//
+// An unsubscribed location keeps its cache for a fortnight, so re-subscribing
+// during an incident is instant rather than a re-read. After that it is stale
+// enough that the files have probably changed anyway.
+const DefaultRetention = 14 * 24 * time.Hour
+
 // PruneCache deletes the least recently modified entries until the cache fits
 // within limit, and returns what it removed.
 //
@@ -390,6 +397,23 @@ func PruneCache(dir string, limit int64, keep string) (removed int, freed int64,
 	if err != nil {
 		return 0, 0, err
 	}
+
+	// Age first, then size. An entry nobody has opened for a fortnight goes
+	// whether or not the cache is near its cap.
+	cutoff := time.Now().Add(-DefaultRetention)
+	kept := entries[:0]
+
+	for _, e := range entries {
+		if e.Path != keep && e.Modified.Before(cutoff) {
+			if os.Remove(e.Path) == nil {
+				removed++
+				freed += e.Size
+				continue
+			}
+		}
+		kept = append(kept, e)
+	}
+	entries = kept
 
 	var total int64
 	for _, e := range entries {

@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/VIGIL-OPS/loupe/internal/query"
@@ -24,8 +25,10 @@ import (
 
 // Options configures opening a set of logs.
 type Options struct {
-	// Path is the directory or file to read.
-	Path string
+	// Paths are the directories or files to read. Several are walked and
+	// interleaved onto one timeline, which is the tool's premise extended from
+	// one directory to a set of them.
+	Paths []string
 
 	// Parser forces a format instead of detecting one.
 	Parser string
@@ -52,6 +55,9 @@ type Session struct {
 	DB   *store.DB
 	Load store.Load
 	Loc  *time.Location
+
+	// Paths are the locations this session was opened over.
+	Paths []string
 
 	// Walk reports the files that were passed over and why.
 	Walk source.WalkOptions
@@ -82,13 +88,27 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 		opts.Location = SystemLocation()
 	}
 
-	walk := opts.Walk
-	sources, err := source.Walk(opts.Path, &walk)
-	if err != nil {
-		return nil, err
+	if len(opts.Paths) == 0 {
+		opts.Paths = []string{"."}
 	}
+
+	walk := opts.Walk
+	var sources []source.Source
+
+	for _, path := range opts.Paths {
+		found, err := source.Walk(path, &walk)
+		if err != nil {
+			// One unreadable location must not stop the others. A directory
+			// that has been deleted since it was subscribed is a note, not a
+			// reason to refuse to open anything.
+			walk.Skipped = append(walk.Skipped, source.Skip{Path: path, Reason: err.Error()})
+			continue
+		}
+		sources = append(sources, found...)
+	}
+
 	if len(sources) == 0 {
-		return nil, NoSourcesError{Path: opts.Path, Skipped: walk.Skipped}
+		return nil, NoSourcesError{Paths: opts.Paths, Skipped: walk.Skipped}
 	}
 
 	cached, err := store.OpenCached(ctx, sources,
@@ -107,6 +127,7 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 
 	return &Session{
 		DB:            cached.DB,
+		Paths:         opts.Paths,
 		Load:          cached.Load,
 		Loc:           opts.Location,
 		Walk:          walk,
@@ -311,14 +332,19 @@ func (s *Session) Count(ctx context.Context, plan Plan) (int64, error) {
 // An empty result with no explanation is the single most misleading thing this
 // tool could do, so the skipped files travel with the error.
 type NoSourcesError struct {
-	Path    string
+	Paths   []string
 	Skipped []source.Skip
 }
 
 func (e NoSourcesError) Error() string {
+	where := strings.Join(e.Paths, ", ")
+	if where == "" {
+		where = "the given paths"
+	}
+
 	if len(e.Skipped) == 0 {
-		return fmt.Sprintf("no log files found in %s", e.Path)
+		return fmt.Sprintf("no log files found in %s", where)
 	}
 	return fmt.Sprintf("no readable log files in %s, but %d file(s) were skipped",
-		e.Path, len(e.Skipped))
+		where, len(e.Skipped))
 }
