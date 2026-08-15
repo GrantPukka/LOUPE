@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { getRecord } from './api.js';
-import { clock, displayValue, sourceColour, withTerm } from './format.js';
+import { clock, displayValue, hasTerm, quoteValue, sourceColour, toggleTerm } from './format.js';
 
 const ROW_HEIGHT = 22;
 // Rows rendered beyond the visible window, so a fast scroll does not show gaps.
@@ -224,21 +224,25 @@ function Detail({ record, filter, onFilter }) {
         </div>
       )}
 
-      {rows.map(([k, v]) => (
-        <div class="kv" key={k}>
-          <span class="k">{k}</span>
-          <span
-            class="v"
-            title={`filter on ${k}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onFilter(withTerm(filter, k, v));
-            }}
-          >
-            {displayValue(v)}
-          </span>
-        </div>
-      ))}
+      {rows.map(([k, v]) => {
+        const applied = hasTerm(filter, `${k}:${quoteValue(v)}`);
+        return (
+          <div class="kv" key={k}>
+            <span class="k">{k}</span>
+            <span
+              class={`v ${applied ? 'on' : ''}`}
+              title={applied ? `remove ${k} from the filter` : `filter on ${k}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onFilter(toggleTerm(filter, k, v));
+              }}
+            >
+              {displayValue(v)}
+              {applied && <span class="v-on"> ✓ filtering</span>}
+            </span>
+          </div>
+        );
+      })}
 
       <div class="rawhead">
         raw line · {record.format} · {record.file}

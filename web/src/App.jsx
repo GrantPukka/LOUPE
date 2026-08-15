@@ -4,7 +4,7 @@ import { Browser, Subscriptions } from './Browser.jsx';
 import { FilterHelp } from './FilterHelp.jsx';
 import { Histogram } from './Histogram.jsx';
 import { Rows } from './Rows.jsx';
-import { number, sourceColour, withoutTimeTerms } from './format.js';
+import { number, removeTerm, sourceColour, splitTerms, termLabel, withoutTimeTerms } from './format.js';
 
 // One page of records. Scrolling fetches the next.
 const PAGE = 300;
@@ -106,6 +106,34 @@ export function App() {
     }
   }, [applied, busy, result, sort]);
 
+  /**
+   * Clearing the filter returns to the newest records.
+   *
+   * Someone who has narrowed to a window and then clears it wants to be back at
+   * "what is happening now", not left looking at wherever the old range put
+   * them. Forcing newest-first and scrolling to the top does that.
+   */
+  const clearFilter = useCallback(() => {
+    setFilter('');
+    setApplied('');
+    setSort('-time');
+  }, []);
+
+  /**
+   * Remove one term.
+   *
+   * Applied immediately rather than through the debounce: a click is a
+   * decision, not typing, and waiting a fifth of a second after it reads as
+   * the filter refusing to let go.
+   */
+  const dropTerm = useCallback((term) => {
+    setFilter((current) => {
+      const next = removeTerm(current, term);
+      setApplied(next.trim());
+      return next;
+    });
+  }, []);
+
   // Keyboard: / focuses the filter, Escape clears it.
   useEffect(() => {
     const onKey = (e) => {
@@ -120,7 +148,11 @@ export function App() {
           setShowHelp(false);
           return;
         }
-        if (document.activeElement === input.current) setFilter('');
+        // From anywhere, not only the box. Someone scrolling the list who
+        // wants out of a filter should not have to click into the input
+        // first.
+        clearFilter();
+        input.current?.blur();
       }
       if (e.key === '?' && document.activeElement !== input.current) {
         e.preventDefault();
@@ -129,7 +161,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showBrowser, showSubs, showHelp]);
+  }, [showBrowser, showSubs, showHelp, clearFilter]);
 
   /** A timeline drag replaces any existing time term with the dragged range. */
   const onRange = useCallback((term) => {
@@ -149,18 +181,6 @@ export function App() {
         ? terms.filter((t) => t !== exclude).join(' ')
         : [...terms, exclude].join(' ');
     });
-  }, []);
-
-  /**
-   * Clearing the filter returns to the newest records.
-   *
-   * Someone who has narrowed to a window and then clears it wants to be back at
-   * "what is happening now", not left looking at wherever the old range put
-   * them. Forcing newest-first and scrolling to the top does that.
-   */
-  const clearFilter = useCallback(() => {
-    setFilter('');
-    setSort('-time');
   }, []);
 
   const timeZone = schema?.timezone ?? 'UTC';
@@ -224,6 +244,26 @@ export function App() {
           ? syntax
         </button>
       </div>
+
+      {applied && (
+        <div class="terms">
+          <span class="terms-label">filtering on</span>
+          {splitTerms(applied).map((term) => (
+            <button
+              class="term"
+              key={term}
+              title={`${term}\n\nclick to remove this term`}
+              onClick={() => dropTerm(term)}
+            >
+              {termLabel(term)}
+              <span class="term-x">×</span>
+            </button>
+          ))}
+          <button class="term-all" onClick={clearFilter} title="remove every term (Escape)">
+            clear all
+          </button>
+        </div>
+      )}
 
       <FilterHelp
         open={showHelp}

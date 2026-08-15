@@ -72,6 +72,31 @@ export function FilterHelp({ open, onClose, onInsert, timezone }) {
         </button>
       </div>
 
+      {/* How to build one, not just what the pieces are. The syntax table
+          below answers "what can I type"; this answers "how do I work". */}
+      <div class="help-how">
+        <div>
+          <b>Build one</b> by stacking terms: <code>level:&gt;=error</code>{' '}
+          <code>source:nginx</code> <code>status:&gt;=500</code> means all three at once.
+        </div>
+        <div>
+          <b>Narrow by time</b> by dragging the timeline — it writes a real{' '}
+          <code>between:…</code> term you can copy, edit, or share.
+        </div>
+        <div>
+          <b>Add a term without typing</b> by expanding a record and clicking any field
+          value. Click it again to take it back off.
+        </div>
+        <div>
+          <b>Remove one term</b> with the × on its chip above the timeline.{' '}
+          <b>Remove everything</b> with Escape, or “clear all”.
+        </div>
+        <div>
+          <b>Invert any term</b> with a leading minus: <code>-source:nginx</code> is
+          everything except nginx.
+        </div>
+      </div>
+
       <div class="help-grid">
         {SECTIONS.map((section) => (
           <div class="help-section" key={section.title}>

@@ -116,3 +116,86 @@ export function withoutTimeTerms(filter) {
     .filter((t) => t && !TIME.test(t))
     .join(' ');
 }
+
+/**
+ * Split a filter into its terms, respecting quotes.
+ *
+ * Splitting on whitespace alone would tear `msg:"read timed out"` into three
+ * terms, and removing one of them would leave an unparseable filter.
+ */
+export function splitTerms(filter) {
+  const terms = [];
+  let current = '';
+  let quoted = false;
+
+  for (let i = 0; i < (filter ?? '').length; i++) {
+    const c = filter[i];
+
+    if (c === '\\' && quoted && i + 1 < filter.length) {
+      current += c + filter[++i];
+      continue;
+    }
+    if (c === '"') {
+      quoted = !quoted;
+      current += c;
+      continue;
+    }
+    if (!quoted && /\s/.test(c)) {
+      if (current) terms.push(current);
+      current = '';
+      continue;
+    }
+    current += c;
+  }
+
+  if (current) terms.push(current);
+  return terms;
+}
+
+/** Remove one term from a filter, leaving the rest intact. */
+export function removeTerm(filter, term) {
+  return splitTerms(filter)
+    .filter((t) => t !== term)
+    .join(' ');
+}
+
+/** Whether a term is already in a filter. */
+export function hasTerm(filter, term) {
+  return splitTerms(filter).includes(term);
+}
+
+/**
+ * Toggle a field term.
+ *
+ * Clicking a value that is already filtered on removes it. Without this,
+ * clicking it again appears to do nothing, which reads as the filter refusing
+ * to let go.
+ */
+export function toggleTerm(filter, key, value) {
+  const term = `${key}:${quoteValue(value)}`;
+  if (hasTerm(filter, term)) {
+    return removeTerm(filter, term);
+  }
+  return withTerm(filter, key, value);
+}
+
+/**
+ * A short label for a term chip.
+ *
+ * A resolved time window is sixty characters of RFC3339, which is correct in
+ * the filter box and unreadable as a chip. The full text stays on the chip's
+ * title and in the box, which remains the source of truth.
+ */
+export function termLabel(term) {
+  const between = term.match(/^-?between:(\S+?)-(\d{4}-\d{2}-\d{2}T\S+)$/);
+  if (between) {
+    return `${term.startsWith('-') ? '-' : ''}between: ${clockPart(between[1])} → ${clockPart(between[2])}`;
+  }
+  if (term.length > 42) return term.slice(0, 41) + '…';
+  return term;
+}
+
+const clockPart = (iso) => {
+  const m = iso.match(/T(\d{2}:\d{2}:\d{2})/);
+  return m ? m[1] : iso;
+};

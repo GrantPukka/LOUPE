@@ -433,3 +433,64 @@ footer .caution { color: var(--warn); }
 .unsub { color: var(--text-ghost); }
 .unsub:hover { color: var(--warn); border-color: var(--warn); }
 .sub:disabled, .unsub:disabled { opacity: .4; cursor: default; }
+
+/* ------------------------------------------------------------ term chips */
+
+/*
+ * The active filter, one removable chip per term.
+ *
+ * The box holds the whole expression and stays the source of truth, but a
+ * single term buried in a long line is hard to remove and easy to mistype.
+ * Clicking an × removes exactly one and re-queries at once.
+ */
+.terms {
+  flex: none;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+}
+.terms-label {
+  font-family: var(--mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--text-ghost);
+  padding-right: 2px;
+}
+.term {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--steel-soft);
+  border: 1px solid var(--steel); border-radius: 3px;
+  padding: 2px 6px 2px 8px;
+  cursor: pointer;
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+}
+.term:hover { background: rgba(232, 112, 94, .16); border-color: var(--error); }
+.term-x { color: var(--text-ghost); font-size: 13px; line-height: 1; }
+.term:hover .term-x { color: var(--error); }
+
+.term-all {
+  background: none; border: 0; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; color: var(--text-ghost);
+  text-decoration: underline;
+}
+.term-all:hover { color: var(--text); }
+
+/* A field value that is already in the filter says so, and clicking removes
+   it. Without the marker, clicking an applied value looks like nothing
+   happened. */
+.kv .v.on { color: var(--steel); border-bottom-color: var(--steel); }
+.v-on { color: var(--text-ghost); font-size: 10px; }
+
+/* How to build a filter, above the syntax table: the table says what you can
+   type, this says how to work. */
+.help-how {
+  display: grid; gap: 3px 22px; margin-top: 9px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-soft);
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  color: var(--text-dim); line-height: 1.6;
+}
+.help-how b { color: var(--text); font-weight: 500; }
+.help-how code {
+  color: var(--steel);
+  font-family: var(--mono); font-size: 11px;
+}
