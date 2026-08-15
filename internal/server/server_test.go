@@ -40,7 +40,7 @@ func fixture(t *testing.T) *session.Session {
 	}, "\n")+"\n")
 
 	sess, err := session.Open(context.Background(), session.Options{
-		Path:     dir,
+		Paths:    []string{dir},
 		Location: time.UTC,
 		NoCache:  true,
 	})
@@ -54,7 +54,7 @@ func fixture(t *testing.T) *session.Session {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	return New(fixture(t), Options{})
+	return New(fixture(t), nil, Options{})
 }
 
 // do sends a request and decodes the JSON response.
@@ -69,6 +69,10 @@ func do(t *testing.T, srv *Server, method, path, body string, into any) int {
 	}
 
 	req := httptest.NewRequest(method, path, reader)
+	// httptest defaults Host to example.com, which the rebinding check
+	// correctly refuses. A real browser on the loopback UI sends localhost.
+	req.Host = "127.0.0.1:7717"
+
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
 
@@ -374,6 +378,7 @@ func TestNoCrossOriginAccessIsGranted(t *testing.T) {
 	srv := newTestServer(t)
 
 	req := httptest.NewRequest("GET", "/api/schema", nil)
+	req.Host = "127.0.0.1:7717"
 	req.Header.Set("Origin", "https://evil.example")
 	rec := httptest.NewRecorder()
 	srv.ServeHTTP(rec, req)
@@ -400,7 +405,7 @@ func TestListenRefusesNonLoopback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.addr, func(t *testing.T) {
-			srv := New(fixture(t), Options{Addr: tt.addr})
+			srv := New(fixture(t), nil, Options{Addr: tt.addr})
 
 			ln, err := srv.Listen()
 			if ln != nil {
@@ -421,7 +426,7 @@ func TestListenRefusesNonLoopback(t *testing.T) {
 }
 
 func TestServeShutsDownOnContextCancel(t *testing.T) {
-	srv := New(fixture(t), Options{Addr: "127.0.0.1:0"})
+	srv := New(fixture(t), nil, Options{Addr: "127.0.0.1:0"})
 
 	ln, err := srv.Listen()
 	if err != nil {
@@ -467,4 +472,63 @@ func sameRow(a, b []any) bool {
 		}
 	}
 	return true
+}
+
+// DNS rebinding: a page on attacker.example points a hostname it controls at
+// 127.0.0.1, waits for the browser's DNS cache to flip, then makes same-origin
+// requests to this server. Binding to loopback does not stop that; the Host
+// header the browser sends is what distinguishes it from the real UI.
+//
+// This matters more now that the API can list directories on request.
+func TestRebindingHostsAreRefused(t *testing.T) {
+	srv := newTestServer(t)
+
+	tests := []struct {
+		host    string
+		allowed bool
+	}{
+		{"127.0.0.1:7717", true},
+		{"localhost:7717", true},
+		{"localhost", true},
+		{"[::1]:7717", true},
+		{"attacker.example", false},
+		{"logs.internal.corp:7717", false},
+		{"169.254.169.254", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.host, func(t *testing.T) {
+			req := httptest.NewRequest("GET", "/api/schema", nil)
+			req.Host = tt.host
+
+			rec := httptest.NewRecorder()
+			srv.ServeHTTP(rec, req)
+
+			refused := rec.Code == http.StatusForbidden
+			if tt.allowed && refused {
+				t.Errorf("host %q was refused", tt.host)
+			}
+			if !tt.allowed && !refused {
+				t.Errorf("host %q was served (status %d); a rebinding attack would reach the API",
+					tt.host, rec.Code)
+			}
+		})
+	}
+}
+
+// Browsing needs a workspace. Without one it must say so rather than panicking
+// on a nil pointer.
+func TestBrowseWithoutAWorkspace(t *testing.T) {
+	srv := newTestServer(t)
+
+	var got apiError
+	code := do(t, srv, "GET", "/api/browse", "", &got)
+
+	if code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", code)
+	}
+	if got.Error == "" {
+		t.Error("no explanation for the missing workspace")
+	}
 }

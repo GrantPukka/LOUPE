@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/VIGIL-OPS/loupe/internal/session"
+	"github.com/VIGIL-OPS/loupe/internal/workspace"
 )
 
 // Options configures the HTTP server.
@@ -33,17 +34,21 @@ const DefaultAddr = "127.0.0.1:7717"
 // reachable here but not from the terminal would be a bug, not a feature.
 type Server struct {
 	sess *session.Session
+	work *workspace.Workspace
 	opts Options
 	mux  *http.ServeMux
 }
 
 // New builds a server over an open session.
-func New(sess *session.Session, opts Options) *Server {
+//
+// The workspace is optional: without one the API still serves the loaded
+// directory, it just cannot browse or change what is subscribed.
+func New(sess *session.Session, work *workspace.Workspace, opts Options) *Server {
 	if opts.Addr == "" {
 		opts.Addr = DefaultAddr
 	}
 
-	s := &Server{sess: sess, opts: opts, mux: http.NewServeMux()}
+	s := &Server{sess: sess, work: work, opts: opts, mux: http.NewServeMux()}
 	s.routes()
 	return s
 }
@@ -54,6 +59,11 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/histogram", s.handleHistogram)
 	s.mux.HandleFunc("GET /api/sources", s.handleSources)
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
+	s.mux.HandleFunc("GET /api/browse", s.handleBrowse)
+	s.mux.HandleFunc("GET /api/subscriptions", s.handleSubscriptions)
+	s.mux.HandleFunc("POST /api/subscribe", s.handleSubscribe)
+	s.mux.HandleFunc("POST /api/unsubscribe", s.handleUnsubscribe)
+	s.mux.HandleFunc("GET /api/audit", s.handleAudit)
 
 	// Everything else is the single-page app. Registered last and on the root
 	// pattern, so the API routes above always win.
@@ -65,6 +75,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// needed or granted. A browser tab on another site must not be able to
 	// read the contents of somebody's production logs.
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	// Binding to loopback is not enough on its own once the API can list
+	// directories: DNS rebinding lets a remote page reach a loopback service
+	// as same-origin. The Host header is what distinguishes the two.
+	if err := requireLocalHost(r); err != nil {
+		writeError(w, http.StatusForbidden, err)
+		return
+	}
 
 	start := time.Now()
 	s.mux.ServeHTTP(w, r)
