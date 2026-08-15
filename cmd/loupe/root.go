@@ -37,6 +37,8 @@ type globals struct {
 	uiAddr      string
 	handoff     string
 	redact      []string
+	sort        string
+	configDir   string
 }
 
 func newRootCommand() *cobra.Command {
@@ -81,6 +83,8 @@ Read-only, local-only, no daemon, no network.`,
 		"write a pasteable extract to this file instead of printing records (.md, .json, .zip, or - for stdout)")
 	pf.StringSliceVar(&g.redact, "redact", nil,
 		"replace these field values with a stable hash in the handoff, e.g. --redact user_id,email")
+	pf.StringVar(&g.sort, "sort", "oldest", "record order: oldest or newest first")
+	pf.StringVar(&g.configDir, "config-dir", "", "override where subscriptions live (default ~/.config/loupe)")
 
 	// The README's headline invocation. It is the same thing `loupe serve`
 	// does, so it delegates rather than growing a second code path.
@@ -88,6 +92,9 @@ Read-only, local-only, no daemon, no network.`,
 	root.Flags().StringVar(&g.uiAddr, "addr", server.DefaultAddr, "loopback address for --ui")
 
 	root.AddCommand(
+		newSubscribeCommand(g),
+		newUnsubscribeCommand(g),
+		newSubscriptionsCommand(g),
 		newSQLCommand(g),
 		newSourcesCommand(g),
 		newCacheCommand(g),
@@ -100,8 +107,8 @@ Read-only, local-only, no daemon, no network.`,
 }
 
 // open resolves the flags into session options and opens the logs.
-func (g *globals) open(ctx context.Context, path string) (*session.Session, error) {
-	opts, err := g.sessionOptions(path)
+func (g *globals) open(ctx context.Context, paths ...string) (*session.Session, error) {
+	opts, err := g.sessionOptions(paths)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +126,7 @@ func (g *globals) open(ctx context.Context, path string) (*session.Session, erro
 	return sess, nil
 }
 
-func (g *globals) sessionOptions(path string) (session.Options, error) {
+func (g *globals) sessionOptions(paths []string) (session.Options, error) {
 	loc, err := session.ParseLocation(g.utc, g.tz)
 	if err != nil {
 		return session.Options{}, err
@@ -136,7 +143,7 @@ func (g *globals) sessionOptions(path string) (session.Options, error) {
 	}
 
 	return session.Options{
-		Path:          path,
+		Paths:         paths,
 		Parser:        g.parser,
 		SourceZones:   zones,
 		Location:      loc,
@@ -149,6 +156,22 @@ func (g *globals) sessionOptions(path string) (session.Options, error) {
 			Exclude:     g.exclude,
 		},
 	}, nil
+}
+
+// parseSort reads --sort.
+//
+// The terminal defaults to oldest first, which is what makes a cascade legible
+// and what a piped `loupe … | head` expects. The web UI asks for newest first
+// explicitly, because there the top of the list is where the eye starts.
+func (g *globals) parseSort() (session.SortOrder, error) {
+	switch strings.ToLower(g.sort) {
+	case "", "oldest", "time", "asc":
+		return session.SortTime, nil
+	case "newest", "-time", "desc", "recent":
+		return session.SortTimeDesc, nil
+	default:
+		return "", fmt.Errorf("unknown --sort %q: use oldest or newest", g.sort)
+	}
 }
 
 // parseRelativeTo reads --relative-to.
@@ -190,7 +213,7 @@ func describeNoSources(none session.NoSourcesError) error {
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "no readable log files in %s, but %d file(s) were skipped:",
-		none.Path, len(none.Skipped))
+		strings.Join(none.Paths, ", "), len(none.Skipped))
 
 	const show = 10
 	for i, s := range none.Skipped {

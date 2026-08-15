@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 
 	"github.com/VIGIL-OPS/loupe/internal/server"
+	"github.com/VIGIL-OPS/loupe/internal/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -56,26 +58,39 @@ Endpoints:
 }
 
 func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbose, openBrowser bool) error {
-	path, filter := resolveArgs(args)
+	given, filter := resolveArgs(args)
 	if filter != "" {
 		return fmt.Errorf("serve takes a directory, not a filter — "+
-			"filtering happens in the UI. Did you mean `loupe %s %q`?", path, filter)
+			"filtering happens in the UI. Did you mean `loupe %s %q`?",
+			strings.Join(given, " "), filter)
 	}
 
-	sess, err := g.open(cmd.Context(), path)
+	paths, note := resolvePaths(g, given)
+
+	sess, err := g.open(cmd.Context(), paths...)
 	if err != nil {
 		return err
 	}
 	defer sess.Close()
 
+	if note != "" {
+		fmt.Fprintf(os.Stderr, "%s\n", note)
+	}
 	statusLine(os.Stderr, sess)
+
+	// The workspace lets the UI browse and change what is subscribed. A
+	// failure to read it is not fatal: the API still serves what is loaded.
+	work, err := workspace.Load(g.configDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+	}
 
 	opts := server.Options{Addr: addr}
 	if verbose {
 		opts.Logger = log.New(os.Stderr, "", log.Ltime)
 	}
 
-	srv := server.New(sess, opts)
+	srv := server.New(sess, work, opts)
 
 	// Bind before announcing, so a port clash or a non-loopback address fails
 	// with an error rather than a URL that does not work.
