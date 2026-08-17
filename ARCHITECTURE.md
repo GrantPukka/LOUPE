@@ -200,10 +200,33 @@ optimisation. `--no-cache` bypasses it.
 - The directory is capped at 2GiB with least-recently-used eviction, never evicting the
   entry the current run just wrote.
 
-**Known limitation:** an actively written log file changes size and mtime on every run, so a
-live directory re-ingests each time. The cache pays off on archived and rotated logs. Making
-this incremental means storing per-file byte offsets and appending only the tail, which
-interacts with `--follow` and is not yet built.
+**Incremental re-ingest.** A growing file is appended to rather than re-read. The
+fingerprint covers the *identity* of the source set — paths, parser, zones, ingest version —
+and deliberately not file sizes or mtimes, so a directory being written to keeps mapping to
+the same cache entry. Per-file state lives in `loupe_cache_files`:
+
+- **head hash** — the first 4KiB. This, not size, is what distinguishes appending from
+  rewriting: a file truncated and refilled to the same length is otherwise indistinguishable,
+  and would serve records that no longer exist.
+- **resume offset and line** — the start of the *last record read*, not the end of the file.
+  A file read while it is being written can stop mid-record, and a stack trace is one record.
+  Resuming past it would leave its remaining frames as orphan records. The last record is
+  therefore re-read, and rows at or after its line number are discarded first, which makes
+  the append idempotent.
+- **`before` stats** — the file's totals excluding that last record, so adding the resumed
+  read's stats totals exactly. The status line's counts are claims about the data; an
+  off-by-one from double-counting the boundary record is a wrong claim.
+
+A file that has become unreadable is left alone rather than dropped: re-reading would fail
+anyway, and discarding records we hold on no evidence they are wrong is the silent loss this
+project refuses. A file that has disappeared from the walk does have its rows discarded — the
+cache mirrors the current source set.
+
+**Cost note.** Ingest appends the base columns, so the table must shed its promoted columns
+before an append and re-run inference after. That rebuild, not the read, dominates a refresh:
+appending 500 lines to a 5MB directory takes 0.93s against 1.72s for a full re-read. The read
+itself is proportional to what was appended; the promotion rebuild is proportional to the
+whole table.
 
 ### 3.5 Query — *two front doors*
 
@@ -317,10 +340,23 @@ would be a bug.
 - **Timestamps are UTC instants** and the display timezone is named separately, so a client
   formats them itself rather than guessing whose clock it is reading.
 
-`/api/tail` is **not built**. Following a growing file is a real feature — incremental reads
-from a stored byte offset, rotation detection — and CLAUDE.md requires it exist in the CLI
-before it appears over HTTP. It belongs with the incremental-cache work described in §3.4,
-not bolted onto the API.
+`/api/tail` is **not built yet**, but what it needs now exists. `loupe ./logs --follow`
+implements following in the CLI, which CLAUDE.md requires before it appears over HTTP, on top
+of the incremental reads described in §3.4.
+
+Following polls with `os.Stat` on a 400ms ticker rather than using filesystem notifications.
+No new dependency, identical behaviour on every platform, and it keeps working on NFS and
+bind mounts where inotify silently misses events — a log tool that quietly stops showing new
+lines is worse than one that never offered to. There is no goroutine and no schedule inside
+the store: `Follower.Poll` does one pass and returns, so following happens only while someone
+is watching, which is what keeps the no-daemon promise literal.
+
+New records cannot be appended to `logs` directly, because schema inference has widened it
+beyond the shape the appender writes. They are staged in a side table and inserted with the
+promoted columns computed from the fields bag, so the cost is proportional to what arrived
+rather than to the size of the dataset. Getting this wrong is not a performance bug: live
+records would arrive with promoted columns NULL, and `status:>=500` would silently fail to
+match the incident being watched.
 
 ## 6. The UI — one screen, and it stays one screen
 
@@ -371,8 +407,7 @@ embedded assets; `loupe serve`. Success test: the ten-second demo GIF is recorda
 
 **As built.** Also a Bubble Tea TUI (`loupe tui`) and the handoff export, which the milestone
 list put in M4. Both are views over `internal/session`, so all three front ends — terminal,
-browser, and extract — run the same query path. `/api/tail` and `--follow` remain unbuilt;
-see §5.
+browser, and extract — run the same query path. `--follow` is built for the CLI; `/api/tail` is not yet. See §5.
 
 **M4 — the launch (week 4).** Cross-platform CI matrix and release binaries; Homebrew tap;
 README with the GIF; `docs/adding-a-parser.md`; **15 labelled `good first issue` tickets

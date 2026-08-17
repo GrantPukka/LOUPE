@@ -69,15 +69,10 @@ func TestFingerprintIsStable(t *testing.T) {
 // Everything that changes what lands in the table must change the fingerprint.
 // A key that ignores any of these serves stale or wrong data.
 func TestFingerprintIsSensitive(t *testing.T) {
-	dir := logDir(t)
-	base, _ := Fingerprint(walk(t, dir), LoadOptions{})
-
-	t.Run("file contents", func(t *testing.T) {
-		writeFile(t, dir, "app.log", `{"ts":"2026-08-13T14:00:00Z","msg":"different"}`+"\n")
-		if got, _ := Fingerprint(walk(t, dir), LoadOptions{}); got == base {
-			t.Error("fingerprint unchanged after the file changed")
-		}
-	})
+	// Note: file *contents* are deliberately absent from the fingerprint. They
+	// are tracked per file in loupe_cache_files so a growing file can be
+	// appended to rather than re-read. TestFingerprintSurvivesGrowth pins that,
+	// and the incremental tests below pin that the change is still noticed.
 
 	t.Run("parser override", func(t *testing.T) {
 		fresh := logDir(t)
@@ -438,5 +433,201 @@ func TestPruneCacheLeavesASmallCacheAlone(t *testing.T) {
 	}
 	if removed != 0 {
 		t.Errorf("removed %d entries from a cache well under the cap", removed)
+	}
+}
+
+// appendTo adds lines to an existing file, the way a running service does.
+func appendTo(t *testing.T, dir, name string, lines ...string) {
+	t.Helper()
+	f, err := os.OpenFile(filepath.Join(dir, name), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatalf("open for append: %v", err)
+	}
+	defer f.Close()
+	if _, err := f.WriteString(strings.Join(lines, "\n") + "\n"); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+}
+
+// A growing file must keep mapping to the same cache entry. When size and mtime
+// were in the fingerprint, every append produced a new cache file and a full
+// re-read — the limitation this replaces.
+func TestFingerprintSurvivesGrowth(t *testing.T) {
+	dir := logDir(t)
+	before, _ := Fingerprint(walk(t, dir), LoadOptions{})
+
+	appendTo(t, dir, "app.log", `{"ts":"2026-08-13T14:00:02Z","level":"warn","msg":"c"}`)
+
+	if after, _ := Fingerprint(walk(t, dir), LoadOptions{}); after != before {
+		t.Errorf("fingerprint changed when the file grew:\n  before %s\n  after  %s", before, after)
+	}
+}
+
+// The point of the whole exercise: reopening a directory whose files have grown
+// reads only what was appended, and ends up with exactly the records a full
+// re-read would have produced.
+func TestReopenAppendsOnlyTheNewRecords(t *testing.T) {
+	dir := logDir(t)
+	cacheDir := t.TempDir()
+	ctx := context.Background()
+
+	first := openCached(t, dir, cacheDir, CacheOptions{})
+	before, err := first.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	first.DB.Close()
+
+	appendTo(t, dir, "app.log",
+		`{"ts":"2026-08-13T14:00:02Z","level":"warn","msg":"c"}`,
+		`{"ts":"2026-08-13T14:00:03Z","level":"error","msg":"d","status":503}`)
+
+	second := openCached(t, dir, cacheDir, CacheOptions{})
+	after, err := second.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+
+	if want := before + 2; after != want {
+		t.Errorf("after appending 2 records the store holds %d, want %d", after, want)
+	}
+
+	// And the reported totals must match, not just the row count: these are the
+	// numbers the status line puts in front of the user.
+	if got := second.Load.Stats.Records; got != after {
+		t.Errorf("summary reports %d records, the table holds %d", got, after)
+	}
+
+	// The same directory read cold must agree exactly.
+	fresh := openCached(t, dir, t.TempDir(), CacheOptions{})
+	freshCount, err := fresh.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if freshCount != after {
+		t.Errorf("incremental read holds %d records, a cold read holds %d", after, freshCount)
+	}
+	if fresh.Load.Stats != second.Load.Stats {
+		t.Errorf("incremental stats differ from a cold read\n  incremental: %+v\n  cold:        %+v",
+			second.Load.Stats, fresh.Load.Stats)
+	}
+}
+
+// A file truncated and rewritten must not keep serving the records it used to
+// hold. Size alone cannot detect this, which is why the head is hashed.
+func TestRewrittenFileIsReReadNotAppended(t *testing.T) {
+	dir := logDir(t)
+	cacheDir := t.TempDir()
+	ctx := context.Background()
+
+	first := openCached(t, dir, cacheDir, CacheOptions{})
+	if _, err := first.DB.Count(ctx); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	first.DB.Close()
+
+	// Same length, entirely different content: a log rotated in place.
+	writeFile(t, dir, "app.log",
+		`{"ts":"2026-08-13T15:00:00Z","level":"info","msg":"z","status":201}`+"\n")
+
+	second := openCached(t, dir, cacheDir, CacheOptions{})
+	count, err := second.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("rewritten file left %d records, want 1", count)
+	}
+
+	var msg string
+	if err := second.DB.QueryRow(ctx, `SELECT message FROM logs LIMIT 1`).Scan(&msg); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if !strings.Contains(msg, "z") {
+		t.Errorf("message = %q, want the rewritten content", msg)
+	}
+}
+
+// A record still being written when the first read stopped must be completed on
+// the next read, not duplicated and not left as an orphan.
+func TestRecordSplitAcrossReadsIsNotDuplicated(t *testing.T) {
+	dir := t.TempDir()
+	cacheDir := t.TempDir()
+	ctx := context.Background()
+
+	writeFile(t, dir, "app.log",
+		`{"ts":"2026-08-13T14:00:00Z","level":"info","msg":"first"}`+"\n"+
+			`{"ts":"2026-08-13T14:00:01Z","level":"error","msg":"second"}`+"\n")
+
+	first := openCached(t, dir, cacheDir, CacheOptions{})
+	before, err := first.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	first.DB.Close()
+
+	appendTo(t, dir, "app.log", `{"ts":"2026-08-13T14:00:02Z","level":"warn","msg":"third"}`)
+
+	second := openCached(t, dir, cacheDir, CacheOptions{})
+	after, err := second.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if after != before+1 {
+		t.Errorf("store holds %d records, want %d — the boundary record was duplicated or lost",
+			after, before+1)
+	}
+
+	// Line numbers must stay unique and continuous within the file.
+	var distinct, total int64
+	if err := second.DB.QueryRow(ctx,
+		`SELECT count(DISTINCT line_no), count(*) FROM logs`).Scan(&distinct, &total); err != nil {
+		t.Fatalf("line numbers: %v", err)
+	}
+	if distinct != total {
+		t.Errorf("%d records share only %d distinct line numbers", total, distinct)
+	}
+}
+
+// After an incremental append, the *reported* counts must match the table. The
+// summary is what the status line prints, and a stale one understates the data
+// on screen — the same class of failure as getting quieter about unparsed
+// records on a second run.
+func TestSummaryMatchesTheTableAfterAnAppend(t *testing.T) {
+	dir := logDir(t)
+	cacheDir := t.TempDir()
+	ctx := context.Background()
+
+	openCached(t, dir, cacheDir, CacheOptions{}).DB.Close()
+
+	appendTo(t, dir, "app.log",
+		`{"ts":"2026-08-13T14:00:02Z","level":"warn","msg":"c"}`,
+		`{"ts":"2026-08-13T14:00:03Z","level":"info","msg":"d"}`)
+
+	// The run that appends.
+	openCached(t, dir, cacheDir, CacheOptions{}).DB.Close()
+
+	// The run after that reads the stored summary rather than the files, so it
+	// is the one that exposes a summary written badly.
+	third := openCached(t, dir, cacheDir, CacheOptions{})
+	if !third.Hit {
+		t.Fatal("nothing changed; expected a cache hit")
+	}
+
+	rows, err := third.DB.Count(ctx)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if third.Load.Stats.Records != rows {
+		t.Errorf("summary reports %d records, the table holds %d",
+			third.Load.Stats.Records, rows)
+	}
+
+	var metaRows int64
+	if err := third.DB.QueryRow(ctx, `SELECT count(*) FROM loupe_cache_meta`).Scan(&metaRows); err != nil {
+		t.Fatalf("count metadata rows: %v", err)
+	}
+	if metaRows != 1 {
+		t.Errorf("loupe_cache_meta holds %d rows, want exactly 1", metaRows)
 	}
 }

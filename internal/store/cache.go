@@ -22,7 +22,7 @@ import (
 // normalisation, or to timestamp handling belongs here. Forgetting to bump it
 // means users silently keep reading data produced by the old code, which is a
 // nastier bug than a slow re-ingest.
-const IngestVersion = 4
+const IngestVersion = 5
 
 // cacheMetaTable holds one row describing how the cached database was built.
 const cacheMetaTable = `
@@ -67,12 +67,18 @@ type parseStatsJSON struct {
 	ZoneAssumed  int64 `json:"zone_assumed"`
 }
 
-// Fingerprint identifies an ingested state.
+// Fingerprint identifies a set of sources, not their contents.
 //
-// It covers everything that could change what ends up in the table: each
-// source's path, size, and mtime; the ingest version; and the options that
-// affect parsing. --source-tz is included because it moves timestamps, and a
-// cache keyed without it would serve records an hour out.
+// It covers the ingest version, the options that affect parsing, and each
+// source's path — deliberately not its size or mtime. Content changes are
+// tracked per file in loupe_cache_files instead, so a directory being written
+// to keeps mapping to the same cache file and can be appended to. With size and
+// mtime still here, every growing file produced a fresh fingerprint, a fresh
+// cache file and a full re-read, which is the limitation ARCHITECTURE.md 3.4
+// describes.
+//
+// --source-tz is included because it moves timestamps, and a cache keyed
+// without it would serve records an hour out.
 //
 // It returns false when any source is uncacheable, which is the case for
 // stdin: a stream cannot be re-read, so there is nothing to invalidate against.
@@ -93,13 +99,14 @@ func Fingerprint(sources []source.Source, opts LoadOptions) (string, bool) {
 	sort.Strings(zones)
 	fmt.Fprintf(h, "zones=%s\n", strings.Join(zones, ","))
 
-	// Sources are hashed in walk order, which is already deterministic.
+	// Sources are hashed in walk order, which is already deterministic. An empty
+	// source fingerprint still means uncacheable, but only its identity is
+	// hashed here — the bytes are the file-state table's business.
 	for _, s := range sources {
-		fp := s.Fingerprint()
-		if fp == "" {
+		if s.Fingerprint() == "" {
 			return "", false
 		}
-		fmt.Fprintf(h, "src=%s\n", fp)
+		fmt.Fprintf(h, "src=%s\n", s.Name())
 	}
 
 	return hex.EncodeToString(h.Sum(nil))[:32], true
@@ -161,6 +168,29 @@ func OpenCached(ctx context.Context, sources []source.Source, load LoadOptions, 
 
 	if hit, err := openHit(ctx, path, fingerprint); err == nil && hit != nil {
 		hit.Path = path
+
+		// A cache hit is not the end of the question any more: the files may
+		// have grown since. Bring them up to date in place rather than throwing
+		// the database away, which is the whole point of the file-state table.
+		updated, changed, rerr := refresh(ctx, hit.DB, hit.Load, sources, load)
+		if rerr != nil {
+			// Falling back is always safe — a full re-read produces the same
+			// data more slowly — and is far better than serving a half-updated
+			// timeline during an incident.
+			hit.DB.Close()
+			os.Remove(path)
+			return ingestFresh(ctx, sources, load, path,
+				fmt.Sprintf("could not update cache, re-reading: %v", rerr))
+		}
+
+		hit.Load = updated
+		if changed > 0 {
+			hit.Hit = false
+			hit.Reason = fmt.Sprintf("appended %s that changed", plural(changed, "file"))
+			if err := writeCacheMeta(ctx, hit.DB, filepath.Base(path), updated); err != nil {
+				hit.Reason = fmt.Sprintf("could not record cache metadata: %v", err)
+			}
+		}
 		return hit, nil
 	} else if err != nil {
 		// A corrupt or unreadable cache file must never block the tool. Say so
@@ -258,6 +288,13 @@ func ingestFresh(ctx context.Context, sources []source.Source, load LoadOptions,
 		return out, nil
 	}
 
+	// Without the per-file offsets a later run has nothing to resume from and
+	// would re-read every file, which is the behaviour this replaces.
+	if err := writeFileStates(ctx, db, statesFrom(sources, result)); err != nil {
+		out.Path, out.Reason = "", fmt.Sprintf("could not record file offsets: %v", err)
+		return out, nil
+	}
+
 	// DuckDB flushes on close, so the file has to be closed before it can be
 	// renamed into place and reopened.
 	if err := db.Close(); err != nil {
@@ -307,6 +344,15 @@ func writeCacheMeta(ctx context.Context, db *DB, fileName string, result Load) e
 	encoded, err := json.Marshal(summary)
 	if err != nil {
 		return fmt.Errorf("encode cache metadata: %w", err)
+	}
+
+	// One row, by definition. An incremental refresh rewrites this after
+	// appending, and without the delete the table would accumulate rows while
+	// readCacheMeta takes an unordered LIMIT 1 — serving the counts from before
+	// the append, which is precisely the "quieter on the second run" failure
+	// the summary exists to prevent.
+	if err := db.Exec(ctx, `DELETE FROM loupe_cache_meta`); err != nil {
+		return fmt.Errorf("clear cache metadata: %w", err)
 	}
 
 	return db.Exec(ctx,

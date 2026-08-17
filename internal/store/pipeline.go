@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -24,6 +25,28 @@ type LoadOptions struct {
 
 	// Progress, when set, is called after each source is ingested.
 	Progress func(IngestResult)
+
+	// Table overrides the destination table. Empty means logs. Follow mode
+	// stages records elsewhere first, because the appender writes the base
+	// column set and logs has been widened by schema inference.
+	Table string
+
+	// Resume, when set, maps a source's name to where a previous read of it
+	// stopped. A source listed here is read from that offset instead of from
+	// the beginning; one absent from it is read whole, which is what makes a
+	// first run and a newly appeared file behave identically.
+	Resume map[string]Resume
+}
+
+// Resume is where a previous read of a file stopped.
+//
+// Offset is a record boundary, not a line boundary or the end of the file —
+// see parse.ReadAll. LastLine carries the physical line number forward so that
+// records ingested by a later read continue the file's numbering rather than
+// restarting at 1, which would make line_no ambiguous within one file.
+type Resume struct {
+	Offset   int64
+	LastLine int64
 }
 
 // Load reads every source into the store.
@@ -91,7 +114,11 @@ func (s *DB) Load(ctx context.Context, sources []source.Source, opts LoadOptions
 	start := time.Now()
 	var load Load
 
-	ing, err := s.NewIngester()
+	table := opts.Table
+	if table == "" {
+		table = "logs"
+	}
+	ing, err := s.NewIngesterInto(table)
 	if err != nil {
 		return load, err
 	}
@@ -151,20 +178,24 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 	}
 	ing.SetSource(meta)
 
-	rc, err := src.Open(ctx)
+	resume := opts.Resume[src.Name()]
+
+	rc, err := openAt(ctx, src, resume.Offset)
 	if err != nil {
-		return IngestResult{}, fmt.Errorf("open %s: %w", src.Name(), err)
+		return IngestResult{}, err
 	}
 	defer rc.Close()
 
 	var ingestErr error
-	stats, err := parse.ReadAll(rc, parse.ReaderOptions{Parser: parser, Loc: loc}, func(e parse.Entry) error {
-		if err := ing.Add(e); err != nil {
-			ingestErr = err
-			return err
-		}
-		return nil
-	})
+	stats, tail, err := parse.ReadAll(rc,
+		parse.ReaderOptions{Parser: parser, Loc: loc, StartLine: resume.LastLine},
+		func(e parse.Entry) error {
+			if err := ing.Add(e); err != nil {
+				ingestErr = err
+				return err
+			}
+			return nil
+		})
 	if ingestErr != nil {
 		return IngestResult{}, ingestErr
 	}
@@ -172,7 +203,38 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 		return IngestResult{}, fmt.Errorf("read %s: %w", src.Name(), err)
 	}
 
-	return IngestResult{Source: meta, Stats: stats, Took: time.Since(start)}, nil
+	return IngestResult{
+		Source: meta,
+		Stats:  stats,
+		Took:   time.Since(start),
+		// tail.Offset is relative to where this read started.
+		ResumeAt:   resume.Offset + tail.Offset,
+		ResumeLine: tail.Line,
+		Before:     tail.Before,
+	}, nil
+}
+
+// openAt opens a source, from offset when one is given.
+//
+// A source that cannot be resumed is read from the start. That is the safe
+// direction: re-reading costs time, whereas skipping bytes we cannot seek past
+// would silently drop records.
+func openAt(ctx context.Context, src source.Source, offset int64) (io.ReadCloser, error) {
+	if offset > 0 {
+		if t, ok := src.(source.Tailable); ok {
+			rc, err := t.OpenAt(ctx, offset)
+			if err != nil {
+				return nil, fmt.Errorf("open %s at %d: %w", src.Name(), offset, err)
+			}
+			return rc, nil
+		}
+	}
+
+	rc, err := src.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open %s: %w", src.Name(), err)
+	}
+	return rc, nil
 }
 
 // parserFor resolves the format for a source, either from the override or by

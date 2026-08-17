@@ -72,6 +72,13 @@ type Session struct {
 
 	relativeToNow bool
 
+	// load and walkOpts are kept so a follower reads new records exactly as the
+	// initial ingest did — same parser, same assumed zones. A follow that
+	// resolved timestamps differently from the load above it would put live
+	// records on the timeline in the wrong place.
+	load     store.LoadOptions
+	walkOpts source.WalkOptions
+
 	// Resolved lazily and cached: both cost a query and several callers need
 	// them.
 	schema      *query.Schema
@@ -111,8 +118,10 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 		return nil, NoSourcesError{Paths: opts.Paths, Skipped: walk.Skipped}
 	}
 
+	loadOpts := store.LoadOptions{Parser: opts.Parser, SourceZones: opts.SourceZones}
+
 	cached, err := store.OpenCached(ctx, sources,
-		store.LoadOptions{Parser: opts.Parser, SourceZones: opts.SourceZones},
+		loadOpts,
 		store.CacheOptions{Dir: opts.CacheDir, Disabled: opts.NoCache})
 	if err != nil {
 		return nil, err
@@ -136,6 +145,8 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 		CachePath:     cached.Path,
 		Promoted:      promoted,
 		relativeToNow: opts.RelativeToNow,
+		load:          loadOpts,
+		walkOpts:      opts.Walk,
 	}, nil
 }
 
@@ -293,6 +304,13 @@ type RecordQuery struct {
 	Sort   SortOrder
 	// Columns overrides the default selection.
 	Columns string
+
+	// Where is ANDed with the plan's own predicate, and WhereArgs are its
+	// parameters. Follow mode uses it to select only the records a poll made
+	// newly visible, so live output runs through the same compiled filter as
+	// everything else rather than a parallel path.
+	Where     string
+	WhereArgs []any
 }
 
 // Records runs a plan and returns matching records.
@@ -302,8 +320,14 @@ func (s *Session) Records(ctx context.Context, plan Plan, q RecordQuery) (store.
 		columns = RecordColumns
 	}
 
-	sql := `SELECT ` + columns + ` FROM logs WHERE ` + plan.SQL.Where + q.Sort.clause()
+	where := plan.SQL.Where
 	args := plan.SQL.Args
+	if q.Where != "" {
+		where = "(" + where + ") AND (" + q.Where + ")"
+		args = append(append([]any{}, args...), q.WhereArgs...)
+	}
+
+	sql := `SELECT ` + columns + ` FROM logs WHERE ` + where + q.Sort.clause()
 
 	if q.Offset > 0 {
 		// A limit is required before an offset in DuckDB, and a page beyond
@@ -350,4 +374,26 @@ func (e NoSourcesError) Error() string {
 	}
 	return fmt.Sprintf("no readable log files in %s, but %d file(s) were skipped",
 		where, len(e.Skipped))
+}
+
+// Follower watches this session's locations for records written after it opened.
+//
+// The source list is resolved on every poll rather than captured, so a service
+// that starts logging mid-incident is picked up without reopening the session.
+func (s *Session) Follower(ctx context.Context) (*store.Follower, error) {
+	return s.DB.NewFollower(ctx, func() ([]source.Source, error) {
+		walk := s.walkOpts
+		var found []source.Source
+		for _, path := range s.Paths {
+			got, err := source.Walk(path, &walk)
+			if err != nil {
+				// A location that has become unreadable must not end the
+				// session. The other locations are still the best information
+				// available, which is the whole point during an incident.
+				continue
+			}
+			found = append(found, got...)
+		}
+		return found, nil
+	}, s.load)
 }

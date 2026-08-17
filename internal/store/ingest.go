@@ -78,16 +78,23 @@ type Source struct {
 }
 
 // NewIngester opens an appender against the logs table.
-func (s *DB) NewIngester() (*Ingester, error) {
+func (s *DB) NewIngester() (*Ingester, error) { return s.NewIngesterInto("logs") }
+
+// NewIngesterInto opens an appender against a named table.
+//
+// The appender writes the base column set, so the target must have exactly that
+// shape. Follow mode uses this to stage new records in a side table before
+// inserting them into a logs table that schema inference has widened.
+func (s *DB) NewIngesterInto(table string) (*Ingester, error) {
 	conn, err := s.connector.Connect(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("connect for ingest: %w", err)
 	}
 
-	appender, err := duckdb.NewAppenderFromConn(conn, "", "logs")
+	appender, err := duckdb.NewAppenderFromConn(conn, "", table)
 	if err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("create appender: %w", err)
+		return nil, fmt.Errorf("create appender on %s: %w", table, err)
 	}
 
 	return &Ingester{
@@ -194,4 +201,20 @@ type IngestResult struct {
 	Source Source
 	Stats  parse.Stats
 	Took   time.Duration
+
+	// ResumeAt is the byte offset in the source file at which a later read
+	// should continue. It is the start of the last record ingested, not the end
+	// of the file, so that a record still being written is re-read whole rather
+	// than split — see parse.Tail.
+	ResumeAt int64
+
+	// ResumeLine is the physical line number of that record. A resumed read
+	// discards rows at or after it for this file before appending, which is
+	// what makes re-reading the last record idempotent instead of duplicating
+	// it.
+	ResumeLine int64
+
+	// Before is this read's stats excluding its final record, which a resumed
+	// read will count again. See parse.Tail.Before.
+	Before parse.Stats `json:"before"`
 }

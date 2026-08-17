@@ -65,6 +65,8 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 		return runHandoff(cmd, g, sess, plan)
 	}
 
+	// The initial page is printed first either way: following starts from what
+	// is already on screen, so the user sees context before the live tail.
 	res, err := sess.Records(cmd.Context(), plan, session.RecordQuery{Limit: g.limit, Sort: order})
 	if err != nil {
 		return err
@@ -81,8 +83,12 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	// An empty result is where this tool most easily misleads, so explain it
 	// rather than leaving the user to guess whether their filter was wrong or
 	// their data genuinely contains nothing.
-	if res.RowCount() == 0 && !plan.Query.IsEmpty() {
+	if res.RowCount() == 0 && !plan.Query.IsEmpty() && !g.follow {
 		fmt.Fprintf(os.Stderr, "\n%s\n", sess.Explain(cmd.Context(), plan).Text)
+	}
+
+	if g.follow {
+		return runFollow(cmd.Context(), g, sess, plan)
 	}
 	return nil
 }

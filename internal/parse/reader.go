@@ -72,6 +72,36 @@ type ReaderOptions struct {
 	StartLine int64
 }
 
+// Tail is where to resume reading a source that may since have grown.
+//
+// It points at the *start* of the last record emitted, not past its end, and so
+// re-reading from it reproduces that record. That is deliberate. A record can
+// span many physical lines — a Java stack trace is one record — and a file read
+// while it is being written can end mid-record. Resuming past such a record
+// would leave its remaining lines with nothing to attach to, and they would be
+// ingested as separate junk records.
+//
+// Re-reading one record is cheap. The caller makes it idempotent by discarding
+// rows at or after Line for that file before appending, which is why Line
+// travels with Offset rather than being derivable from it.
+type Tail struct {
+	// Offset is the byte position, relative to the start of r, where the last
+	// emitted record began.
+	Offset int64
+
+	// Line is that record's physical line number, counting from StartLine.
+	Line int64
+
+	// Before is the stats as they stood before the last record was read.
+	//
+	// A resumed read re-reads that record and counts it again. Adding Before to
+	// the resumed read's stats therefore totals correctly, where adding the full
+	// stats would count the boundary record twice. These numbers are the ones
+	// the status line reports, so an off-by-one here is a claim about the data
+	// that is not true.
+	Before Stats
+}
+
 // ReadAll streams r through the parser, calling fn for each record.
 //
 // The governing rule: a malformed line never aborts a file. Anything the parser
@@ -79,11 +109,12 @@ type ReaderOptions struct {
 // reading continues.
 //
 // It streams. Memory stays bounded regardless of input size.
-func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, error) {
-	var stats Stats
-
+//
+// The returned Tail is where a later read should resume; see its documentation
+// for why it points at the last record rather than past it.
+func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats, tail Tail, err error) {
 	if opts.Parser == nil {
-		return stats, fmt.Errorf("read: no parser given")
+		return stats, tail, fmt.Errorf("read: no parser given")
 	}
 	loc := opts.Loc
 	if loc == nil {
@@ -98,12 +129,21 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 	// can be appended to it before it is emitted.
 	var pending *Entry
 
+	// consumed counts every byte taken from r. pendingStart and pendingLine
+	// record where the pending record began, and become the Tail once it is
+	// emitted — so the Tail always describes the most recent record.
+	var consumed, pendingStart, pendingLine int64
+	var pendingBefore Stats
+	emitted := false
+
 	flush := func() error {
 		if pending == nil {
 			return nil
 		}
 		e := *pending
 		pending = nil
+		tail = Tail{Offset: pendingStart, Line: pendingLine, Before: pendingBefore}
+		emitted = true
 
 		stats.Records++
 		if !e.Parsed {
@@ -118,7 +158,9 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 	}
 
 	for {
-		line, truncated, err := readLine(br)
+		lineStart := consumed
+		line, truncated, n, err := readLine(br)
+		consumed += n
 		if len(line) == 0 && err == io.EOF {
 			break
 		}
@@ -152,8 +194,10 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 			continue
 		}
 
+		// This line starts a new record, so the previous one is complete. flush
+		// reads pendingStart, which still refers to that previous record.
 		if ferr := flush(); ferr != nil {
-			return stats, ferr
+			return stats, tail, ferr
 		}
 
 		entry := Entry{
@@ -175,6 +219,18 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 		}
 
 		pending = &entry
+		pendingStart = lineStart
+		pendingLine = lineNo
+
+		// The totals as they stood before this record. Taken after the flush
+		// above, so the previous record is counted, then backing out this line's
+		// own accounting — a resumed read starts at this line and counts it
+		// again. Records is not adjusted: this record has not been flushed yet.
+		pendingBefore = stats
+		pendingBefore.Lines--
+		if truncated {
+			pendingBefore.Truncated--
+		}
 
 		if err == io.EOF {
 			break
@@ -182,16 +238,23 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (Stats, erro
 		if err != nil {
 			flushErr := flush()
 			if flushErr != nil {
-				return stats, flushErr
+				return stats, tail, flushErr
 			}
-			return stats, fmt.Errorf("read line %d: %w", lineNo, err)
+			return stats, tail, fmt.Errorf("read line %d: %w", lineNo, err)
 		}
 	}
 
 	if err := flush(); err != nil {
-		return stats, err
+		return stats, tail, err
 	}
-	return stats, nil
+
+	// Nothing was emitted, so there is no record to re-read. Resume past what
+	// was consumed — blank lines and nothing else — rather than at zero, which
+	// would re-count them on every pass.
+	if !emitted {
+		tail = Tail{Offset: consumed, Line: lineNo + 1, Before: stats}
+	}
+	return stats, tail, nil
 }
 
 // applyAssumedZone reinterprets a zoneless timestamp in the source's assumed
@@ -227,11 +290,16 @@ func applyAssumedZone(rec Record, loc *time.Location) Record {
 // The final line of a file with no trailing newline is returned normally. That
 // case is common — it is what a killed process leaves behind — and dropping it
 // would be silent data loss.
-func readLine(br *bufio.Reader) (line []byte, truncated bool, err error) {
+//
+// n is every byte taken from br, including the newline and anything discarded
+// from an overlong line. The caller tracks stream position with it, so it must
+// account for bytes that never reach the returned line.
+func readLine(br *bufio.Reader) (line []byte, truncated bool, n int64, err error) {
 	var buf []byte
 
 	for {
 		chunk, e := br.ReadSlice('\n')
+		n += int64(len(chunk))
 
 		if len(buf)+len(chunk) > MaxLineBytes {
 			keep := MaxLineBytes - len(buf)
@@ -240,11 +308,13 @@ func readLine(br *bufio.Reader) (line []byte, truncated bool, err error) {
 			}
 			truncated = true
 			if e == bufio.ErrBufferFull {
-				if derr := discardToNewline(br); derr != nil {
-					return buf, truncated, derr
+				discarded, derr := discardToNewline(br)
+				n += discarded
+				if derr != nil {
+					return buf, truncated, n, derr
 				}
 			}
-			return buf, truncated, nil
+			return buf, truncated, n, nil
 		}
 
 		if e == bufio.ErrBufferFull {
@@ -253,25 +323,27 @@ func readLine(br *bufio.Reader) (line []byte, truncated bool, err error) {
 		}
 		if e != nil {
 			buf = append(buf, chunk...)
-			return bytes.TrimSuffix(buf, []byte{'\n'}), truncated, e
+			return bytes.TrimSuffix(buf, []byte{'\n'}), truncated, n, e
 		}
 
 		buf = append(buf, chunk...)
-		return bytes.TrimSuffix(buf, []byte{'\n'}), truncated, nil
+		return bytes.TrimSuffix(buf, []byte{'\n'}), truncated, n, nil
 	}
 }
 
-// discardToNewline throws away the rest of an overlong line.
-func discardToNewline(br *bufio.Reader) error {
+// discardToNewline throws away the rest of an overlong line, reporting how many
+// bytes went with it so the caller's stream position stays accurate.
+func discardToNewline(br *bufio.Reader) (n int64, err error) {
 	for {
-		_, err := br.ReadSlice('\n')
+		chunk, err := br.ReadSlice('\n')
+		n += int64(len(chunk))
 		if err == bufio.ErrBufferFull {
 			continue
 		}
 		if err == io.EOF {
-			return nil
+			return n, nil
 		}
-		return err
+		return n, err
 	}
 }
 
