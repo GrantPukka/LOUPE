@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -156,7 +157,7 @@ func (e *UnknownFieldError) Error() string {
 	fmt.Fprintf(&sb, "unknown field %q", e.Key)
 
 	if len(e.Suggestions) > 0 {
-		fmt.Fprintf(&sb, "\ndid you mean: %s", strings.Join(e.Suggestions, ", "))
+		fmt.Fprintf(&sb, "\ndid you mean: %s", strings.Join(displayNames(e.Suggestions), ", "))
 	}
 
 	if len(e.Available) > 0 {
@@ -166,10 +167,32 @@ func (e *UnknownFieldError) Error() string {
 		if len(list) > show {
 			list, suffix = list[:show], fmt.Sprintf(", … and %d more", len(e.Available)-show)
 		}
-		fmt.Fprintf(&sb, "\nfields present in this data: %s%s", strings.Join(list, ", "), suffix)
+		fmt.Fprintf(&sb, "\nfields present in this data: %s%s",
+			strings.Join(displayNames(list), ", "), suffix)
 	}
 
 	return sb.String()
+}
+
+// displayNames makes field names safe to print in a terminal.
+//
+// A key can contain anything the log file contained. Writing raw control bytes
+// to a terminal makes a real field look like a rendering fault — a NUL prints
+// as nothing, so iss\0\0uer appears as a word with a hole in it, and the user
+// reasonably concludes the tool is broken rather than the log.
+//
+// Only awkward names are quoted, so the common case stays a plain readable
+// list, and quoting marks out the name that needs explaining.
+func displayNames(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		if strings.ContainsFunc(n, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
+			out[i] = strconv.Quote(n)
+			continue
+		}
+		out[i] = n
+	}
+	return out
 }
 
 func (s Schema) unknownField(key string) error {

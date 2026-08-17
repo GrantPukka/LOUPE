@@ -83,6 +83,32 @@ func needsQuoting(s string) bool {
 	return strings.ContainsAny(s, " \t\n\",:")
 }
 
+// renderKey writes a field name so that parsing the result yields the same key.
+func renderKey(key string) string {
+	if keyNeedsQuoting(key) {
+		return quote(key)
+	}
+	return key
+}
+
+// keyNeedsQuoting reports whether a bare field name would parse back as
+// something other than itself.
+//
+// Two categories: characters the lexer treats specially, and names that collide
+// with the DSL's own vocabulary. A field called last is the second kind — bare,
+// last:15m is a time term, so it has to be rendered "last":15m to survive the
+// round trip.
+func keyNeedsQuoting(key string) bool {
+	if needsQuoting(key) || strings.ContainsRune(key, '~') {
+		return true
+	}
+	// A leading minus would read as negation of a different key.
+	if strings.HasPrefix(key, "-") {
+		return true
+	}
+	return timeKeywords[strings.ToLower(key)] || isClockHour(key)
+}
+
 func quote(s string) string {
 	var sb strings.Builder
 	sb.WriteByte('"')
@@ -124,7 +150,7 @@ func (t *FieldTerm) String() string {
 	if t.Negate {
 		sb.WriteByte('-')
 	}
-	sb.WriteString(t.Key)
+	sb.WriteString(renderKey(t.Key))
 
 	// The match operator is written without a colon — message~timeout — which
 	// is the form docs/FILTER-DSL.md section 5 uses throughout. Both forms

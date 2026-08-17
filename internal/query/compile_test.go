@@ -291,6 +291,31 @@ func TestUnknownFieldErrorsWithASuggestion(t *testing.T) {
 	}
 }
 
+// A key can hold whatever the log file held. Printing raw control bytes makes a
+// genuine field look like a rendering fault: iss\0\0uer arrives at the terminal
+// as a word with a hole in it, and the tool gets blamed for the log's mess.
+func TestUnknownFieldErrorEscapesControlBytesInNames(t *testing.T) {
+	schema := Schema{Fields: []string{"iss\x00\x00uer", "issuer", "status"}}
+
+	q := mustParse(t, "nosuchfield:1")
+	_, err := Compile(q, schema)
+	if err == nil {
+		t.Fatal("unknown field compiled; it must error")
+	}
+
+	msg := err.Error()
+	if strings.ContainsRune(msg, 0) {
+		t.Errorf("raw NUL byte reached the error message:\n%q", msg)
+	}
+	if !strings.Contains(msg, `"iss\x00\x00uer"`) {
+		t.Errorf("mangled name not escaped and quoted:\n%s", msg)
+	}
+	// The ordinary names stay unquoted, or every list becomes noise.
+	if strings.Contains(msg, `"issuer"`) {
+		t.Errorf("well-behaved name was quoted:\n%s", msg)
+	}
+}
+
 func TestKnownFieldsResolve(t *testing.T) {
 	for _, input := range []string{
 		"level:error", "message~x", "source:nginx", "file:a.log", "format:jsonl",

@@ -14,6 +14,7 @@ query   := term*
 term    := ['-'] ( time | field | free )
 time    := ('after'|'before'|'between'|'last'|'on') ':' timeexpr
 field   := key ':' [op] value
+key     := bare | '"' quoted '"'
 op      := '>=' | '<=' | '>' | '<' | '~'
 value   := bare | '"' quoted '"' | value ',' value
 free    := bare | '"' quoted '"'
@@ -233,6 +234,33 @@ status:>=500  latency_ms:>1000  user_id:u_4471  trace_id:a91c40f2  region:eu-wes
 Numeric comparison when both sides parse as numbers, string comparison otherwise.
 `field:*` matches records where the field exists at all; `field:none` where it
 doesn't.
+
+### 6.1 Field names that need quoting
+
+A field name comes out of a log file, so it can contain anything — a space, a
+colon, a quote, a control byte. Write such a name in double quotes:
+
+```
+"weird\"key":y            a name containing a quote
+"a key with spaces":y     a name containing whitespace
+"key:with:colons":y       a name containing colons
+```
+
+**A quoted key is taken literally**, which is also how you reach a field whose
+name collides with the DSL's own vocabulary:
+
+```
+last:15m                  the time filter
+"last":15m                a field actually named last, whose value is 15m
+```
+
+Escapes inside a quoted key are the same as in a quoted value: `\"` for a quote
+and `\\` for a backslash. Rendering quotes a key whenever a bare one would parse
+back as something else, so a filter built by the UI round-trips unchanged.
+
+Without this, a record carrying such a field is ingested and displayed but
+cannot be filtered on — a silent hole in the data, which is exactly what this
+project's first principle forbids.
 
 ---
 

@@ -224,6 +224,20 @@ func TestRoundTrip(t *testing.T) {
 		"between:14:00-15:00 level:>=warn -source:nginx timeout",
 		`user:"a name with spaces"`,
 		"on:2026-08-13 14:11-14:14 trace_id:a91c40f2",
+		// Quoted keys. A log file can name a field anything, so each of these
+		// has to survive being rendered and re-parsed.
+		`"weird\"key":y`,
+		`"a key with spaces":y`,
+		`"key:with:colons":y`,
+		`"it's":z`,
+		`-"weird\"key":y`,
+		`"odd key"~timeout`,
+		// Names colliding with the DSL's own vocabulary.
+		`"last":15m`,
+		`"on":2026-08-13`,
+		`"between":x`,
+		`"14":00`,
+		`"-leading":y`,
 	}
 
 	for _, input := range inputs {
@@ -247,6 +261,65 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("rendering is not stable: %q then %q", rendered, again)
 			}
 		})
+	}
+}
+
+// A quoted key names a field literally. Without that, a log file with a field
+// called last or on has records that cannot be filtered on at all, because the
+// keyword reading always wins.
+func TestQuotedKeyNamesAFieldLiterally(t *testing.T) {
+	bare := mustParse(t, "last:15m")
+	if _, ok := bare.Terms[0].(*TimeTerm); !ok {
+		t.Fatalf("last:15m = %T, want *TimeTerm", bare.Terms[0])
+	}
+
+	quoted := mustParse(t, `"last":15m`)
+	field, ok := quoted.Terms[0].(*FieldTerm)
+	if !ok {
+		t.Fatalf(`"last":15m = %T, want *FieldTerm`, quoted.Terms[0])
+	}
+	if field.Key != "last" {
+		t.Errorf("key = %q, want last", field.Key)
+	}
+	if len(field.Values) != 1 || field.Values[0].Text != "15m" {
+		t.Errorf("values = %v, want [15m]", field.Values)
+	}
+}
+
+// The keys that motivated this: a quote, a space and a colon are all legal in a
+// log field name and none of them can be written bare.
+func TestQuotedKeysReachOtherwiseUnreachableFields(t *testing.T) {
+	tests := []struct {
+		input string
+		key   string
+	}{
+		{`"weird\"key":y`, `weird"key`},
+		{`"a key with spaces":y`, "a key with spaces"},
+		{`"key:with:colons":y`, "key:with:colons"},
+		{`"it's":z`, "it's"},
+		{`"back\\slash":z`, `back\slash`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			q := mustParse(t, tt.input)
+			field, ok := q.Terms[0].(*FieldTerm)
+			if !ok {
+				t.Fatalf("term = %T, want *FieldTerm", q.Terms[0])
+			}
+			if field.Key != tt.key {
+				t.Errorf("key = %q, want %q", field.Key, tt.key)
+			}
+		})
+	}
+}
+
+// A quoted string with no colon after it is still a phrase search, or every
+// existing free-text query would change meaning.
+func TestQuotedPhraseIsStillFreeText(t *testing.T) {
+	q := mustParse(t, `"read timed out"`)
+	if _, ok := q.Terms[0].(*FreeTerm); !ok {
+		t.Fatalf(`"read timed out" = %T, want *FreeTerm`, q.Terms[0])
 	}
 }
 

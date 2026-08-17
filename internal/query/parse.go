@@ -77,7 +77,22 @@ func (p *parser) parseTerm() (Term, error) {
 
 	switch head.kind {
 	case tokenQuoted:
-		return &FreeTerm{Value: Value{Text: head.text, Quoted: true}, Negate: negate}, nil
+		// A quoted string names a field when followed by a colon or a ~. It is
+		// the only way to reach a key containing a quote, a space, or a colon,
+		// all of which a log file can legitimately produce.
+		//
+		// The name is taken literally: "last":x is a field called last, not the
+		// time keyword. Quoting is therefore also the escape hatch for a field
+		// whose name collides with the DSL's own vocabulary.
+		switch {
+		case p.at(tokenColon):
+			p.next()
+			return p.parseKeyed(head, negate, true)
+		case p.at(tokenOp):
+			return p.parseKeyed(head, negate, true)
+		default:
+			return &FreeTerm{Value: Value{Text: head.text, Quoted: true}, Negate: negate}, nil
+		}
 
 	case tokenWord:
 		// A word introduces a field when followed by a colon, or by a bare ~
@@ -85,9 +100,9 @@ func (p *parser) parseTerm() (Term, error) {
 		switch {
 		case p.at(tokenColon):
 			p.next()
-			return p.parseKeyed(head, negate)
+			return p.parseKeyed(head, negate, false)
 		case p.at(tokenOp):
-			return p.parseKeyed(head, negate)
+			return p.parseKeyed(head, negate, false)
 		default:
 			return &FreeTerm{Value: Value{Text: head.text}, Negate: negate}, nil
 		}
@@ -102,13 +117,17 @@ func (p *parser) parseTerm() (Term, error) {
 }
 
 // parseKeyed parses everything after `key:`.
-func (p *parser) parseKeyed(key token, negate bool) (Term, error) {
+//
+// literal suppresses the time-expression forms, and is set when the key arrived
+// quoted. Without it a field genuinely named last or on would be unreachable,
+// since the keyword reading would always win.
+func (p *parser) parseKeyed(key token, negate, literal bool) (Term, error) {
 	lower := strings.ToLower(key.text)
 
 	// Time keywords take the rest of the term verbatim: their grammar is its
 	// own, resolved later against the data's date range and the display
 	// timezone.
-	if timeKeywords[lower] {
+	if !literal && timeKeywords[lower] {
 		expr, err := p.parseTimeExpr(lower, key.pos)
 		if err != nil {
 			return nil, err
@@ -119,7 +138,7 @@ func (p *parser) parseKeyed(key token, negate bool) (Term, error) {
 	// A bare range with no keyword: 14:00-15:00. The lexer split it on the
 	// colon, so the "key" here is the hour. No field is named by a number, so
 	// this is unambiguous.
-	if isClockHour(key.text) {
+	if !literal && isClockHour(key.text) {
 		expr, err := p.parseTimeExpr("", key.pos)
 		if err != nil {
 			return nil, err

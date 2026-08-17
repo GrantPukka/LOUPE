@@ -169,8 +169,19 @@ func afterColon(tokens []token) bool {
 
 // afterKey reports whether the previous token could be a field name, which is
 // where a bare ~ is the match operator rather than a character in a word.
+//
+// A quoted string counts: it is how a field name containing a quote, a space or
+// a colon is written, and "odd key"~timeout must work like message~timeout.
 func afterKey(tokens []token) bool {
-	return len(tokens) > 0 && tokens[len(tokens)-1].kind == tokenWord
+	if len(tokens) == 0 {
+		return false
+	}
+	switch tokens[len(tokens)-1].kind {
+	case tokenWord, tokenQuoted:
+		return true
+	default:
+		return false
+	}
 }
 
 func afterOp(tokens []token) bool {
@@ -237,7 +248,10 @@ func lexQuoted(input string, i int) (string, int, error) {
 	return "", 0, &SyntaxError{
 		Pos:     i,
 		Message: "unterminated quoted string",
-		Hint:    `every " needs a closing "`,
+		// The common way to land here is a field name containing a quote, which
+		// looks like an opening quote to the lexer. Say how to write it.
+		Hint: `every " needs a closing "; for a field name containing one, ` +
+			`quote the whole name: "weird\"key":value`,
 	}
 }
 

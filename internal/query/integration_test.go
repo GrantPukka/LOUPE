@@ -443,7 +443,7 @@ func TestInjectionIsInertAgainstTheRealDatabase(t *testing.T) {
 // a'b closed the literal early and DuckDB answered `syntax error at or near
 // "b"` — a legitimate record was unqueryable.
 func TestQuotesInFieldNamesAgainstRealDuckDB(t *testing.T) {
-	names := []string{`a'b`, `e\f`, `it's`, `two''quotes`}
+	names := []string{`a'b`, `e\f`, `it's`, `two''quotes`, `weird"key`, `a key with spaces`, `last`}
 
 	db, err := store.Open("")
 	if err != nil {
@@ -484,11 +484,16 @@ func TestQuotesInFieldNamesAgainstRealDuckDB(t *testing.T) {
 	}
 	schema := query.Schema{Fields: fields}
 
+	// Rendering the term is how a user gets a filter for an awkward key in the
+	// first place — the UI writes it into the filter box — so going through
+	// String() here tests render, parse and compile as one path.
 	for _, n := range names {
-		filter := n + ":z"
+		term := &query.FieldTerm{Key: n, Values: []query.Value{{Text: "z"}}}
+		filter := term.String()
+
 		got := run(t, db, schema, filter)
 		if len(got) != 1 || got[0] != "match "+n {
-			t.Errorf("filter %q matched %v, want [%q]", filter, got, "match "+n)
+			t.Errorf("filter %q (key %q) matched %v, want [%q]", filter, n, got, "match "+n)
 		}
 	}
 }
