@@ -16,7 +16,6 @@
       "Bash(git log:*)"
     ],
     "deny": [
-      "Bash(git push:*)",
       "Read(./.env)",
       "Read(./.env.*)"
     ]
