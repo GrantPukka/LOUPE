@@ -42,8 +42,18 @@ happened.
 
 ## Install
 
-Build from source. It needs Go 1.24+ and a C toolchain, because loupe links
-DuckDB (`build-essential` on Linux, the Xcode command line tools on macOS):
+```bash
+brew install GrantPukka/tap/loupe
+```
+
+Or take the archive for your platform from the [latest
+release](https://github.com/GrantPukka/loupe/releases/latest) — Linux and macOS,
+amd64 and arm64 — verify it against `checksums.txt`, and put `loupe` on your
+PATH. Those binaries are unsigned, so macOS quarantines a downloaded one:
+`xattr -d com.apple.quarantine ./loupe`, or use Homebrew, which sidesteps it.
+
+From source needs Go 1.24+ and a C toolchain, because loupe links DuckDB
+(`build-essential` on Linux, the Xcode command line tools on macOS):
 
 ```bash
 git clone https://github.com/GrantPukka/loupe && cd loupe
@@ -56,8 +66,7 @@ frontend is not committed, so a binary installed that way has the CLI, the TUI,
 and the HTTP API but no browser UI — `--ui` will tell you so rather than fail
 oddly.
 
-Prebuilt binaries and a Homebrew tap are not published yet; they arrive with the
-first tagged release. Windows: use WSL for now.
+Windows: use WSL for now.
 
 ## Filtering
 
