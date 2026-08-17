@@ -190,22 +190,34 @@ rather have that conversation early than decline a finished PR.
 ## Seed issues to label `good first issue`
 
 *(Maintainer note — create these before announcing anywhere. Each should link to
-`logfmt.go` as the template and include a sample of the target format.)*
+`logfmt.go` as the template and include a sample of the target format. Check the
+item is still open before filing it: an earlier version of this list shipped
+with seven entries that were already built, which wastes the time of exactly the
+people you least want to waste.)*
 
-1. Parser: Nginx error log
-2. Parser: Nginx / Apache access log (combined format)
-3. Parser: Python `logging` default format
-4. Parser: Java Log4j / Logback default pattern
-5. Parser: Rails production log
-6. Parser: Kubernetes CRI log format
-7. Parser: AWS CloudTrail JSON
-8. Parser: Caddy JSON access logs
-9. Parser: PostgreSQL server log
-10. Parser: systemd `journalctl -o json`
-11. Source: read from a `.tar.gz` archive without extracting
-12. Source: zstd decompression
-13. Timestamp layouts: add epoch-microseconds detection
-14. Render: add CSV output format
-15. UI: keyboard shortcut to focus the filter box
-16. Detect rotated-log ordering for `app-2026-01-01.log` style names
-17. Improve the truncated-final-line case in the directory walker
+**Parsers** — one file, one fixture, no other file changes:
+
+1. Nginx error log (the access log is done; the error log is a different format)
+2. Apache error log
+3. Python `logging` default format
+4. Rails production log
+5. Kubernetes CRI log format
+6. Docker JSON file logging driver
+7. AWS CloudTrail JSON
+8. Caddy JSON access logs
+9. systemd `journalctl -o json`
+10. HAProxy HTTP log
+11. MySQL slow query log
+12. Redis server log
+
+**Sources** — new places to read bytes from, in `internal/source/`:
+
+13. Read a `.tar.gz` archive without extracting it first
+14. zstd decompression. `walk.go` currently lists `.zst` among the extensions it
+    skips; this is that line plus a decompressor and a fixture
+
+**Query**:
+
+15. `--extract 'took (?<ms>\d+)ms'` — pull named fields out of unstructured
+    messages at query time, so the fallback text parser stops being a dead end.
+    Larger than the others and worth discussing on the issue first
