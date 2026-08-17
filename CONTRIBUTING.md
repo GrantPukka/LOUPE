@@ -15,7 +15,7 @@ about twenty minutes.
 git clone https://github.com/VIGIL-OPS/loupe && cd loupe
 go build ./cmd/loupe          # requires Go 1.24+, CGO enabled
 go test ./...
-./loupe testdata/jsonl/sample.log
+./loupe internal/parse/testdata/jsonl/sample.log
 ```
 
 CGO is required because we link DuckDB. On Linux you need a C toolchain
@@ -44,9 +44,12 @@ Say you want to support Nginx error logs.
 
 ### 1. Add a fixture
 
-Create `testdata/nginx-error/sample.log` with 20–50 real-looking lines. **Make it messy on
-purpose:** include a blank line, a truncated final line, and at least one malformed record.
-Scrub any real hostnames, IPs, or tokens.
+Create `internal/parse/testdata/nginx-error/sample.log` with 20–50 real-looking lines.
+**Make it messy on purpose:** include a blank line, a truncated final line, and at least one
+malformed record. Scrub any real hostnames, IPs, or tokens.
+
+This is not a style request — `TestFixturesAreMessy` checks it, and `TestFixturesAreSmall`
+enforces the size limit. A tidy fixture proves the parser works on input that never occurs.
 
 ### 2. Write the parser
 
