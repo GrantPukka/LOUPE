@@ -4,6 +4,12 @@
   No Elasticsearch. No daemon. No Docker. One binary.
 </p>
 
+<p align="center">
+  <a href="https://github.com/VIGIL-OPS/loupe/actions/workflows/ci.yml"><img src="https://github.com/VIGIL-OPS/loupe/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
+  <img src="https://img.shields.io/badge/go-1.24+-00ADD8" alt="Go 1.24+">
+</p>
+
 <!-- TODO: the ten-second GIF goes here, and it matters more than anything below it.
      Script: wide view → red error cluster is visible → drag the timeline to it →
      click a row → click status:502 → done. Record at 1200px, keep it under 3MB.

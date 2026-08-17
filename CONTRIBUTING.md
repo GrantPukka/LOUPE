@@ -190,8 +190,9 @@ rather have that conversation early than decline a finished PR.
 ## Style and process
 
 - `gofmt`, `go vet`, and `golangci-lint run` must pass. `make check` runs all
-  three plus the tests; run it before opening a PR. (Automated CI is not wired
-  up yet, so for now this is on you and on review.)
+  three plus the tests. CI runs the same things on Linux and macOS, with `-race`,
+  plus the browser suite — running `make check` locally first just saves you the
+  round trip.
 - Conventional commits (`feat:`, `fix:`, `docs:`, ...), imperative mood, under 72 characters.
 - New behaviour needs a test.
 - Discuss new third-party dependencies in an issue first.

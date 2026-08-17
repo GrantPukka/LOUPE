@@ -1,0 +1,62 @@
+name: Support a log format
+description: loupe does not understand a format you actually have
+labels: ["parser", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the most useful thing you can ask for, and the most useful thing
+        you can contribute — a parser is about a hundred lines and a fixture,
+        and `CONTRIBUTING.md` walks through it end to end using `logfmt.go` as
+        the template.
+
+        You do not have to write it yourself. Filing this with a good sample is
+        genuinely valuable on its own.
+
+  - type: input
+    id: format
+    attributes:
+      label: What produces these logs
+      description: The tool, its version, and the config that selects this format.
+      placeholder: HAProxy 2.8, default httplog
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample lines
+      description: >
+        Ten to twenty lines, scrubbed of hostnames, IPs, tokens, and user
+        identifiers. Include the awkward ones — a multi-line entry, a truncated
+        line, anything with an unusual timestamp.
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: spec
+    attributes:
+      label: Link to the format documentation
+      description: If there is one. Saves a lot of guessing.
+
+  - type: dropdown
+    id: timezone
+    attributes:
+      label: Do the timestamps carry a timezone or offset?
+      description: >
+        Formats that carry none default to assumed UTC and get flagged as
+        assumed rather than known, so this changes how the parser is written.
+      options:
+        - "Yes, every line has an offset or Z"
+        - "No, the timestamps are local with no offset"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: offer
+    attributes:
+      label: Would you like to write it?
+      options:
+        - label: Yes, and I would like this assigned to me

@@ -1,0 +1,71 @@
+name: Bug report
+description: Something parsed, filtered, or displayed wrongly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A twenty-line sample that reproduces the problem is worth more than a
+        long description. If you can attach one, everything below gets easier.
+
+        **Scrub it first** — hostnames, IPs, tokens, user identifiers. loupe is
+        for production logs, and this issue is public.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, and what came back.
+      placeholder: |
+        $ loupe ./logs 'status:>=500 last:1h'
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: A sample that reproduces it
+      description: >
+        A few log lines is usually enough. If the problem is timezone-related,
+        please include lines whose timestamps sit either side of the boundary.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`loupe --version`"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      placeholder: macOS 15 arm64 / Ubuntu 24.04 amd64
+
+  - type: input
+    id: timezone
+    attributes:
+      label: Your timezone
+      description: >
+        Only needed for anything time-related, but for those it is usually the
+        whole answer. The status line prints the one loupe is using.
+      placeholder: Europe/London
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before filing
+      options:
+        - label: I reproduced this with `--no-cache`, so it is not a stale ingest
+        - label: I have scrubbed anything sensitive from the sample above
+          required: true
