@@ -113,13 +113,25 @@ func (s Schema) resolve(key string) (expr string, err error) {
 // jsonPath builds the extraction expression for a field in the JSON bag.
 //
 // The key is embedded in a JSON path literal rather than passed as a parameter
-// because DuckDB does not accept a placeholder there. Everything that could
-// come from user input is escaped, and resolve only ever reaches this with a
-// key that matched one already present in the data — so the value is drawn from
-// the database's own contents, not from the query string.
+// because DuckDB does not accept a placeholder there. That puts it inside two
+// nested quoting contexts at once — a $."..." path, itself inside a '...' SQL
+// string literal — and both have to be escaped. A field named a'b closes the
+// SQL literal early and the remainder of the path is parsed as SQL.
+//
+// resolve only reaches this with a key already present in the data, so the
+// value comes from the database's own contents rather than the query string.
+// It is escaped anyway: a log file is not a trusted input.
 func jsonPath(key string) string {
-	escaped := strings.ReplaceAll(key, `"`, `\"`)
-	return `fields->>'$."` + escaped + `"'`
+	return `fields->>'$."` + escapeJSONPathKey(key) + `"'`
+}
+
+// escapeJSONPathKey escapes a field name for both quoting contexts it lands in.
+//
+// Backslash goes first, or it escapes the backslashes the next step adds.
+func escapeJSONPathKey(key string) string {
+	esc := strings.ReplaceAll(key, `\`, `\\`)
+	esc = strings.ReplaceAll(esc, `"`, `\"`)
+	return strings.ReplaceAll(esc, `'`, `''`)
 }
 
 // quoteIdent wraps a column name in double quotes, doubling any inside.

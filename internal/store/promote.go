@@ -187,8 +187,16 @@ func (s *DB) applyPromotions(ctx context.Context, promotions []schema.Promotion)
 }
 
 // jsonExtract builds the extraction expression for a field name.
+//
+// The name lands in two nested quoting contexts — a $."..." JSON path, itself
+// inside a '...' SQL string literal — so both need escaping. A field named a'b
+// closes the literal early and the rest of the path is parsed as SQL.
+// Backslash is replaced first, or it escapes the backslashes added after it.
 func jsonExtract(field string) string {
-	return `fields->>'$."` + strings.ReplaceAll(field, `"`, `\"`) + `"'`
+	esc := strings.ReplaceAll(field, `\`, `\\`)
+	esc = strings.ReplaceAll(esc, `"`, `\"`)
+	esc = strings.ReplaceAll(esc, `'`, `''`)
+	return `fields->>'$."` + esc + `"'`
 }
 
 // quoteIdent wraps an identifier in double quotes, doubling any inside.

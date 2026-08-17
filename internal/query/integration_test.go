@@ -437,6 +437,62 @@ func TestInjectionIsInertAgainstTheRealDatabase(t *testing.T) {
 	}
 }
 
+// Field names come out of log files, so they can contain anything at all.
+// jsonPath embeds the name in a $."..." path that itself sits inside a '...'
+// SQL string literal; until both contexts were escaped, filtering a field named
+// a'b closed the literal early and DuckDB answered `syntax error at or near
+// "b"` — a legitimate record was unqueryable.
+func TestQuotesInFieldNamesAgainstRealDuckDB(t *testing.T) {
+	names := []string{`a'b`, `e\f`, `it's`, `two''quotes`}
+
+	db, err := store.Open("")
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	ing, err := db.NewIngester()
+	if err != nil {
+		t.Fatalf("new ingester: %v", err)
+	}
+	ing.SetSource(store.Source{Name: "api", File: "api.log", Format: "jsonl"})
+
+	for i, n := range append(append([]string{}, names...), "plain") {
+		msg := "match " + n
+		if err := ing.Add(parse.Entry{
+			LineNo: int64(i + 1),
+			Raw:    msg,
+			Parsed: true,
+			Record: parse.Record{
+				Timestamp:      ts("2026-08-13T14:00:00Z"),
+				TimestampZoned: true,
+				Level:          "info",
+				Message:        msg,
+				Fields:         map[string]any{n: "z"},
+			},
+		}); err != nil {
+			t.Fatalf("add %q: %v", n, err)
+		}
+	}
+	if err := ing.Close(); err != nil {
+		t.Fatalf("close ingester: %v", err)
+	}
+
+	fields, err := db.Fields(context.Background())
+	if err != nil {
+		t.Fatalf("fields: %v", err)
+	}
+	schema := query.Schema{Fields: fields}
+
+	for _, n := range names {
+		filter := n + ":z"
+		got := run(t, db, schema, filter)
+		if len(got) != 1 || got[0] != "match "+n {
+			t.Errorf("filter %q matched %v, want [%q]", filter, got, "match "+n)
+		}
+	}
+}
+
 // Every operator must produce SQL DuckDB actually accepts. A predicate that
 // compiles to a syntax error is caught here rather than by a user.
 func TestEveryOperatorProducesValidSQL(t *testing.T) {

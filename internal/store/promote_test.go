@@ -345,3 +345,59 @@ func TestPromotionQuotesAwkwardNames(t *testing.T) {
 		t.Fatalf("table unusable after promoting keyword names: %v", err)
 	}
 }
+
+// Field names come out of log files, so they can contain anything. The name is
+// embedded in a $."..." JSON path inside a '...' SQL literal, and before both
+// contexts were escaped a name like a'b closed the literal early: promotion
+// failed with a DuckDB syntax error and took the whole ingest with it.
+func TestPromotionSurvivesQuotesInFieldNames(t *testing.T) {
+	// Deliberately distinct stems: several awkward names sanitising to the same
+	// column would collide during inference and mask what is being tested here.
+	names := []string{`a'b`, `c"d`, `e\f`, `it's`}
+
+	var entries []parse.Entry
+	for i := 0; i < 20; i++ {
+		fields := map[string]any{}
+		for j, n := range names {
+			fields[n] = int64(100 + j)
+		}
+		entries = append(entries, entry(int64(i+1), "2026-08-13T14:00:00Z", "info", "x", fields))
+	}
+
+	db := seeded(t, Source{Name: "api", File: "api.log", Format: "jsonl"}, entries...)
+	ctx := context.Background()
+
+	promotions, _, err := db.InferAndPromote(ctx, schema.Options{})
+	if err != nil {
+		t.Fatalf("InferAndPromote with quotes in field names: %v", err)
+	}
+
+	promoted := map[string]bool{}
+	for _, p := range promotions {
+		promoted[p.Field] = true
+	}
+	for _, n := range names {
+		if !promoted[n] {
+			t.Errorf("field %q was not promoted; got %v", n, promotions)
+		}
+	}
+
+	// The values must survive the rebuild, not just the DDL.
+	for j, n := range names {
+		var got *int64
+		// Parenthesised: :: binds tighter than ->>, so without them the cast
+		// applies to the path literal rather than the extracted value.
+		row := db.QueryRow(ctx, `SELECT (`+jsonExtract(n)+`)::BIGINT FROM logs LIMIT 1`)
+		if err := row.Scan(&got); err != nil {
+			t.Errorf("reading %q back: %v", n, err)
+			continue
+		}
+		if got == nil || *got != int64(100+j) {
+			t.Errorf("field %q = %v, want %d", n, got, 100+j)
+		}
+	}
+
+	if _, err := db.Count(ctx); err != nil {
+		t.Fatalf("table unusable after promoting quoted names: %v", err)
+	}
+}
