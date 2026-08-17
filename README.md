@@ -4,12 +4,11 @@
   No Elasticsearch. No daemon. No Docker. One binary.
 </p>
 
-<p align="center">
-  <!-- TODO: the ten-second GIF goes here, and it matters more than anything below it.
-       Script: wide view → red error cluster is visible → drag the timeline to it →
-       click a row → click status:502 → done. Record at 1200px, keep it under 3MB. -->
-  <img src="docs/demo.gif" alt="loupe demo" width="760">
-</p>
+<!-- TODO: the ten-second GIF goes here, and it matters more than anything below it.
+     Script: wide view → red error cluster is visible → drag the timeline to it →
+     click a row → click status:502 → done. Record at 1200px, keep it under 3MB.
+     Until it exists there is no <img> tag, because a broken image at the top of
+     the page is worse than no image at all. -->
 
 ---
 
@@ -37,15 +36,22 @@ happened.
 
 ## Install
 
+Build from source. It needs Go 1.24+ and a C toolchain, because loupe links
+DuckDB (`build-essential` on Linux, the Xcode command line tools on macOS):
+
 ```bash
-brew install VIGIL-OPS/tap/loupe          # macOS and Linux
-curl -fsSL https://loupe.dev/install | sh
-go install github.com/VIGIL-OPS/loupe/cmd/loupe@latest
+git clone https://github.com/VIGIL-OPS/loupe && cd loupe
+make web && make build     # make build alone skips the browser UI
+./loupe demo
 ```
 
-Binaries are also on the [releases page](../../releases). They are unsigned, so
-macOS may need `xattr -d com.apple.quarantine ./loupe` — or just use Homebrew,
-which sidesteps it. Windows: use WSL for now.
+`go install github.com/VIGIL-OPS/loupe/cmd/loupe@latest` also works. The
+frontend is not committed, so a binary installed that way has the CLI, the TUI,
+and the HTTP API but no browser UI — `--ui` will tell you so rather than fail
+oddly.
+
+Prebuilt binaries and a Homebrew tap are not published yet; they arrive with the
+first tagged release. Windows: use WSL for now.
 
 ## Filtering
 
@@ -100,8 +106,8 @@ Known structure — fixed fields extracted:
 
 Best effort — timestamp, level where present, message as text:
 
-- Anything else. `--extract 'took (?<ms>\d+)ms'` pulls fields out of unstructured
-  messages at query time.
+- Anything else. The line is kept whole and stays searchable, and any timestamp
+  in it still lands on the timeline.
 
 **Your format missing?** It is about a hundred lines and a fixture to add one —
 see [CONTRIBUTING.md](CONTRIBUTING.md). This is the most useful contribution to
@@ -114,7 +120,11 @@ loupe demo
 ```
 
 Generates a realistic incident across six sources in six formats — a Postgres pool
-exhaustion cascading into app errors and 502s — then opens the UI on it.
+exhaustion cascading into app errors and 502s — then opens the UI on it. The same
+trace id runs through all six, which is the part worth looking at.
+
+It writes into the cache directory, never the directory you are standing in. Add
+`--print` to stay in the terminal, `--regenerate` for fresh data.
 
 ## What this is not
 

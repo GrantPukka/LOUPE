@@ -13,7 +13,7 @@ about twenty minutes.
 
 ```bash
 git clone https://github.com/VIGIL-OPS/loupe && cd loupe
-go build ./cmd/loupe          # requires Go 1.22+, CGO enabled
+go build ./cmd/loupe          # requires Go 1.24+, CGO enabled
 go test ./...
 ./loupe testdata/jsonl/sample.log
 ```
@@ -177,7 +177,9 @@ rather have that conversation early than decline a finished PR.
 
 ## Style and process
 
-- `gofmt`, `go vet`, and `golangci-lint run` must pass. CI enforces this.
+- `gofmt`, `go vet`, and `golangci-lint run` must pass. `make check` runs all
+  three plus the tests; run it before opening a PR. (Automated CI is not wired
+  up yet, so for now this is on you and on review.)
 - Conventional commits (`feat:`, `fix:`, `docs:`, ...), imperative mood, under 72 characters.
 - New behaviour needs a test.
 - Discuss new third-party dependencies in an issue first.
