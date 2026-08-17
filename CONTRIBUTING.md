@@ -24,6 +24,18 @@ CGO is required because we link DuckDB. On Linux you need a C toolchain
 For frontend work: `cd web && npm install && npm run dev`, which proxies the API to a
 `loupe serve` running on the default port.
 
+There is also a browser test suite. It drives the embedded UI against a real binary and a
+real DuckDB ingest — nothing is mocked, for the same reason the Go tests do not mock the
+store:
+
+```bash
+make web && make build      # the tests drive the binary you just built
+make e2e                    # or: cd web && npm run test:e2e
+```
+
+It generates its own fixtures from `cmd/blaster` on a fixed seed, serves them on port 7799,
+and makes no outbound connections. If you change the UI, run it before opening the PR.
+
 ---
 
 ## Adding a parser — the walkthrough

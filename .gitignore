@@ -26,3 +26,8 @@
 # built frontend, embedded at release time (see `make web`)
 /internal/server/dist/*
 !/internal/server/dist/.gitkeep
+
+# playwright
+/web/.playwright/
+/web/test-results/
+/web/playwright-report/

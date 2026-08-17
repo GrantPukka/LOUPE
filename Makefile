@@ -79,6 +79,11 @@ fmt-check:
 		echo "not gofmt-clean:"; echo "$$unformatted"; exit 1; \
 	fi
 
+## e2e: drive the real UI in a headless browser (needs `make web build` first)
+.PHONY: e2e
+e2e:
+	cd web && npm install && npx playwright install --with-deps chromium && npm run test:e2e
+
 ## check: everything CI runs — format, vet, lint, and tests
 .PHONY: check
 check: lint test
