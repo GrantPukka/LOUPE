@@ -92,6 +92,7 @@ Read-only, local-only, no daemon, no network.`,
 	root.Flags().StringVar(&g.uiAddr, "addr", server.DefaultAddr, "loopback address for --ui")
 
 	root.AddCommand(
+		newDemoCommand(g),
 		newSubscribeCommand(g),
 		newUnsubscribeCommand(g),
 		newSubscriptionsCommand(g),
