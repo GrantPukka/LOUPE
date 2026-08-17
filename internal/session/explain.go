@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/query"
+	"github.com/GrantPukka/loupe/internal/query"
 )
 
 // Explanation says why a filter matched nothing.

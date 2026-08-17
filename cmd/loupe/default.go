@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
-	"github.com/VIGIL-OPS/loupe/internal/workspace"
+	"github.com/GrantPukka/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/workspace"
 	"github.com/spf13/cobra"
 )
 

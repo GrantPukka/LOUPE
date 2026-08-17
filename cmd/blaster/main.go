@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/VIGIL-OPS/loupe/internal/blaster"
+	"github.com/GrantPukka/loupe/internal/blaster"
 )
 
 func main() {

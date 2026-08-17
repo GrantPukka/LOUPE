@@ -12,7 +12,7 @@ about twenty minutes.
 ## Setup
 
 ```bash
-git clone https://github.com/VIGIL-OPS/loupe && cd loupe
+git clone https://github.com/GrantPukka/loupe && cd loupe
 go build ./cmd/loupe          # requires Go 1.24+, CGO enabled
 go test ./...
 ./loupe internal/parse/testdata/jsonl/sample.log

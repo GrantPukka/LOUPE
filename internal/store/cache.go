@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/source"
+	"github.com/GrantPukka/loupe/internal/source"
 )
 
 // IngestVersion is bumped whenever a change would make a cached database

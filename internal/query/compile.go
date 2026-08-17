@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/parse"
 )
 
 // SQL is a compiled query: a WHERE clause and its parameters.

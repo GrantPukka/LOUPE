@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
-	"github.com/VIGIL-OPS/loupe/internal/query"
+	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/query"
 )
 
 // DefaultBuckets is how many columns a histogram gets when the caller does not

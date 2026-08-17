@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/session"
 	"github.com/charmbracelet/lipgloss"
 )
 

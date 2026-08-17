@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // json renders the whole result as one object, including the counts. The

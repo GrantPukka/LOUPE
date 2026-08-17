@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/VIGIL-OPS/loupe/internal/blaster"
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/blaster"
+	"github.com/GrantPukka/loupe/internal/store"
 	"github.com/spf13/cobra"
 )
 

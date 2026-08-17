@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
-	"github.com/VIGIL-OPS/loupe/internal/query"
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/query"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 func ts(s string) time.Time {

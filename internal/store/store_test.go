@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
-	"github.com/VIGIL-OPS/loupe/internal/source"
+	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/source"
 )
 
 // open gives a real in-memory DuckDB. CLAUDE.md forbids mocking it: tests

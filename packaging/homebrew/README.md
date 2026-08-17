@@ -1,7 +1,7 @@
 # Homebrew
 
-`brew install VIGIL-OPS/tap/loupe` resolves to a **separate repository**,
-`github.com/VIGIL-OPS/homebrew-tap`, holding `Formula/loupe.rb`. Homebrew
+`brew install GrantPukka/tap/loupe` resolves to a **separate repository**,
+`github.com/GrantPukka/homebrew-tap`, holding `Formula/loupe.rb`. Homebrew
 requires the `homebrew-` name prefix; the tap cannot live in this repo.
 
 ## Cutting a release
@@ -28,14 +28,14 @@ missing hash.
 ## Creating the tap, once
 
 ```bash
-gh repo create VIGIL-OPS/homebrew-tap --public
-git clone https://github.com/VIGIL-OPS/homebrew-tap && cd homebrew-tap
+gh repo create GrantPukka/homebrew-tap --public
+git clone https://github.com/GrantPukka/homebrew-tap && cd homebrew-tap
 mkdir -p Formula
 # add Formula/loupe.rb from the release, commit, push
 ```
 
-Then `brew install VIGIL-OPS/tap/loupe` works with no further setup — Homebrew
-maps `VIGIL-OPS/tap` to `VIGIL-OPS/homebrew-tap` automatically.
+Then `brew install GrantPukka/tap/loupe` works with no further setup — Homebrew
+maps `GrantPukka/tap` to `GrantPukka/homebrew-tap` automatically.
 
 ## Testing a formula before publishing
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/VIGIL-OPS/loupe/internal/render"
-	"github.com/VIGIL-OPS/loupe/internal/tui"
+	"github.com/GrantPukka/loupe/internal/render"
+	"github.com/GrantPukka/loupe/internal/tui"
 	"github.com/spf13/cobra"
 )
 

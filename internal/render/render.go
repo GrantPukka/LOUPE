@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // Format is an output encoding.

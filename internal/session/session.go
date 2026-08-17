@@ -17,10 +17,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/query"
-	"github.com/VIGIL-OPS/loupe/internal/schema"
-	"github.com/VIGIL-OPS/loupe/internal/source"
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/query"
+	"github.com/GrantPukka/loupe/internal/schema"
+	"github.com/GrantPukka/loupe/internal/source"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // Options configures opening a set of logs.

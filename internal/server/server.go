@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
-	"github.com/VIGIL-OPS/loupe/internal/workspace"
+	"github.com/GrantPukka/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/workspace"
 )
 
 // Options configures the HTTP server.

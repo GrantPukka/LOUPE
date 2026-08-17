@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/VIGIL-OPS/loupe/actions/workflows/ci.yml"><img src="https://github.com/VIGIL-OPS/loupe/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
+  <a href="https://github.com/GrantPukka/loupe/actions/workflows/ci.yml"><img src="https://github.com/GrantPukka/loupe/actions/workflows/ci.yml/badge.svg" alt="ci"></a>
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT">
   <img src="https://img.shields.io/badge/go-1.24+-00ADD8" alt="Go 1.24+">
 </p>
@@ -46,12 +46,12 @@ Build from source. It needs Go 1.24+ and a C toolchain, because loupe links
 DuckDB (`build-essential` on Linux, the Xcode command line tools on macOS):
 
 ```bash
-git clone https://github.com/VIGIL-OPS/loupe && cd loupe
+git clone https://github.com/GrantPukka/loupe && cd loupe
 make web && make build     # make build alone skips the browser UI
 ./loupe demo
 ```
 
-`go install github.com/VIGIL-OPS/loupe/cmd/loupe@latest` also works. The
+`go install github.com/GrantPukka/loupe/cmd/loupe@latest` also works. The
 frontend is not committed, so a binary installed that way has the CLI, the TUI,
 and the HTTP API but no browser UI — `--ui` will tell you so rather than fail
 oddly.

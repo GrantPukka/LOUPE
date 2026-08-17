@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // statusLine reports what was loaded and every assumption made loading it.

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/VIGIL-OPS/loupe/internal/workspace"
+	"github.com/GrantPukka/loupe/internal/workspace"
 )
 
 // requireLocalHost rejects a request whose Host header is not loopback.

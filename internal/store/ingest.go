@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/parse"
 	"github.com/marcboeker/go-duckdb"
 )
 

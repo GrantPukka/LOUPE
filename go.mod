@@ -1,4 +1,4 @@
-module github.com/VIGIL-OPS/loupe
+module github.com/GrantPukka/loupe
 
 go 1.24.2
 

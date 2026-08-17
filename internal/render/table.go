@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // ANSI colours. Severity is the only thing colourised, because colour used for

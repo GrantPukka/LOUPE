@@ -1,10 +1,10 @@
 blank_issues_enabled: true
 contact_links:
   - name: Is it in scope?
-    url: https://github.com/VIGIL-OPS/loupe/blob/main/ARCHITECTURE.md#8-non-goals-stated-so-they-can-be-closed-as-wont-fix
+    url: https://github.com/GrantPukka/loupe/blob/main/ARCHITECTURE.md#8-non-goals-stated-so-they-can-be-closed-as-wont-fix
     about: >
       Alerting, accounts, a daemon, log shipping, and metrics are deliberate
       non-goals. Worth a look before writing a proposal.
   - name: Adding a parser
-    url: https://github.com/VIGIL-OPS/loupe/blob/main/CONTRIBUTING.md
+    url: https://github.com/GrantPukka/loupe/blob/main/CONTRIBUTING.md
     about: A walkthrough of the whole process. Roughly twenty minutes.

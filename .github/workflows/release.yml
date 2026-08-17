@@ -120,7 +120,7 @@ jobs:
 
       # Attached to the release rather than committed, because it carries the
       # hash of four archives that did not exist until a minute ago. Copy it
-      # into VIGIL-OPS/homebrew-tap at Formula/loupe.rb to publish the update.
+      # into GrantPukka/homebrew-tap at Formula/loupe.rb to publish the update.
       - name: render the homebrew formula
         run: |
           ./packaging/homebrew/render-formula.sh \
@@ -142,7 +142,7 @@ jobs:
             Homebrew:
 
             ```
-            brew install VIGIL-OPS/tap/loupe
+            brew install GrantPukka/tap/loupe
             ```
 
             Or download the archive for your platform below, verify it against

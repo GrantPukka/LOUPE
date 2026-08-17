@@ -5,8 +5,8 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/VIGIL-OPS/loupe/internal/store"
-	"github.com/VIGIL-OPS/loupe/internal/workspace"
+	"github.com/GrantPukka/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/workspace"
 	"github.com/spf13/cobra"
 )
 

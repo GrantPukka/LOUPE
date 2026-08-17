@@ -10,8 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/VIGIL-OPS/loupe/internal/server"
-	"github.com/VIGIL-OPS/loupe/internal/workspace"
+	"github.com/GrantPukka/loupe/internal/server"
+	"github.com/GrantPukka/loupe/internal/workspace"
 	"github.com/spf13/cobra"
 )
 

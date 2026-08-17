@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // schemaResponse describes what a filter can reference.

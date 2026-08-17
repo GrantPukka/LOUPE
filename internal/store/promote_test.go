@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/VIGIL-OPS/loupe/internal/parse"
-	"github.com/VIGIL-OPS/loupe/internal/schema"
+	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/schema"
 )
 
 // seeded builds a store with the given records already ingested.

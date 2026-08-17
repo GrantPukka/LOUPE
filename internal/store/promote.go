@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/VIGIL-OPS/loupe/internal/schema"
+	"github.com/GrantPukka/loupe/internal/schema"
 )
 
 // schemaTable records which fields were promoted, so a cached database restores

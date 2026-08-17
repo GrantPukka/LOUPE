@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/session"
 )
 
 // fixture writes a small mixed-format directory and opens a session over it.

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/store"
+	"github.com/GrantPukka/loupe/internal/store"
 )
 
 // DefaultHandoffLimit caps the record table.

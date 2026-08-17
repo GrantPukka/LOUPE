@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/source"
+	"github.com/GrantPukka/loupe/internal/source"
 )
 
 // logDir writes a small directory of JSON lines and returns its path.

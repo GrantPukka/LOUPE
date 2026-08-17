@@ -28,7 +28,7 @@ around 40–60MB. If it doesn't build, stop and reconsider before going further.
 Then set up the repo:
 
 ```
-Initialise a Go module github.com/VIGIL-OPS/loupe with the package layout described
+Initialise a Go module github.com/GrantPukka/loupe with the package layout described
 in ARCHITECTURE.md section 4. Create empty packages with doc comments only, a
 .gitignore for Go, and a Makefile with build, test, lint, and demo targets. No
 implementation yet.

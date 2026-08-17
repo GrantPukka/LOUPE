@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/session"
 )
 
 // HandoffFormat is how an extract is written.

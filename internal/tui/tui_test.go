@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/VIGIL-OPS/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/session"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
