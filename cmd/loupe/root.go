@@ -30,6 +30,7 @@ type globals struct {
 	include     []string
 	exclude     []string
 	quiet       bool
+	follow      bool
 	relativeTo  string
 	noCache     bool
 	cacheDir    string
@@ -88,6 +89,8 @@ Read-only, local-only, no daemon, no network.`,
 
 	// The README's headline invocation. It is the same thing `loupe serve`
 	// does, so it delegates rather than growing a second code path.
+	root.Flags().BoolVar(&g.follow, "follow", false,
+		"keep watching for records written after the initial read")
 	root.Flags().BoolVar(&g.ui, "ui", false, "open the results in a local web UI instead of printing them")
 	root.Flags().StringVar(&g.uiAddr, "addr", server.DefaultAddr, "loopback address for --ui")
 
@@ -183,6 +186,13 @@ func (g *globals) parseSort() (session.SortOrder, error) {
 func (g *globals) parseRelativeTo() (bool, error) {
 	switch strings.ToLower(g.relativeTo) {
 	case "", "newest", "data":
+		// docs/FILTER-DSL.md section 2.2: follow mode anchors to the wall clock
+		// instead. The newest record is a moving target while records are
+		// arriving, so last:15m would slide forward on every poll and quietly
+		// drop the beginning of the window the user is watching.
+		if g.follow && !g.explicitRelativeTo() {
+			return true, nil
+		}
 		return false, nil
 	case "now", "wall", "wallclock":
 		return true, nil
@@ -234,4 +244,17 @@ func errorsAs(err error, target *session.NoSourcesError) bool {
 		return true
 	}
 	return false
+}
+
+// explicitRelativeTo reports whether the user named an anchor themselves.
+//
+// Follow mode changes the default, but never overrides a choice that was typed:
+// --follow --relative-to=newest is a coherent thing to ask for.
+func (g *globals) explicitRelativeTo() bool {
+	switch strings.ToLower(g.relativeTo) {
+	case "newest", "data", "now", "wall", "wallclock":
+		return true
+	default:
+		return false
+	}
 }

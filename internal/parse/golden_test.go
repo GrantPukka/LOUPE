@@ -101,7 +101,7 @@ func checkGolden(t *testing.T, p Parser, samplePath string) {
 	defer input.Close()
 
 	var records []goldenRecord
-	stats, err := ReadAll(input, ReaderOptions{Parser: p, Loc: time.UTC}, func(e Entry) error {
+	stats, _, err := ReadAll(input, ReaderOptions{Parser: p, Loc: time.UTC}, func(e Entry) error {
 		records = append(records, toGolden(e))
 		return nil
 	})

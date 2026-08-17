@@ -23,6 +23,7 @@ loupe ./logs                 # every log file in the directory, one timeline
 loupe ./logs ~/Downloads     # several locations, still one timeline
 loupe ./logs --ui            # same thing, in the browser
 loupe tui ./logs             # same thing, in the terminal
+loupe ./logs --follow        # keep watching as new records are written
 
 loupe subscribe /var/log     # remember it
 loupe                        # read everything subscribed
@@ -75,6 +76,7 @@ level:error                     one level
 level:>=warn                    warn and above
 14:00-15:00                     a time window, in your local timezone
 last:15m                        relative to the newest record, not to now
+                                (in --follow, relative to the wall clock)
 source:nginx                    one source
 -source:nginx                   everything else
 status:>=500 latency_ms:>1000   any field, promoted or nested

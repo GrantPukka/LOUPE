@@ -16,7 +16,7 @@ func collect(t *testing.T, parser, input string) ([]Entry, Stats) {
 	}
 
 	var got []Entry
-	stats, err := ReadAll(strings.NewReader(input), ReaderOptions{Parser: p}, func(e Entry) error {
+	stats, _, err := ReadAll(strings.NewReader(input), ReaderOptions{Parser: p}, func(e Entry) error {
 		got = append(got, e)
 		return nil
 	})
@@ -138,7 +138,7 @@ func TestLineNumbersAreOneBasedAndCountBlanks(t *testing.T) {
 func TestStartLineOffsetsNumbering(t *testing.T) {
 	p, _ := Get("text")
 	var got []Entry
-	_, err := ReadAll(strings.NewReader("a\nb\n"), ReaderOptions{Parser: p, StartLine: 100},
+	_, _, err := ReadAll(strings.NewReader("a\nb\n"), ReaderOptions{Parser: p, StartLine: 100},
 		func(e Entry) error { got = append(got, e); return nil })
 	if err != nil {
 		t.Fatalf("ReadAll: %v", err)
@@ -222,7 +222,7 @@ func TestContinuationLinesFoldIntoTheRecordAbove(t *testing.T) {
 	}, "\n")
 
 	var got []Entry
-	stats, err := ReadAll(strings.NewReader(input),
+	stats, _, err := ReadAll(strings.NewReader(input),
 		ReaderOptions{Parser: continuerParser{}},
 		func(e Entry) error { got = append(got, e); return nil })
 	if err != nil {
@@ -250,7 +250,7 @@ func TestContinuationLinesFoldIntoTheRecordAbove(t *testing.T) {
 // A continuation line with nothing above it must not be swallowed.
 func TestLeadingContinuationBecomesItsOwnRecord(t *testing.T) {
 	var got []Entry
-	_, err := ReadAll(strings.NewReader("\tan orphan continuation\nreal record\n"),
+	_, _, err := ReadAll(strings.NewReader("\tan orphan continuation\nreal record\n"),
 		ReaderOptions{Parser: continuerParser{}},
 		func(e Entry) error { got = append(got, e); return nil })
 	if err != nil {
@@ -262,7 +262,7 @@ func TestLeadingContinuationBecomesItsOwnRecord(t *testing.T) {
 }
 
 func TestReadAllRequiresAParser(t *testing.T) {
-	_, err := ReadAll(strings.NewReader("x"), ReaderOptions{}, func(Entry) error { return nil })
+	_, _, err := ReadAll(strings.NewReader("x"), ReaderOptions{}, func(Entry) error { return nil })
 	if err == nil {
 		t.Fatal("expected an error when no parser is given")
 	}
@@ -274,7 +274,7 @@ func TestCallbackErrorPropagates(t *testing.T) {
 	p, _ := Get("text")
 	want := fmt.Errorf("store is full")
 
-	_, err := ReadAll(strings.NewReader("a\nb\nc\n"), ReaderOptions{Parser: p},
+	_, _, err := ReadAll(strings.NewReader("a\nb\nc\n"), ReaderOptions{Parser: p},
 		func(Entry) error { return want })
 
 	if err == nil {
@@ -333,4 +333,115 @@ func dump(entries []Entry) string {
 		fmt.Fprintf(&sb, "  line %d parsed=%v %q\n", e.LineNo, e.Parsed, e.Message)
 	}
 	return sb.String()
+}
+
+// The incremental-ingest contract. A file read while it is being written can
+// stop mid-record: the classic case is a stack trace whose remaining frames
+// have not been flushed yet. Resuming from the Tail must reproduce exactly the
+// records a single read of the finished file would have produced — no
+// duplicates, no orphaned continuation lines, no lost frames.
+func TestTailResumesWithoutSplittingARecord(t *testing.T) {
+	const head = "first record\n" +
+		"second record\n" +
+		"\tat com.example.Foo\n" +
+		"\tat com.example.Bar\n"
+	const grown = "\tat com.example.Baz\n" +
+		"third record\n"
+
+	whole := readWith(t, head+grown, ReaderOptions{})
+
+	// Read 1: the file as it stood mid-write.
+	partial := readWith(t, head, ReaderOptions{})
+	_, tail, err := ReadAll(strings.NewReader(head),
+		ReaderOptions{Parser: continuerParser{}}, func(Entry) error { return nil })
+	if err != nil {
+		t.Fatalf("first read: %v", err)
+	}
+
+	// The tail points at the start of the last record, so that record is read
+	// again rather than being left half-formed.
+	if tail.Line != 2 {
+		t.Errorf("tail.Line = %d, want 2 (the record that was still being written)", tail.Line)
+	}
+	if int(tail.Offset) != len("first record\n") {
+		t.Errorf("tail.Offset = %d, want %d", tail.Offset, len("first record\n"))
+	}
+
+	// Read 2: resume from the tail, as the store will, discarding the records
+	// from tail.Line onward first.
+	kept := partial[:tail.Line-1]
+	resumed := readWith(t, head[tail.Offset:]+grown,
+		ReaderOptions{StartLine: tail.Line - 1})
+
+	got := append(append([]Entry{}, kept...), resumed...)
+
+	if len(got) != len(whole) {
+		t.Fatalf("resumed read produced %d records, single read produced %d", len(got), len(whole))
+	}
+	for i := range whole {
+		if got[i].Raw != whole[i].Raw {
+			t.Errorf("record %d raw =\n  %q\nwant\n  %q", i, got[i].Raw, whole[i].Raw)
+		}
+		if got[i].LineNo != whole[i].LineNo {
+			t.Errorf("record %d line = %d, want %d", i, got[i].LineNo, whole[i].LineNo)
+		}
+	}
+}
+
+// readWith reads input with the continuation-aware test parser.
+func readWith(t *testing.T, input string, opts ReaderOptions) []Entry {
+	t.Helper()
+	opts.Parser = continuerParser{}
+
+	var got []Entry
+	_, _, err := ReadAll(strings.NewReader(input), opts, func(e Entry) error {
+		got = append(got, e)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("ReadAll: %v", err)
+	}
+	return got
+}
+
+// The status line's counts must survive an incremental read. Adding the
+// resumed read's stats to Tail.Before has to total exactly what a single read
+// of the finished file reports — the boundary record is read twice and must
+// still be counted once.
+func TestTailStatsTotalExactlyAcrossAResume(t *testing.T) {
+	const head = "first record\n" +
+		"\tcontinuation of first\n" +
+		"\n" +
+		"second record\n" +
+		"\tat com.example.Foo\n"
+	const grown = "\tat com.example.Bar\n" +
+		"third record\n"
+
+	var whole Stats
+	whole, _, err := ReadAll(strings.NewReader(head+grown),
+		ReaderOptions{Parser: continuerParser{}}, func(Entry) error { return nil })
+	if err != nil {
+		t.Fatalf("whole read: %v", err)
+	}
+
+	_, tail, err := ReadAll(strings.NewReader(head),
+		ReaderOptions{Parser: continuerParser{}}, func(Entry) error { return nil })
+	if err != nil {
+		t.Fatalf("first read: %v", err)
+	}
+
+	resumed, _, err := ReadAll(strings.NewReader(head[tail.Offset:]+grown),
+		ReaderOptions{Parser: continuerParser{}, StartLine: tail.Line - 1},
+		func(Entry) error { return nil })
+	if err != nil {
+		t.Fatalf("resumed read: %v", err)
+	}
+
+	total := tail.Before
+	total.Add(resumed)
+
+	if total != whole {
+		t.Errorf("incremental totals do not match a single read\n  incremental: %+v\n  single:      %+v",
+			total, whole)
+	}
 }
