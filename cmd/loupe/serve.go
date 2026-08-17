@@ -58,7 +58,10 @@ Endpoints:
 }
 
 func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbose, openBrowser bool) error {
-	given, filter := resolveArgs(args)
+	given, filter, err := resolveArgs(args)
+	if err != nil {
+		return err
+	}
 	if filter != "" {
 		return fmt.Errorf("serve takes a directory, not a filter — "+
 			"filtering happens in the UI. Did you mean `loupe %s %q`?",

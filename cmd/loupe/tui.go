@@ -41,7 +41,10 @@ func runTUI(cmd *cobra.Command, g *globals, args []string) error {
 			"for a pipe or a script use `loupe` with --format ndjson")
 	}
 
-	given, filter := resolveArgs(args)
+	given, filter, err := resolveArgs(args)
+	if err != nil {
+		return err
+	}
 	paths, _ := resolvePaths(g, given)
 
 	sess, err := g.open(cmd.Context(), paths...)

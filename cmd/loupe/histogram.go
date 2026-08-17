@@ -39,7 +39,10 @@ printed so it can be typed straight back as a filter.`,
 }
 
 func runHistogram(cmd *cobra.Command, g *globals, args []string, buckets int) error {
-	given, filter := resolveArgs(args)
+	given, filter, err := resolveArgs(args)
+	if err != nil {
+		return err
+	}
 	paths, _ := resolvePaths(g, given)
 
 	sess, err := g.open(cmd.Context(), paths...)

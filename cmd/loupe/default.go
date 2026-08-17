@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/VIGIL-OPS/loupe/internal/session"
 	"github.com/VIGIL-OPS/loupe/internal/workspace"
@@ -14,7 +15,10 @@ import (
 // Argument order is forgiving on purpose: under time pressure people type the
 // filter first about as often as the path.
 func runDefault(cmd *cobra.Command, g *globals, args []string) error {
-	given, filter := resolveArgs(args)
+	given, filter, err := resolveArgs(args)
+	if err != nil {
+		return err
+	}
 	paths, note := resolvePaths(g, given)
 
 	// `loupe ./logs --ui` is the README's headline invocation and is exactly
@@ -88,11 +92,18 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 // A path is something that exists on disk. Anything else is a filter, so
 // `loupe 'level:error'` in a log directory does what it looks like it should,
 // and several directories can be given at once to read them on one timeline.
-func resolveArgs(args []string) (paths []string, filter string) {
+//
+// An argument shaped like a location but absent from disk is an error, not a
+// filter term. Demoting it quietly means one typo reads the subscribed
+// locations instead and answers a question about data nobody named.
+func resolveArgs(args []string) (paths []string, filter string, err error) {
 	for _, arg := range args {
-		if _, err := os.Stat(arg); err == nil {
+		if _, statErr := os.Stat(arg); statErr == nil {
 			paths = append(paths, arg)
 			continue
+		}
+		if looksLikePath(arg) {
+			return nil, "", fmt.Errorf("%s: no such file or directory", arg)
 		}
 		if filter == "" {
 			filter = arg
@@ -100,7 +111,34 @@ func resolveArgs(args []string) (paths []string, filter string) {
 			filter += " " + arg
 		}
 	}
-	return paths, filter
+	return paths, filter, nil
+}
+
+// looksLikePath reports whether an argument was meant as a location rather than
+// a filter term.
+//
+// A field term carries its colon before any slash, which is what separates
+// `path:/api/checkout` from `logs/api`. A phrase carries whitespace, which is
+// what separates `"GET /api/orders"` from `/var/log`. Anything genuinely on
+// disk has already been matched by os.Stat before this is consulted, so the
+// only job here is to classify what is missing.
+func looksLikePath(arg string) bool {
+	if arg == "" || strings.ContainsAny(arg, " \t") || strings.HasPrefix(arg, `"`) {
+		return false
+	}
+	switch {
+	case arg == ".", arg == "..":
+		return true
+	case strings.HasPrefix(arg, "./"), strings.HasPrefix(arg, "../"),
+		strings.HasPrefix(arg, "/"), strings.HasPrefix(arg, "~"):
+		return true
+	}
+	slash := strings.IndexByte(arg, '/')
+	if slash < 0 {
+		return false
+	}
+	colon := strings.IndexByte(arg, ':')
+	return colon < 0 || colon > slash
 }
 
 // resolvePaths decides what to read when no directory was named.
