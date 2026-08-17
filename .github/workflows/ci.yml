@@ -57,7 +57,11 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: golangci/golangci-lint-action@v6
+      # v8+ is required: the action's v7 release dropped golangci-lint v1 and
+      # v2 config files are not readable by anything earlier. Pinned to the
+      # exact linter version so a new release cannot turn the build red on a
+      # commit that did not touch Go.
+      - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.6.2
 
