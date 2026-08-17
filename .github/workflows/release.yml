@@ -1,0 +1,153 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  # Lets the matrix be exercised without cutting a real release.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: "1.24"
+  NODE_VERSION: "22"
+
+jobs:
+  # One native runner per target. This is not a preference — loupe links DuckDB
+  # through CGO, so a build needs a C toolchain and the platform's system
+  # libraries. `GOOS=darwin go build` from Linux cannot produce a working binary
+  # without a full cross-toolchain and macOS SDK, which is more moving parts than
+  # four runners are worth.
+  #
+  # Linux builds run on the oldest available Ubuntu on purpose: glibc is
+  # backwards compatible, not forwards, so a binary linked against a new glibc
+  # will not start on an older distro. Building on the old one gives the widest
+  # reach.
+  build:
+    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-22.04,     goos: linux,  goarch: amd64 }
+          - { runner: ubuntu-22.04-arm, goos: linux,  goarch: arm64 }
+          - { runner: macos-13,         goos: darwin, goarch: amd64 }
+          - { runner: macos-14,         goos: darwin, goarch: arm64 }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: resolve the version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev+${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The frontend is embedded via go:embed, so it has to exist before the Go
+      # build. A release binary without it would serve the "UI not built" page.
+      - name: build the frontend
+        run: make web
+
+      - name: build
+        shell: bash
+        run: make dist VERSION=${{ steps.version.outputs.version }}
+
+      - name: verify the binary runs and carries the UI
+        shell: bash
+        run: |
+          bin="dist/loupe-${{ matrix.goos }}-${{ matrix.goarch }}"
+          chmod +x "$bin"
+          "$bin" --version
+          # A release that silently shipped without the frontend is exactly the
+          # kind of thing nobody notices until a user opens --ui.
+          "$bin" serve --help >/dev/null
+
+      - name: package
+        shell: bash
+        run: |
+          name="loupe_${{ steps.version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p "staging/$name"
+          cp "dist/loupe-${{ matrix.goos }}-${{ matrix.goarch }}" "staging/$name/loupe"
+          cp LICENSE README.md "staging/$name/"
+          tar -czf "$name.tar.gz" -C staging "$name"
+          # sha256sum on Linux, shasum on macOS; the output format matches.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$name.tar.gz" > "$name.tar.gz.sha256"
+          else
+            shasum -a 256 "$name.tar.gz" > "$name.tar.gz.sha256"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loupe-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            *.tar.gz
+            *.tar.gz.sha256
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: collect the checksums
+        working-directory: artifacts
+        run: cat *.sha256 > checksums.txt && cat checksums.txt
+
+      # Attached to the release rather than committed, because it carries the
+      # hash of four archives that did not exist until a minute ago. Copy it
+      # into VIGIL-OPS/homebrew-tap at Formula/loupe.rb to publish the update.
+      - name: render the homebrew formula
+        run: |
+          ./packaging/homebrew/render-formula.sh \
+            "${{ github.ref_name }}" artifacts/checksums.txt > artifacts/loupe.rb
+          cat artifacts/loupe.rb
+
+      - name: publish
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            artifacts/*.tar.gz
+            artifacts/checksums.txt
+            artifacts/loupe.rb
+          body: |
+            ## Install
+
+            Homebrew:
+
+            ```
+            brew install VIGIL-OPS/tap/loupe
+            ```
+
+            Or download the archive for your platform below, verify it against
+            `checksums.txt`, and put `loupe` on your PATH.
+
+            The binaries are unsigned, so macOS Gatekeeper will quarantine them:
+            `xattr -d com.apple.quarantine ./loupe`, or use Homebrew, which
+            sidesteps it.
