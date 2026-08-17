@@ -1,4 +1,4 @@
-package main
+package blaster
 
 import (
 	"crypto/sha256"
@@ -12,23 +12,23 @@ import (
 )
 
 // gen runs the generator into a temp directory and returns the path.
-func gen(t *testing.T, c config) string {
+func gen(t *testing.T, c Config) string {
 	t.Helper()
-	c.out = t.TempDir()
-	if err := run(c); err != nil {
+	c.Out = t.TempDir()
+	if err := Run(c); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	return c.out
+	return c.Out
 }
 
-func defaults() config {
-	return config{
-		scenario: "incident",
-		duration: 2 * time.Minute,
-		rate:     8,
-		seed:     7,
-		malform:  0.02,
-		rotate:   true,
+func defaults() Config {
+	return Config{
+		Scenario: "incident",
+		Duration: 2 * time.Minute,
+		Rate:     8,
+		Seed:     7,
+		Malform:  0.02,
+		Rotate:   true,
 	}
 }
 
@@ -80,7 +80,7 @@ func TestSameSeedIsByteIdentical(t *testing.T) {
 func TestDifferentSeedDiffers(t *testing.T) {
 	c := defaults()
 	a := digest(t, gen(t, c))
-	c.seed = 99
+	c.Seed = 99
 	b := digest(t, gen(t, c))
 
 	if a["checkout-api.log"] == b["checkout-api.log"] {
@@ -178,7 +178,7 @@ func TestMalformedLinesAreGenerated(t *testing.T) {
 
 func TestMalformZeroProducesCleanOutput(t *testing.T) {
 	c := defaults()
-	c.malform = 0
+	c.Malform = 0
 	m := readManifest(t, gen(t, c))
 
 	for _, r := range m.Files {
@@ -205,7 +205,7 @@ func TestRotatedFilesAreWritten(t *testing.T) {
 	}
 
 	c := defaults()
-	c.rotate = false
+	c.Rotate = false
 	noRotate := gen(t, c)
 	if _, err := os.Stat(filepath.Join(noRotate, "access.log.1")); !os.IsNotExist(err) {
 		t.Error("access.log.1 written despite -rotate=false")
@@ -229,7 +229,7 @@ func TestScenarios(t *testing.T) {
 	for _, scenario := range []string{"steady", "incident", "deploy-regression", "quiet"} {
 		t.Run(scenario, func(t *testing.T) {
 			c := defaults()
-			c.scenario = scenario
+			c.Scenario = scenario
 			m := readManifest(t, gen(t, c))
 			if len(m.Files) != len(sinks) {
 				t.Errorf("got %d files, want %d", len(m.Files), len(sinks))
