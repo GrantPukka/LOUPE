@@ -147,5 +147,7 @@ func launchBrowser(url string) {
 		command = "xdg-open"
 	}
 
-	exec.Command(command, append(args, url)...).Start()
+	// Best effort. The URL is already on screen, so a machine with no browser
+	// or no opener loses nothing by this failing quietly.
+	_ = exec.Command(command, append(args, url)...).Start()
 }

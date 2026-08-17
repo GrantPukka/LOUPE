@@ -308,7 +308,11 @@ func (w *Workspace) record(e Event) {
 	defer f.Close()
 
 	if body, err := json.Marshal(e); err == nil {
-		f.Write(append(body, '\n'))
+		// The audit trail is a convenience, not a record anything depends on.
+		// Every other failure in this function is swallowed for the same
+		// reason: subscribing must not fail because the log could not be
+		// appended to.
+		_, _ = f.Write(append(body, '\n'))
 	}
 }
 

@@ -1,0 +1,69 @@
+version: "2"
+
+# The point of this file is to keep the linters that find bugs and silence the
+# one that mostly finds idiom. errcheck on defer f.Close() and on fmt.Fprintf to
+# a terminal produces thirty findings in this repo and zero bugs; leaving them on
+# would train everyone to ignore the output, which costs more than it saves.
+#
+# Anything excluded below is excluded because the error genuinely cannot be acted
+# on, not because handling it was inconvenient.
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - bodyclose
+    - rowserrcheck
+
+  settings:
+    errcheck:
+      # A deferred Close on a file opened for reading has nothing to report and
+      # nowhere to report it. Writers are not in this list on purpose: a failed
+      # flush loses data, which this project treats as the cardinal sin.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+
+    # No locale is set on purpose. The prose here is British, but CSS
+    # properties, the NO_COLOR convention, and lipgloss.Color are not, and
+    # forcing a locale turns every one of them into a finding.
+    misspell: {}
+
+    staticcheck:
+      checks:
+        - all
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      # Tests fail loudly by construction: an unchecked error in a fixture
+      # helper surfaces as the assertion below it failing.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+      # The frontend is not Go, and the embedded dist directory is build output.
+      - path: internal/server/dist/
+        linters:
+          - unused
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      simplify: true

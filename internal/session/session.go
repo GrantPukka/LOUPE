@@ -206,7 +206,10 @@ func (s *Session) TimeContext(ctx context.Context) (query.TimeContext, error) {
 // excluded by any time filter. Callers must report it.
 func (s *Session) NoTimestamp(ctx context.Context) int64 {
 	if !s.haveCounts {
-		s.TimeContext(ctx)
+		// Called for the counts it caches on s. A failure here leaves
+		// noTimestamp at zero, which the caller reports as "none excluded" —
+		// the same thing it would report for a genuinely empty result.
+		_, _ = s.TimeContext(ctx)
 	}
 	return s.noTimestamp
 }

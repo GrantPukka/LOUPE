@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -78,14 +79,14 @@ type Source struct {
 
 // NewIngester opens an appender against the logs table.
 func (s *DB) NewIngester() (*Ingester, error) {
-	conn, err := s.connector.Connect(nil)
+	conn, err := s.connector.Connect(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("connect for ingest: %w", err)
 	}
 
 	appender, err := duckdb.NewAppenderFromConn(conn, "", "logs")
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("create appender: %w", err)
 	}
 

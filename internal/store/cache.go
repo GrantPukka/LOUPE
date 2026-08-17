@@ -277,7 +277,7 @@ func ingestFresh(ctx context.Context, sources []source.Source, load LoadOptions,
 
 	// Eviction failures are not worth reporting: the data the user asked for is
 	// already in hand, and a cache that is too large is a tidiness problem.
-	PruneCache(filepath.Dir(path), DefaultCacheLimit, path)
+	_, _, _ = PruneCache(filepath.Dir(path), DefaultCacheLimit, path)
 
 	return out, nil
 }
