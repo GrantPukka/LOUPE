@@ -83,28 +83,37 @@ func (p *nginxErrorParser) Parse(line []byte) (Record, error) {
     if m == nil {
         return Record{}, ErrNoMatch
     }
-    ts, err := time.Parse("2006/01/02 15:04:05", string(m[1]))
-    if err != nil {
-        // A missing or unparseable timestamp is NOT a fatal error.
-        // Return the record with a zero Timestamp; it stays queryable.
-        ts = time.Time{}
+
+    rec := Record{Fields: make(map[string]any, 4)}
+
+    // Use ParseTime, not time.Parse. It tries every known layout, handles
+    // epoch numbers, and tells you whether the text carried its own zone.
+    //
+    // A missing or unparseable timestamp is NOT a fatal error: leave
+    // Timestamp at its zero value and the record stays ingested and
+    // queryable through ts:none.
+    if ts, zoned, ok := ParseTime(string(m[1]), time.UTC); ok {
+        rec.Timestamp, rec.TimestampZoned = ts, zoned
     }
-    return Record{
-        Timestamp: ts,
-        Level:     NormaliseLevel(string(m[2])),
-        Message:   string(m[3]),
-        Fields: map[string]any{
-            "client":  string(m[4]),
-            "request": string(m[5]),
-        },
-    }, nil
+
+    rec.Level = NormaliseLevel(string(m[2]))
+    rec.Message = string(m[3])
+    rec.Fields["client"] = string(m[4])
+    rec.Fields["request"] = string(m[5])
+
+    return rec, nil
 }
 ```
 
-Three rules that cover most review comments:
+Four rules that cover most review comments:
 
 - **Never return a fatal error for one bad line.** Return `ErrNoMatch` and the pipeline will
   fall back gracefully. One corrupt line must not abort a 4GB file.
+- **Set `TimestampZoned` honestly.** It says whether the *line* carried a zone. `false` means
+  the time depends on an assumption, which loupe then discloses in the status line and in
+  every handoff. Hard-coding `true` for a format that carries no offset silently converts an
+  assumption into a claim — the worst bug you can introduce here. Taking it from `ParseTime`
+  gets this right for free.
 - **Normalise levels** through `NormaliseLevel` so `WARN`, `warning`, and `W` all become
   `warn`. Cross-format filtering depends on this.
 - **Put unrecognised key/values in `Fields`, don't drop them.** Anything you drop is
