@@ -93,21 +93,21 @@ func writeHandoffMarkdown(w io.Writer, h session.Handoff) error {
 	}
 
 	fmt.Fprintf(&b, "**Matched**  %s records of %s ingested\n",
-		commas(h.Counts.Matched), commas(h.Counts.Ingested))
+		Commas(h.Counts.Matched), Commas(h.Counts.Ingested))
 
 	// Every exclusion is stated. A reader who is not told data was left out
 	// cannot know to ask.
 	if h.Counts.ExcludedNoTimestamp > 0 {
 		fmt.Fprintf(&b, "**Excluded** %s records had no parseable timestamp, so the time filter could not include them (`ts:none` finds them)\n",
-			commas(h.Counts.ExcludedNoTimestamp))
+			Commas(h.Counts.ExcludedNoTimestamp))
 	}
 	if h.Counts.Unparsed > 0 {
 		fmt.Fprintf(&b, "**Unparsed** %s lines matched no parser; their raw text is kept and searchable\n",
-			commas(h.Counts.Unparsed))
+			Commas(h.Counts.Unparsed))
 	}
 	if h.Truncated {
 		fmt.Fprintf(&b, "**Truncated** showing the first %s of %s matched records — re-run with `--limit` for the rest\n",
-			commas(h.Counts.Shown), commas(h.Counts.Matched))
+			Commas(h.Counts.Shown), Commas(h.Counts.Matched))
 	}
 	if len(h.Redacted) > 0 {
 		fmt.Fprintf(&b, "**Redacted** %s — values replaced with a stable hash, so records still correlate\n",
@@ -150,7 +150,7 @@ func writeHandoffSources(b *strings.Builder, h session.Handoff) {
 			zone = "**" + zone + "**"
 		}
 		fmt.Fprintf(b, "| %s | %s | %s | %s | %s |\n",
-			s.File, s.Format, humanBytes(s.Bytes), commas(s.Records), zone)
+			s.File, s.Format, humanBytes(s.Bytes), Commas(s.Records), zone)
 	}
 
 	if assumed := h.AssumedSources(); len(assumed) > 0 {
@@ -277,7 +277,12 @@ func hasAssumed(records []session.HandoffRecord) bool {
 	return false
 }
 
-func commas(n int64) string {
+// Commas groups a number into thousands.
+//
+// Exported because this is the third place that needed it — the handoff, the
+// TUI footer, and the pattern listing. A count of records is the number a
+// reader most often has to compare at a glance, and 212878 does not compare.
+func Commas(n int64) string {
 	s := fmt.Sprintf("%d", n)
 	if len(s) <= 3 {
 		return s

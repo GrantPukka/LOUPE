@@ -26,6 +26,8 @@ loupe tui ./logs             # same thing, in the terminal
 loupe ./logs --follow        # keep watching as new records are written
 loupe tui ./logs --follow    # the same, in the full-screen terminal view
 
+loupe patterns ./logs        # 34,000 lines as a dozen message templates
+
 loupe subscribe /var/log     # remember it
 loupe                        # read everything subscribed
 ```

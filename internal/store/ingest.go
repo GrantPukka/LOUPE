@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/pattern"
 	"github.com/marcboeker/go-duckdb"
 )
 
@@ -122,6 +123,8 @@ func (i *Ingester) Add(e parse.Entry) error {
 		ts = e.Timestamp.UTC()
 	}
 
+	shape := patternOf(e)
+
 	err = i.appender.AppendRow(
 		i.store.seq,
 		ts,
@@ -135,6 +138,8 @@ func (i *Ingester) Add(e parse.Entry) error {
 		e.Parsed,
 		e.Raw,
 		fields,
+		shape.Text,
+		shape.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("append %s line %d: %w", i.meta.File, e.LineNo, err)
@@ -142,6 +147,20 @@ func (i *Ingester) Add(e parse.Entry) error {
 
 	i.store.seq++
 	return nil
+}
+
+// patternOf templates the record's message, falling back to its raw line.
+//
+// A line no parser understood has no message, and templating the empty string
+// would put every unparsed record into one nameless template — hiding exactly
+// the records that most need looking at. The raw text is what the reader would
+// see, so it is what gets templated.
+func patternOf(e parse.Entry) pattern.Pattern {
+	text := e.Message
+	if text == "" {
+		text = e.Raw
+	}
+	return pattern.Of(text)
 }
 
 // Flush writes buffered rows without closing the appender.

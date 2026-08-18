@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GrantPukka/loupe/internal/render"
 	"github.com/GrantPukka/loupe/internal/session"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -52,7 +53,7 @@ func (m model) header() string {
 	sources := len(m.sess.Load.Sources())
 	left := styleBrand.Render("loupe") + " " +
 		styleGhost.Render(fmt.Sprintf("%d %s · %s records",
-			sources, plural(sources, "source", "sources"), commas(stats.Records)))
+			sources, plural(sources, "source", "sources"), render.Commas(stats.Records)))
 
 	// The display timezone is never hidden. A user must never have to guess
 	// whether the times on screen are theirs or the server's.
@@ -286,7 +287,7 @@ func (m model) footer() string {
 	}
 
 	left := fmt.Sprintf("  %s of %s records",
-		commas(int64(len(m.rows))), commas(m.total))
+		render.Commas(int64(len(m.rows))), render.Commas(m.total))
 	if m.took > 0 {
 		left += fmt.Sprintf(" · %s", m.took.Round(time.Millisecond))
 	}
@@ -294,7 +295,7 @@ func (m model) footer() string {
 	// Every exclusion is declared. A count omitted here is a count nobody
 	// knows about.
 	if m.hist.NoTimestamp > 0 {
-		left += fmt.Sprintf(" · %s not on the timeline", commas(m.hist.NoTimestamp))
+		left += fmt.Sprintf(" · %s not on the timeline", render.Commas(m.hist.NoTimestamp))
 	}
 	if m.window != "" {
 		left += " · " + m.window
@@ -309,7 +310,7 @@ func (m model) footer() string {
 		// than scrolled to, so nobody has to wonder whether the tail stalled
 		// or they simply were not looking at it.
 		if m.unseen > 0 {
-			left += fmt.Sprintf(" · %s new below (G)", commas(int64(m.unseen)))
+			left += fmt.Sprintf(" · %s new below (G)", render.Commas(int64(m.unseen)))
 		}
 	}
 	// A source that stopped being readable mid-incident. The other sources are
@@ -418,24 +419,4 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
-}
-
-func commas(n int64) string {
-	s := fmt.Sprintf("%d", n)
-	if len(s) <= 3 {
-		return s
-	}
-
-	var b strings.Builder
-	lead := len(s) % 3
-	if lead > 0 {
-		b.WriteString(s[:lead])
-	}
-	for i := lead; i < len(s); i += 3 {
-		if b.Len() > 0 {
-			b.WriteByte(',')
-		}
-		b.WriteString(s[i : i+3])
-	}
-	return b.String()
 }

@@ -24,9 +24,9 @@ func TestParseDuration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			got, err := parseDuration(tt.in)
+			got, err := ParseDuration(tt.in)
 			if err != nil {
-				t.Fatalf("parseDuration(%q): %v", tt.in, err)
+				t.Fatalf("ParseDuration(%q): %v", tt.in, err)
 			}
 			if got != tt.want {
 				t.Errorf("= %v, want %v", got, tt.want)
@@ -38,8 +38,8 @@ func TestParseDuration(t *testing.T) {
 func TestParseDurationRejects(t *testing.T) {
 	for _, in := range []string{"", "15", "banana", "m", "-5m", "15x"} {
 		t.Run(in, func(t *testing.T) {
-			if _, err := parseDuration(in); err == nil {
-				t.Errorf("parseDuration(%q) succeeded, want an error", in)
+			if _, err := ParseDuration(in); err == nil {
+				t.Errorf("ParseDuration(%q) succeeded, want an error", in)
 			}
 		})
 	}

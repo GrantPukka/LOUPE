@@ -1,0 +1,451 @@
+{
+  "records": 3738,
+  "templates": 49,
+  "unparsed_templates": 23,
+  "unparsed_records": 38,
+  "patterns": [
+    {
+      "id": "002cf356a676",
+      "template": "request completed",
+      "count": 1243,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "request completed"
+    },
+    {
+      "id": "a11462dd2ea1",
+      "template": "token validated",
+      "count": 574,
+      "sources": [
+        "auth-svc"
+      ],
+      "example": "token validated"
+    },
+    {
+      "id": "846cc7ababa7",
+      "template": "POST /api/checkout",
+      "count": 307,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /api/checkout"
+    },
+    {
+      "id": "5193feafa172",
+      "template": "POST /api/cart",
+      "count": 289,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /api/cart"
+    },
+    {
+      "id": "21ff829cbed3",
+      "template": "POST /api/orders/\u003cnum\u003e",
+      "count": 282,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /api/orders/2291"
+    },
+    {
+      "id": "8f92e9db37ef",
+      "template": "POST /healthz",
+      "count": 274,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /healthz"
+    },
+    {
+      "id": "2fa896b99421",
+      "template": "POST /api/session",
+      "count": 265,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /api/session"
+    },
+    {
+      "id": "72537a34170e",
+      "template": "upstream timeout contacting payments",
+      "count": 94,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "upstream timeout contacting payments"
+    },
+    {
+      "id": "9acf7d11271f",
+      "template": "PaymentGatewayException: read timed out after \u003cnum\u003ems",
+      "count": 92,
+      "sources": [
+        "payment-worker"
+      ],
+      "example": "PaymentGatewayException: read timed out after 3000ms\n\tat com.acme.pay.GatewayClient.charge(GatewayClient.java:214)\n\tat com.acme.pay.ChargeHandler.handle(ChargeHandler.java:88)\n\tat com.acme.pay.Worker.consume(Worker.java:141)\n\tCaused by: java.net.SocketTimeoutException: Read timed out\n\t\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:171)\n\t\t... 14 more"
+    },
+    {
+      "id": "3a467cc153db",
+      "template": "session opened for user deploy",
+      "count": 54,
+      "sources": [
+        "syslog"
+      ],
+      "example": "session opened for user deploy"
+    },
+    {
+      "id": "b148b8b0c4d9",
+      "template": "evaluating feature flag",
+      "count": 51,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "evaluating feature flag"
+    },
+    {
+      "id": "31d68d4d8ab7",
+      "template": "refreshing jwks cache",
+      "count": 43,
+      "sources": [
+        "auth-svc"
+      ],
+      "example": "refreshing jwks cache"
+    },
+    {
+      "id": "c7a9de22cfd7",
+      "template": "rate limited by upstream",
+      "count": 40,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "rate limited by upstream"
+    },
+    {
+      "id": "383cef66f9f4",
+      "template": "duration: \u003cnum\u003e ms  statement: SELECT * FROM orders WHERE user_id = $\u003cnum\u003e",
+      "count": 31,
+      "sources": [
+        "postgresql"
+      ],
+      "example": "duration: 111.112 ms  statement: SELECT * FROM orders WHERE user_id = $1"
+    },
+    {
+      "id": "2c3936f350a6",
+      "template": "failed to reserve stock",
+      "count": 26,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "failed to reserve stock"
+    },
+    {
+      "id": "e75036a7ba6b",
+      "template": "invalid signature on webhook",
+      "count": 24,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "invalid signature on webhook"
+    },
+    {
+      "id": "73c62067abbd",
+      "template": "\u003cts\u003e \u003cts\u003e [notice] 1#1: signal \u003cnum\u003e (SIGCHLD) received from \u003cnum\u003e",
+      "count": 16,
+      "sources": [
+        "access",
+        "auth-svc",
+        "checkout-api"
+      ],
+      "example": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812"
+    },
+    {
+      "id": "b229e9c8adfd",
+      "template": "POST \u0000\u0000/healthz",
+      "count": 2,
+      "sources": [
+        "access"
+      ],
+      "example": "POST \u0000\u0000/healthz"
+    },
+    {
+      "id": "26247a8873c5",
+      "template": "{\"latency_ms\":175,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"36a4529",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":175,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"36a4529"
+    },
+    {
+      "id": "317551423bed",
+      "template": "PaymentGatewayException: r",
+      "count": 1,
+      "sources": [
+        "payment-worker"
+      ],
+      "example": "PaymentGatewayException: r"
+    },
+    {
+      "id": "3e050e4c31f7",
+      "template": "POST /a\u0000\u0000pi/checkout",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /a\u0000\u0000pi/checkout"
+    },
+    {
+      "id": "43e3045dea7a",
+      "template": "\u003cip\u003e - - [\u003cnum\u003e/Aug/2026:14:18:51 +",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "10.0.3.227 - - [13/Aug/2026:14:18:51 +"
+    },
+    {
+      "id": "4d52b895e64d",
+      "template": "{\"latency_ms\":112,\"level\":\"info\",\"msg\":\"request",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":112,\"level\":\"info\",\"msg\":\"request"
+    },
+    {
+      "id": "4d980889beb3",
+      "template": "{\"enabled\":false,\"flag\":\"new_checkout_flow\",\"level\":\"debug\",\"msg\":\"evaluating feature fl",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"enabled\":false,\"flag\":\"new_checkout_flow\",\"level\":\"debug\",\"msg\":\"evaluating feature fl"
+    },
+    {
+      "id": "51e327ea4217",
+      "template": "completed\",\"path\":\"/api/checkout\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"118aec0b\",\"ts\":\"2026-08-13T14:19:54.494749214Z\",\"user_id\":\"u_1457\"}",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "completed\",\"path\":\"/api/checkout\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"118aec0b\",\"ts\":\"2026-08-13T14:19:54.494749214Z\",\"user_id\":\"u_1457\"}"
+    },
+    {
+      "id": "53c8288a3126",
+      "template": "FATAL: remaining connection slots are reserved for superusers",
+      "count": 1,
+      "sources": [
+        "postgresql"
+      ],
+      "example": "FATAL: remaining connection slots are reserved for superusers"
+    },
+    {
+      "id": "616ba2df91a9",
+      "template": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u0000\u0000-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u0000\u0000-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}"
+    },
+    {
+      "id": "6c1386962869",
+      "template": "{\"latency_ms\":215,\"level\":\"info\",\"msg\":\"request",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":215,\"level\":\"info\",\"msg\":\"request"
+    },
+    {
+      "id": "6e41ff158360",
+      "template": "\u003cip\u003e - - [\u003cnum\u003e/Aug/2026:14:1",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "10.0.1.191 - - [13/Aug/2026:14:1"
+    },
+    {
+      "id": "734afce34a7c",
+      "template": "POST \u0000\u0000/api/orders/\u003cnum\u003e",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST \u0000\u0000/api/orders/2291"
+    },
+    {
+      "id": "7587b078d2b3",
+      "template": "POST\u0000\u0000 /api/session",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST\u0000\u0000 /api/session"
+    },
+    {
+      "id": "766a8b5f17fb",
+      "template": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"868f1903\",\"ts\":\"2026-08-13T14:18:29.917182268Z\",\"user_id\":\"u_1649\"}",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"868f1903\",\"ts\":\"2026-08-13T14:18:29.917182268Z\",\"user_id\":\"u_1649\"}"
+    },
+    {
+      "id": "777b203cd4bf",
+      "template": "\u003cip\u003e - - [\u003cnum\u003e/Aug/2026:14:18:15 \u003cnum\u003e] \"\u003cstr\u003e\" ",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "10.0.1.241 - - [13/Aug/2026:14:18:15 +0000] \"POST /api/session HTTP/1.1\" "
+    },
+    {
+      "id": "898317402a5f",
+      "template": "{\"latency_ms\":57,\"level\":\"info\",\"msg\":\"request",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":57,\"level\":\"info\",\"msg\":\"request"
+    },
+    {
+      "id": "8e8e0a607a89",
+      "template": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"98eaa076\",\"ts\":\"2026-08-13T14:19:54.753584372Z\",\"user_id\":\"u_7239\"}",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"98eaa076\",\"ts\":\"2026-08-13T14:19:54.753584372Z\",\"user_id\":\"u_7239\"}"
+    },
+    {
+      "id": "992f44f07a96",
+      "template": "{\"latency_ms\":172,\"level\":\"info\",\"msg\":\"request",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":172,\"level\":\"info\",\"msg\":\"request"
+    },
+    {
+      "id": "9e2c3b2f1ad4",
+      "template": "{\"latency_ms\":122,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":122,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\""
+    },
+    {
+      "id": "a3fbd803940d",
+      "template": "memory cgroup near limit: \u003cnum\u003eG of \u003cnum\u003eG",
+      "count": 1,
+      "sources": [
+        "syslog"
+      ],
+      "example": "memory cgroup near limit: 3.8G of 4.0G"
+    },
+    {
+      "id": "ac301b39bf6a",
+      "template": "{\"latency_ms\":47,\"level\":\"info\",\"msg\":\"reques",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":47,\"level\":\"info\",\"msg\":\"reques"
+    },
+    {
+      "id": "b0f0b431301b",
+      "template": "{\"latency_ms\":91,\"level\":\"info\",\"msg\":\"request",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":91,\"level\":\"info\",\"msg\":\"request"
+    },
+    {
+      "id": "ca4de77bb86e",
+      "template": "POST\u0000\u0000 /healthz",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST\u0000\u0000 /healthz"
+    },
+    {
+      "id": "d82c69f999e2",
+      "template": "POST /a\u0000\u0000pi/session",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /a\u0000\u0000pi/session"
+    },
+    {
+      "id": "e655449e6fc5",
+      "template": "completed\",\"path\":\"/api/cart\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"5ca96ae2\",\"ts\":\"2026-08-13T14:19:39.296808037Z\",\"user_id\":\"u_8395\"}",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "completed\",\"path\":\"/api/cart\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"5ca96ae2\",\"ts\":\"2026-08-13T14:19:39.296808037Z\",\"user_id\":\"u_8395\"}"
+    },
+    {
+      "id": "e6c91ea67f5a",
+      "template": "completed\",\"path\":\"/api/cart\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"e0c003a3\",\"ts\":\"2026-08-13T14:19:54.958214596Z\",\"user_id\":\"u_4101\"}",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "completed\",\"path\":\"/api/cart\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"e0c003a3\",\"ts\":\"2026-08-13T14:19:54.958214596Z\",\"user_id\":\"u_4101\"}"
+    },
+    {
+      "id": "e6d48081239a",
+      "template": "\u003cip\u003e - - [\u003cnum\u003e/Aug/2026:14:19:54 \u003cnum\u003e",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "10.0.1.181 - - [13/Aug/2026:14:19:54 +0"
+    },
+    {
+      "id": "f3befec26bfc",
+      "template": "{\"latency_ms\":181,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"65b46107\",\"ts\":\"2026-08-13T14:19:56.",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":181,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"65b46107\",\"ts\":\"2026-08-13T14:19:56."
+    },
+    {
+      "id": "f51bd2b0c15c",
+      "template": "\u003cts\u003e \u003cts\u003e UTC [\u003cnum\u003e] WARN: connection pool exhausted, \u003cnum\u003e of \u003cnum\u003e connections in use",
+      "count": 1,
+      "sources": [
+        "postgresql"
+      ],
+      "example": "2026-08-13 14:19:06.000 UTC [20001] WARN: connection pool exhausted, 100 of 100 connections in use"
+    },
+    {
+      "id": "f6ceb832d508",
+      "template": "\u003cid\u003e - Connection is not available, request timed out after \u003cnum\u003ems",
+      "count": 1,
+      "sources": [
+        "payment-worker"
+      ],
+      "example": "HikariPool-1 - Connection is not available, request timed out after 30000ms"
+    },
+    {
+      "id": "fb676decdde9",
+      "template": "{\"latency_ms\":49,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"us-east-1\",\"status\":200,\"trace_i",
+      "count": 1,
+      "sources": [
+        "checkout-api"
+      ],
+      "example": "{\"latency_ms\":49,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"us-east-1\",\"status\":200,\"trace_i"
+    }
+  ]
+}

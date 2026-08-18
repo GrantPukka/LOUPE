@@ -13,7 +13,7 @@ built without breaking one of those is not on this list.
 | EC | Item | Tier | Status |
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
-| [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | not started |
+| [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **in progress** — 2 of 4 stages done |
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | not started |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
@@ -23,6 +23,16 @@ built without breaking one of those is not on this list.
 | [EC009](#ec009--ad-hoc-regex-field-extraction) | Ad-hoc regex field extraction | 3 | not started |
 | [EC010](#ec010--self-contained-html-report-export) | Self-contained HTML report export | 3 | not started |
 | [EC011](#ec011--query-history-recall) | Query history recall | 3 | not started |
+| [EC012](#ec012--fuzz-the-parsers-and-the-dsl-lexer) | Fuzz the parsers and the DSL lexer | 1 | not started |
+| [EC013](#ec013--benchmarks-for-the-unmeasured-performance-commitments) | Benchmarks for unmeasured perf commitments | 1 | not started |
+| [EC014](#ec014--rotation-by-rename-test-coverage) | Rotation-by-rename test coverage | 1 | not started |
+| [EC015](#ec015--exit-codes-as-a-scripting-contract) | Exit codes as a scripting contract | 2 | not started |
+| [EC016](#ec016--loupe-fields-field-discovery) | `loupe fields` field discovery | 2 | not started |
+| [EC017](#ec017--column-projection-on-output) | Column projection on output | 2 | not started |
+| [EC018](#ec018--flag-subtraction-pass-before-v1) | Flag subtraction pass before v1 | 2 | not started |
+| [EC019](#ec019--cmdloupe-test-coverage) | `cmd/loupe` test coverage | 2 | not started |
+| [EC020](#ec020--decide-about-windows) | Decide about Windows | 3 | not started |
+| [EC021](#ec021--fix-duplicate-24-in-docsfilter-dslmd) | Fix duplicate §2.4 in FILTER-DSL.md | 3 | not started |
 
 ---
 
@@ -153,32 +163,144 @@ Optional follow-up, only if refresh latency becomes a complaint.
 
 ## EC002 — Pattern clustering / message grouping
 
-**Status: not started.** Tier 1. The highest-leverage triage feature: *"34,000
-lines → 12 distinct templates, and this one is new in the last 5 minutes."*
+**Status: in progress.** Stages 1 and 2 complete and tested. Work is on branch
+`EC002`, cut from `main` after EC001 merged.
+
+The highest-leverage triage feature: *"34,000 lines → 12 distinct templates, and
+this one is new in the last 5 minutes."*
 
 Collapses `user 4821 timed out` and `user 9903 timed out` into one pattern with a
 count, so the anomaly is visible in a wall of noise. Pure read-only computation
 over data already in DuckDB, and precisely what grep cannot do.
 
-- [ ] Drain-style templating: tokenise a message, replace variable positions with
-      wildcards, group by the resulting template
-- [ ] Decide where it runs — SQL in DuckDB, or Go over a scan. Benchmark both;
-      1GB in 20s ingest is the yardstick for what "fast enough" means here
-- [ ] `loupe patterns ./logs [filter]` — template, count, first seen, last seen,
-      example line, sources it appears in
-- [ ] `--new-since <window>` to surface templates absent from an earlier window
-      (this is the feature, the rest is table stakes)
-- [ ] A template must expand back to its matching records: `pattern:<id>` as a
-      DSL term, or the view is a dead end
-- [ ] Stable template ids across runs, or `--new-since` compares nothing
-- [ ] UI: pattern list as a left rail, click to filter
-- [ ] Golden tests over the demo directory, which has six formats and real noise
-- [ ] Numeric ids, UUIDs, IPs, paths, and quoted strings must all be recognised
-      as variable, or every line becomes its own template
+**Measured on the 28.7 MB benchmark corpus:** 186,452 records carrying 3,144
+distinct messages collapse to 922 templates, and the top 17 templates cover 99%
+of the records. The 900-template tail is the malformed and truncated lines, each
+its own shape — which is the rule working, not failing.
+
+### Where templating runs — decided
+
+At ingest, stored as `pattern` and `pattern_id` columns, rather than derived per
+query. Three reasons, in order of weight:
+
+1. `pattern:<id>` has to compile to an ordinary predicate. Deriving templates in
+   SQL would mean a second implementation of the masking rules that could
+   disagree with the Go one, which is the "tests against a mocked store" failure
+   in a different costume.
+2. `--new-since` needs ids that are stable across runs. A hash of a
+   deterministic template is stable by construction, with nothing stored between
+   runs to go out of date.
+3. Grouping becomes `GROUP BY pattern_id`, which DuckDB does for free.
+
+The cost is `IngestVersion` 5 → 6, so every cached ingest is re-read once.
+
+### EC002.1 — The templater and the stored columns — **done**
+
+- [x] `internal/pattern` — mask value-shaped tokens, group by the result
+- [x] Numeric ids, UUIDs, IPs, paths, quoted strings, timestamps, and opaque
+      hex ids all recognised as variable
+- [x] `pattern` and `pattern_id` columns, computed in `Ingester.Add`
+- [x] `IngestVersion` 5 → 6
+- [x] Live records get their pattern too, through the follow staging path
+- [x] Unparsed records template their raw line, not their empty message
+- [x] Stable ids: same template text always yields the same id, on any machine
+- [x] Table-driven tests per masking rule, plus explicit over-collapse guards
+- [x] `BenchmarkIngest` added — there were no benchmarks in the repo before
+
+**Paths are masked per segment, not wholesale.** `POST /api/orders/2291` becomes
+`POST /api/orders/<num>`, but `/api/cart` and `/api/checkout` stay distinct.
+Collapsing a path to `<path>` would have merged every endpoint into one template,
+and which endpoint is failing is usually the entire finding.
+
+**Only the first line of a message is templated.** A Log4j record carries its
+stack trace in the message and every stack trace differs somewhere, so
+templating the whole thing gave every exception a template of its own — no
+templates at all for exactly the records that matter most.
+
+**Ingest cost, measured** (28.7 MB, 212,878 lines, six formats, seed 42, five
+runs each):
+
+| | median | throughput | allocs |
+|---|---|---|---|
+| before | 4.95 s | 5.8 MB/s | 14.04 M |
+| after | 5.47 s | 5.2 MB/s | 14.78 M |
+
+**+10.5%.** Isolated by writing the columns empty, ~70% of that is the templater
+itself and ~30% is DuckDB carrying two more columns. First cut was +19%: the
+masking rules were calling `strings.Split` inside the IPv4 and clock checks, on
+every token of every record. Rewriting those to scan in place, returning the
+original string when a line has nothing to mask, and rejecting plain words in one
+pass took a plain message from 240 ns to 45 ns and zero allocations.
+
+Not optimised further on purpose. The next step would be computing a token's
+shape once and gating each rule on it, and there is no complaint yet that
+justifies the complexity.
+
+### EC002.2 — `loupe patterns` — **done**
+
+- [x] `loupe patterns ./logs [filter]` — template, count, first seen, last seen,
+      example line, sources it appears in, all on `session.PatternSet`
+- [x] `--limit`, `--all`, and a tail summarised as "N templates more not shown,
+      covering N records", never truncated silently
+- [x] `--new-since <window>` — lists only templates with no records before the
+      cutoff, and counts the established ones it left out
+- [x] Both zones printed for the cutoff, like every other time output
+- [x] Golden test over a blaster-generated demo corpus: 49 templates, checked in
+      at `internal/session/testdata/patterns.golden`, regenerate with `-update`
+- [x] Templates on stdout, every caveat on stderr, so a pipe cannot swallow the
+      disclosures
+
+`session.Patterns` is the shared middle, so the API and TUI in stage 4 call the
+same code rather than growing their own.
+
+**`--new-since` counts back from the same anchor `last:` uses** — the newest
+record, unless the session was opened `--relative-to now`. `query.TimeContext.
+Anchor` and `query.ParseDuration` were exported for it rather than reimplemented,
+so `--new-since 15m` and `last:15m` cannot drift apart about which records are
+recent or which units exist.
+
+**The listing separates the templates that came from unreadable lines.** On the
+benchmark corpus, 184,969 parsed records collapse to 85 templates while 1,499
+lines no parser understood produce 846 — a broken line genuinely is its own
+shape. Without saying so, "931 templates" reads as the collapse rule having
+failed rather than as the data saying something true. The footer states the
+split and offers `parsed:true` to exclude it.
+
+**Golden test corpus is generated, not the `demo/` directory.** `demo/` is
+gitignored, so a test reading it would pass on a machine that had run
+`make demo` and skip everywhere else. The blaster at a fixed seed gives the same
+six formats and the same deliberate noise, reproducibly, in CI.
+
+`render.Commas` was exported and the duplicate copies in `internal/tui` and the
+handoff renderer removed — the pattern listing was the third caller, which is
+the threshold `CLAUDE.md` sets for abstracting rather than copying again.
+
+Two bugs found while building it, both of the quiet kind. `string_agg(DISTINCT
+source, '\x1f')` does not mean what it looks like: DuckDB takes the literal four
+characters, so every multi-source template would have reported one run-on name
+rather than a list — `chr(31)` is the honest way to say it. And the footer was
+built from `plural()`, which returns only the noun, so it read "templates
+covering records" until the numbers were put back.
+
+### EC002.3 — `pattern:<id>` as a DSL term — **not started**
+
+- [ ] A template must expand back to its matching records, or the view is a dead
+      end
+- [ ] Compiles to a parameterised predicate on `pattern_id`
+- [ ] Round-trip test: `parse(render(ast)) == ast`
+- [ ] An unknown id errors with a suggestion and never returns an empty result
+
+### EC002.4 — The UI — **not started**
+
+- [ ] `/api/patterns`, after the CLI exists — invariant 2
+- [ ] Pattern list as a left rail, click to filter
+- [ ] Playwright coverage
 
 **Watch:** the failure mode is over-collapsing — merging two genuinely different
 errors into one template hides the incident. Prefer too many templates to too
-few, and make the collapse rule inspectable.
+few, and make the collapse rule inspectable. Stage 1 holds this line: only
+value-shaped tokens are masked, a bare word is never touched, and the template
+text shows exactly what was collapsed. `TestWordsAreNeverMasked` pins it.
 
 ---
 

@@ -382,15 +382,6 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
-func TestCommas(t *testing.T) {
-	tests := map[int64]string{0: "0", 42: "42", 1000: "1,000", 33939: "33,939", 1234567: "1,234,567"}
-	for n, want := range tests {
-		if got := commas(n); got != want {
-			t.Errorf("commas(%d) = %q, want %q", n, got, want)
-		}
-	}
-}
-
 // The list must shrink to make room for an expanded record rather than
 // overflowing the screen.
 func TestListHeightAccountsForTheDetailPane(t *testing.T) {
