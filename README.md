@@ -130,7 +130,24 @@ loupe ./logs -                   # a pipe and a directory on one timeline
 A bare `loupe` with something piped into it reads the pipe. A bare `-` names it
 explicitly, which is what lets it compose with real paths.
 
-Three things worth knowing:
+Four things worth knowing:
+
+- **One pipe is one format.** A directory gives every file its own parser. A
+  pipe is a single source, so it gets a single detected one — right for
+  `kubectl logs api`, which is one service writing one format, and wrong for
+  concatenating a whole directory into it. On the six-format demo data:
+
+  ```bash
+  cat ./logs/*.log | loupe     # 138,949 of 212,878 records unparsed
+  loupe ./logs                 # 1,499 unparsed — a parser per file
+  ```
+
+  No line is dropped either way, and an unparsed one stays searchable as text.
+  But its fields are never extracted, so a field filter quietly answers from
+  the one format that did parse: `status:>=500` finds **7,267** records through
+  that pipe and **14,480** through the directory, and nothing on screen says
+  half the answer is missing. Point loupe at the directory, and pipe only what
+  genuinely arrives on a pipe.
 
 - **A stream is never cached.** The same bytes will not be there to re-read, so
   every run pays full price. The status line says so.
