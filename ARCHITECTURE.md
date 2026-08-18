@@ -315,8 +315,8 @@ POST /api/histogram {filter, bucket}  → [{bucket_start, count, level_breakdown
 GET  /api/tail    (SSE)               → live records, for `loupe serve --follow`
 ```
 
-**As built.** Five endpoints: `/api/schema`, `/api/query`, `/api/histogram`, `/api/sources`,
-and `/api/tail`, plus `/api/health`. All of them call `internal/session`, which is the same
+**As built.** Six endpoints: `/api/schema`, `/api/query`, `/api/histogram`, `/api/sources`,
+`/api/tail`, and `/api/patterns`, plus `/api/health`. All of them call `internal/session`, which is the same
 code path `cmd/loupe` uses — a capability reachable over HTTP but not from the terminal
 would be a bug.
 
@@ -409,6 +409,12 @@ match the incident being watched.
 
 Expanding a row shows the full record and its raw line. Clicking a field value inserts it
 into the filter box. That single interaction is most of the perceived magic — build it early.
+
+The pattern rail is the one addition to the single screen, and it is off until asked for.
+It costs a grouping query and takes width from the message column, so making it permanent
+would be a change to the screen rather than an option on it. Clicking a template writes a
+real `pattern:<id>` term into the filter box — the same principle as the timeline drag, so
+the interaction teaches the syntax and stays shareable.
 
 **Explicit non-goals for the UI:** saved searches, dashboards, user accounts, alerting,
 multiple tabs, a settings page, dark/light toggle (pick one, respect `prefers-color-scheme`,

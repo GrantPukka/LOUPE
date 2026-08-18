@@ -3,6 +3,7 @@ import { LIST_COLUMNS, getHistogram, getSchema, getSubscriptions, openTail, runQ
 import { Browser, Subscriptions } from './Browser.jsx';
 import { FilterHelp } from './FilterHelp.jsx';
 import { Histogram } from './Histogram.jsx';
+import { Patterns } from './Patterns.jsx';
 import { alignRows, prependNewest, withoutDuplicates } from './live.js';
 import { Rows } from './Rows.jsx';
 import { number, removeTerm, sourceColour, splitTerms, termLabel, withoutTimeTerms } from './format.js';
@@ -33,6 +34,10 @@ export function App() {
   const [busy, setBusy] = useState(false);
 
   const [showHelp, setShowHelp] = useState(false);
+  // The pattern rail is off until asked for. It costs a grouping query and
+  // takes width from the message column, and the single screen in
+  // ARCHITECTURE.md section 6 is worth protecting from anything permanent.
+  const [showPatterns, setShowPatterns] = useState(false);
   const [showBrowser, setShowBrowser] = useState(false);
   const [showSubs, setShowSubs] = useState(false);
   const [subs, setSubs] = useState(null);
@@ -316,6 +321,10 @@ export function App() {
         clearFilter();
         input.current?.blur();
       }
+      if (e.key === 'p' && document.activeElement !== input.current) {
+        e.preventDefault();
+        setShowPatterns((v) => !v);
+      }
       if (e.key === '?' && document.activeElement !== input.current) {
         e.preventDefault();
         setShowHelp((v) => !v);
@@ -409,6 +418,13 @@ export function App() {
           </button>
         )}
         <button
+          class={`clear ${showPatterns ? 'on' : ''}`}
+          onClick={() => setShowPatterns((v) => !v)}
+          title="group messages into templates (p)"
+        >
+          ▤ patterns
+        </button>
+        <button
           class={`clear live ${live ? 'on' : ''}`}
           onClick={toggleLive}
           title={
@@ -477,12 +493,22 @@ export function App() {
 
       <Histogram hist={hist} timeZone={timeZone} onRange={onRange} />
 
-      <div class="colhead">
-        <span class="c-ts">time</span>
-        <span class="c-lvl">level</span>
-        <span class="c-src">source</span>
-        <span class="c-msg">message</span>
-      </div>
+      <div class="split">
+        <Patterns
+          open={showPatterns}
+          filter={filter}
+          applied={applied}
+          onFilter={applyNow}
+          onClose={() => setShowPatterns(false)}
+        />
+
+        <div class="listwrap">
+          <div class="colhead">
+            <span class="c-ts">time</span>
+            <span class="c-lvl">level</span>
+            <span class="c-src">source</span>
+            <span class="c-msg">message</span>
+          </div>
 
       {pendingCount > 0 && (
         <button class="pending" onClick={flushPending}>
@@ -502,6 +528,8 @@ export function App() {
         hasMore={!!result && rows.length < result.total}
         empty={emptyMessage(result, error)}
       />
+        </div>
+      </div>
 
       <Footer result={result} hist={hist} schema={schema} sort={sort} onSort={setSort} live={live} />
 

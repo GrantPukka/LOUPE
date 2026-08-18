@@ -41,6 +41,7 @@ Endpoints:
     POST /api/histogram   {filter, buckets} -> counts over time
     GET  /api/sources     per-file formats and timezone provenance
     GET  /api/tail        {filter} -> live records, as server-sent events
+    GET  /api/patterns    {filter, limit, new_since} -> message templates
     GET  /api/health
 
 /api/tail follows the log files for as long as something is connected to it,

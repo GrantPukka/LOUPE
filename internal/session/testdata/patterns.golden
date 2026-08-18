@@ -160,8 +160,8 @@
       "example": "2026-08-13 14:11:02 [notice] 1#1: signal 17 (SIGCHLD) received from 812"
     },
     {
-      "id": "b229e9c8adfd",
-      "template": "POST \u0000\u0000/healthz",
+      "id": "8eb8313a0036",
+      "template": "POST \u003cctl\u003e/healthz",
       "count": 2,
       "sources": [
         "access"
@@ -187,13 +187,22 @@
       "example": "PaymentGatewayException: r"
     },
     {
-      "id": "3e050e4c31f7",
-      "template": "POST /a\u0000\u0000pi/checkout",
+      "id": "36a7fbe722c8",
+      "template": "POST\u003cctl\u003e /healthz",
       "count": 1,
       "sources": [
         "access"
       ],
-      "example": "POST /a\u0000\u0000pi/checkout"
+      "example": "POST\u0000\u0000 /healthz"
+    },
+    {
+      "id": "4397c6c383bf",
+      "template": "POST /a\u003cctl\u003epi/session",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /a\u0000\u0000pi/session"
     },
     {
       "id": "43e3045dea7a",
@@ -241,15 +250,6 @@
       "example": "FATAL: remaining connection slots are reserved for superusers"
     },
     {
-      "id": "616ba2df91a9",
-      "template": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u0000\u0000-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}",
-      "count": 1,
-      "sources": [
-        "checkout-api"
-      ],
-      "example": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u0000\u0000-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}"
-    },
-    {
       "id": "6c1386962869",
       "template": "{\"latency_ms\":215,\"level\":\"info\",\"msg\":\"request",
       "count": 1,
@@ -266,24 +266,6 @@
         "access"
       ],
       "example": "10.0.1.191 - - [13/Aug/2026:14:1"
-    },
-    {
-      "id": "734afce34a7c",
-      "template": "POST \u0000\u0000/api/orders/\u003cnum\u003e",
-      "count": 1,
-      "sources": [
-        "access"
-      ],
-      "example": "POST \u0000\u0000/api/orders/2291"
-    },
-    {
-      "id": "7587b078d2b3",
-      "template": "POST\u0000\u0000 /api/session",
-      "count": 1,
-      "sources": [
-        "access"
-      ],
-      "example": "POST\u0000\u0000 /api/session"
     },
     {
       "id": "766a8b5f17fb",
@@ -320,6 +302,15 @@
         "checkout-api"
       ],
       "example": "completed\",\"path\":\"/api/orders/2291\",\"region\":\"ap-south-1\",\"status\":200,\"trace_id\":\"98eaa076\",\"ts\":\"2026-08-13T14:19:54.753584372Z\",\"user_id\":\"u_7239\"}"
+    },
+    {
+      "id": "8ef1cf05db80",
+      "template": "POST \u003cctl\u003e/api/orders/\u003cnum\u003e",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST \u0000\u0000/api/orders/2291"
     },
     {
       "id": "992f44f07a96",
@@ -367,22 +358,22 @@
       "example": "{\"latency_ms\":91,\"level\":\"info\",\"msg\":\"request"
     },
     {
-      "id": "ca4de77bb86e",
-      "template": "POST\u0000\u0000 /healthz",
+      "id": "d232676310aa",
+      "template": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u003cctl\u003e-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}",
       "count": 1,
       "sources": [
-        "access"
+        "checkout-api"
       ],
-      "example": "POST\u0000\u0000 /healthz"
+      "example": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u0000\u0000-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}"
     },
     {
-      "id": "d82c69f999e2",
-      "template": "POST /a\u0000\u0000pi/session",
+      "id": "d38fcbea181a",
+      "template": "POST\u003cctl\u003e /api/session",
       "count": 1,
       "sources": [
         "access"
       ],
-      "example": "POST /a\u0000\u0000pi/session"
+      "example": "POST\u0000\u0000 /api/session"
     },
     {
       "id": "e655449e6fc5",
@@ -410,6 +401,15 @@
         "access"
       ],
       "example": "10.0.1.181 - - [13/Aug/2026:14:19:54 +0"
+    },
+    {
+      "id": "eee253cc6995",
+      "template": "POST /a\u003cctl\u003epi/checkout",
+      "count": 1,
+      "sources": [
+        "access"
+      ],
+      "example": "POST /a\u0000\u0000pi/checkout"
     },
     {
       "id": "f3befec26bfc",

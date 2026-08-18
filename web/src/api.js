@@ -135,3 +135,20 @@ export function openTail({ filter, onRecords, onNotice, onError }) {
 
   return () => source.close();
 }
+
+/**
+ * Fetch the message templates matching a filter.
+ *
+ * The server returns session.PatternSet unchanged, so the rail and
+ * `loupe patterns` are looking at the same numbers — including what a limit
+ * hid, which the rail has to state rather than stopping quietly.
+ */
+export const getPatterns = ({ filter, limit, newSince } = {}) => {
+  const params = new URLSearchParams();
+  if (filter) params.set('filter', filter);
+  if (limit !== undefined) params.set('limit', String(limit));
+  if (newSince) params.set('new_since', newSince);
+
+  const query = params.toString();
+  return request(`/api/patterns${query ? `?${query}` : ''}`);
+};
