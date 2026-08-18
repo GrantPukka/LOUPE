@@ -303,6 +303,21 @@ func (m model) footer() string {
 		left += " · " + note
 	}
 
+	if m.follower != nil {
+		left += " · following"
+		// What arrived below the cursor while it was elsewhere. Stated rather
+		// than scrolled to, so nobody has to wonder whether the tail stalled
+		// or they simply were not looking at it.
+		if m.unseen > 0 {
+			left += fmt.Sprintf(" · %s new below (G)", commas(int64(m.unseen)))
+		}
+	}
+	// A source that stopped being readable mid-incident. The other sources are
+	// still streaming, and this says which one is not.
+	for _, note := range m.notices {
+		left += " · " + note
+	}
+
 	right := "/ filter · j/k move · enter expand · f source · esc clear · q quit  "
 	return styleFooter.Width(m.width).Render(truncate(pad(left, right, m.width), m.width))
 }

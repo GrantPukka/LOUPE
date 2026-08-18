@@ -15,6 +15,14 @@ import (
 // openFixture builds a small session to drive the model against.
 func openFixture(t *testing.T) *session.Session {
 	t.Helper()
+	sess, _ := openFixtureDir(t)
+	return sess
+}
+
+// openFixtureDir is openFixture, plus the directory it wrote — which the
+// follow tests need, because appending to it is the thing being tested.
+func openFixtureDir(t *testing.T) (*session.Session, string) {
+	t.Helper()
 	dir := t.TempDir()
 
 	lines := []string{
@@ -37,7 +45,7 @@ func openFixture(t *testing.T) *session.Session {
 		t.Fatalf("open session: %v", err)
 	}
 	t.Cleanup(func() { sess.Close() })
-	return sess
+	return sess, dir
 }
 
 // loaded returns a model that has run its initial query.

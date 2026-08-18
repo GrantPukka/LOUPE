@@ -17,6 +17,14 @@ import (
 // fixture writes a small mixed-format directory and opens a session over it.
 func fixture(t *testing.T) *session.Session {
 	t.Helper()
+	sess, _ := fixtureDir(t)
+	return sess
+}
+
+// fixtureDir is fixture, plus the directory it wrote — which the live tail
+// tests need, because appending to it is the thing being tested.
+func fixtureDir(t *testing.T) (*session.Session, string) {
+	t.Helper()
 	dir := t.TempDir()
 
 	write := func(name, content string) {
@@ -49,7 +57,7 @@ func fixture(t *testing.T) *session.Session {
 	}
 	t.Cleanup(func() { sess.Close() })
 
-	return sess
+	return sess, dir
 }
 
 func newTestServer(t *testing.T) *Server {

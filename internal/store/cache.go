@@ -277,6 +277,23 @@ func ingestFresh(ctx context.Context, sources []source.Source, load LoadOptions,
 
 	out := &Cached{DB: db, Load: result, Path: path, Reason: reason}
 
+	// The per-file offsets are recorded whether or not this ingest is being
+	// cached. A later run resumes from them, but so does follow mode inside
+	// this one — and with no offsets a follower has nothing to resume from, so
+	// its first poll plans a re-read of every file and republishes the whole
+	// dataset as if it had just been written. In a live tail that is thousands
+	// of lines the user has already read.
+	if err := writeFileStates(ctx, db, statesFrom(sources, result)); err != nil {
+		if target == "" {
+			// Nothing to invalidate: this ingest was never going to be cached.
+			// Following will re-read, which is wasteful but not wrong.
+			out.Reason = fmt.Sprintf("could not record file offsets: %v", err)
+			return out, nil
+		}
+		out.Path, out.Reason = "", fmt.Sprintf("could not record file offsets: %v", err)
+		return out, nil
+	}
+
 	if target == "" {
 		return out, nil
 	}
@@ -285,13 +302,6 @@ func ingestFresh(ctx context.Context, sources []source.Source, load LoadOptions,
 		// Failing to record metadata makes the file unusable as a cache, but
 		// the data in memory is fine, so carry on without caching.
 		out.Path, out.Reason = "", fmt.Sprintf("could not write cache metadata: %v", err)
-		return out, nil
-	}
-
-	// Without the per-file offsets a later run has nothing to resume from and
-	// would re-read every file, which is the behaviour this replaces.
-	if err := writeFileStates(ctx, db, statesFrom(sources, result)); err != nil {
-		out.Path, out.Reason = "", fmt.Sprintf("could not record file offsets: %v", err)
 		return out, nil
 	}
 

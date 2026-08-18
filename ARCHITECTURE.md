@@ -315,8 +315,8 @@ POST /api/histogram {filter, bucket}  → [{bucket_start, count, level_breakdown
 GET  /api/tail    (SSE)               → live records, for `loupe serve --follow`
 ```
 
-**As built.** Four endpoints: `/api/schema`, `/api/query`, `/api/histogram`, and
-`/api/sources`, plus `/api/health`. All of them call `internal/session`, which is the same
+**As built.** Five endpoints: `/api/schema`, `/api/query`, `/api/histogram`, `/api/sources`,
+and `/api/tail`, plus `/api/health`. All of them call `internal/session`, which is the same
 code path `cmd/loupe` uses — a capability reachable over HTTP but not from the terminal
 would be a bug.
 
@@ -340,9 +340,45 @@ would be a bug.
 - **Timestamps are UTC instants** and the display timezone is named separately, so a client
   formats them itself rather than guessing whose clock it is reading.
 
-`/api/tail` is **not built yet**, but what it needs now exists. `loupe ./logs --follow`
-implements following in the CLI, which CLAUDE.md requires before it appears over HTTP, on top
-of the incremental reads described in §3.4.
+`/api/tail` streams live records as server-sent events. `loupe ./logs --follow` implemented
+following in the CLI first, which is what CLAUDE.md requires before it appears over HTTP, on
+top of the incremental reads described in §3.4.
+
+- **One follower per server, not per connection.** A `Follower` carries its own record of
+  where it has read to in each file, and a poll rewinds to the start of the last record to
+  re-read it. Two of them over the same store would each rewind past the other's writes:
+  two open tabs would see duplicated lines in one and missing lines in the other. Sharing
+  one also keeps the store's writes on a single goroutine, which is what makes them safe
+  alongside the query handlers.
+- **The poll loop runs only while somebody is subscribed**, and stops when the last client
+  disconnects. An idle `loupe serve` polls nothing and opens no files. There is still no
+  daemon.
+- **Each connection carries its own filter**, and its rows are selected by ANDing its
+  compiled plan with `Batch.Predicate()` — the same predicate the CLI uses, so the stream
+  and a query run afterwards cannot disagree.
+- **The per-subscriber queries run on the poll goroutine**, before it returns. The predicate
+  excludes a boundary record by file and line number, and the next poll may delete and
+  reinsert that record under a new sequence number, so a query deferred past the next poll
+  would select the wrong rows.
+- **A slow client is told it fell behind.** Its buffer is bounded, and overflowing it sends a
+  `lag` event naming the number of dropped updates and saying the records are still in the
+  store. Blocking would stall every other client on one unresponsive tab; dropping silently
+  would be a live tail that quietly stopped being complete.
+- **Read failures travel as `notice` events.** A file that becomes unreadable mid-incident
+  stops that source, not the stream, and says which one.
+- **The write deadline is cleared for this route only.** The server sets one so a slow query
+  cannot hold a connection forever; a live tail is the one response meant to stay open.
+
+The UI's live view is opt-in. Opening the page must not start polling somebody's log
+directory, and a reader who has narrowed to a window last Tuesday should not be dragged to
+the present. While it is on, arrivals enter the existing table and the timeline is redrawn on
+a throttle — and if the reader has scrolled away from the top, records are held and offered
+as a count rather than inserted, because shuffling rows under somebody mid-incident is how
+they lose the line they were looking at.
+
+`loupe tui --follow` is the same behaviour in the terminal. That list is oldest-first, so
+arrivals append and the cursor rides the end only if it was already there; otherwise the
+footer counts what has landed below and `G` goes to it.
 
 Following polls with `os.Stat` on a 400ms ticker rather than using filesystem notifications.
 No new dependency, identical behaviour on every platform, and it keeps working on NFS and
@@ -407,7 +443,8 @@ embedded assets; `loupe serve`. Success test: the ten-second demo GIF is recorda
 
 **As built.** Also a Bubble Tea TUI (`loupe tui`) and the handoff export, which the milestone
 list put in M4. Both are views over `internal/session`, so all three front ends — terminal,
-browser, and extract — run the same query path. `--follow` is built for the CLI; `/api/tail` is not yet. See §5.
+browser, and extract — run the same query path. Following is built for all three: `--follow`
+in the CLI and the TUI, and `/api/tail` for the browser. See §5.
 
 **M4 — the launch (week 4).** Cross-platform CI matrix and release binaries; Homebrew tap;
 README with the GIF; `docs/adding-a-parser.md`; **15 labelled `good first issue` tickets

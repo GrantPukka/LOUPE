@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { LIST_COLUMNS, getHistogram, getSchema, getSubscriptions, runQuery } from './api.js';
+import { LIST_COLUMNS, getHistogram, getSchema, getSubscriptions, openTail, runQuery } from './api.js';
 import { Browser, Subscriptions } from './Browser.jsx';
 import { FilterHelp } from './FilterHelp.jsx';
 import { Histogram } from './Histogram.jsx';
+import { alignRows, prependNewest, withoutDuplicates } from './live.js';
 import { Rows } from './Rows.jsx';
 import { number, removeTerm, sourceColour, splitTerms, termLabel, withoutTimeTerms } from './format.js';
 
@@ -12,6 +13,14 @@ const PAGE = 300;
 // Typing pause before a query runs. Long enough not to query on every
 // keystroke, short enough that the list feels attached to the box.
 const DEBOUNCE_MS = 220;
+
+// How often the timeline is refreshed while records are streaming in.
+//
+// Every arrival cannot redraw it: during an incident that is several redraws a
+// second, and the histogram is a whole-dataset query. Two seconds is slow
+// enough to be cheap and fast enough that the bar you are watching grows while
+// you watch it.
+const HISTOGRAM_REFRESH_MS = 2000;
 
 export function App() {
   const [schema, setSchema] = useState(null);
@@ -31,6 +40,31 @@ export function App() {
   // Newest first. The top of the list is where the eye starts, and the most
   // recent record is almost always the one being looked for.
   const [sort, setSort] = useState('-time');
+
+  // Live tail. Off until asked for: opening the page must not start polling
+  // somebody's log directory, and someone reading a window from last Tuesday
+  // should not be dragged to the present.
+  const [live, setLive] = useState(false);
+  // Records that arrived while the list was scrolled away from the top. Held
+  // rather than inserted, because moving the rows under a reader mid-incident
+  // is the fastest way to lose their place. The rows live in a ref and only
+  // their count is state: rendering needs the number, not the records.
+  const pending = useRef([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  // Bumped to ask the list to jump to the top. A counter rather than a
+  // callback into Rows, so the request survives a re-render and stays one-way.
+  const [jumpToTop, setJumpToTop] = useState(0);
+  const [notices, setNotices] = useState([]);
+  const atTop = useRef(true);
+
+  // The latest result, readable without waiting for a re-render. A streamed
+  // batch has to merge against what is on screen right now, and two batches
+  // can land before Preact has committed the first.
+  const resultRef = useRef(null);
+  // How many live records have arrived, and how many the timeline has seen.
+  // Equal means nothing changed and the histogram query can be skipped.
+  const arrived = useRef(0);
+  const drawn = useRef(0);
 
   const input = useRef(null);
   const generation = useRef(0);
@@ -127,6 +161,117 @@ export function App() {
       if (mine === generation.current) setBusy(false);
     }
   }, [applied, busy, result, sort]);
+
+  useEffect(() => {
+    resultRef.current = result;
+  }, [result]);
+
+  /**
+   * Fold a streamed batch into the list, or hold it if the reader has moved.
+   *
+   * Held records still count towards the total. The footer saying "412 of
+   * 33,000" while 12 more sit unshown would be a quiet lie about how much data
+   * there is.
+   */
+  const onLive = useCallback((payload) => {
+    const prev = resultRef.current;
+    if (!prev) return;
+
+    const seqAt = (prev.columns ?? []).indexOf('seq');
+    const rows = alignRows(payload.rows, payload.columns, prev.columns);
+    const fresh = withoutDuplicates(rows, seqAt, prev.rows, pending.current);
+    if (!fresh.length) return;
+
+    arrived.current += fresh.length;
+    const total = (prev.total ?? 0) + fresh.length;
+
+    if (!atTop.current) {
+      pending.current = [...pending.current, ...fresh];
+      setPendingCount(pending.current.length);
+      resultRef.current = { ...prev, total };
+      setResult(resultRef.current);
+      return;
+    }
+
+    resultRef.current = { ...prev, rows: prependNewest(prev.rows ?? [], fresh), total };
+    setResult(resultRef.current);
+  }, []);
+
+  /**
+   * Show what was held back.
+   *
+   * The list jumps to the top as well. "Click to show" that leaves the reader
+   * where they were, looking at the same rows, has not shown them anything.
+   */
+  const flushPending = useCallback(() => {
+    const held = pending.current;
+    pending.current = [];
+    setPendingCount(0);
+    if (!held.length) return;
+
+    setResult((prev) => (prev ? { ...prev, rows: prependNewest(prev.rows ?? [], held) } : prev));
+    setJumpToTop((n) => n + 1);
+  }, []);
+
+  /**
+   * Pause while the reader is not at the top, resume when they return.
+   *
+   * Without this the list shuffles under the cursor every time a record
+   * arrives, which during an incident is constantly.
+   */
+  const onAtTop = useCallback((value) => {
+    atTop.current = value;
+    if (value) flushPending();
+  }, [flushPending]);
+
+  const note = useCallback((message) => {
+    // Repeating the same warning on every poll would bury the screen in it.
+    setNotices((held) => (held.includes(message) ? held : [...held, message]));
+  }, []);
+
+  // The live stream. Reopened when the filter changes, so what streams in and
+  // what the table holds are always the answer to the same question.
+  useEffect(() => {
+    if (!live) {
+      pending.current = [];
+      setPendingCount(0);
+      setNotices([]);
+      return undefined;
+    }
+    return openTail({ filter: applied, onRecords: onLive, onNotice: note, onError: note });
+  }, [live, applied, onLive, note]);
+
+  // Redraw the timeline while records are arriving, so the bar being watched
+  // grows. Skipped when nothing came in, because the histogram is a query over
+  // the whole dataset and polling it for no reason is not free.
+  useEffect(() => {
+    if (!live) return undefined;
+
+    const timer = setInterval(() => {
+      if (arrived.current === drawn.current) return;
+      drawn.current = arrived.current;
+      getHistogram({ filter: applied, buckets: 90 }).then(setHist).catch(() => {
+        // The rows are still streaming; a stale timeline is better than an
+        // error bar over a working tail.
+      });
+    }, HISTOGRAM_REFRESH_MS);
+
+    return () => clearInterval(timer);
+  }, [live, applied]);
+
+  /**
+   * Start or stop following.
+   *
+   * Starting forces newest-first: a live tail is about what just happened, and
+   * appending arrivals to the bottom of an oldest-first list puts them off the
+   * end of a page nobody is looking at.
+   */
+  const toggleLive = useCallback(() => {
+    setLive((on) => {
+      if (!on) setSort('-time');
+      return !on;
+    });
+  }, []);
 
   /**
    * Clearing the filter returns to the newest records.
@@ -264,6 +409,17 @@ export function App() {
           </button>
         )}
         <button
+          class={`clear live ${live ? 'on' : ''}`}
+          onClick={toggleLive}
+          title={
+            live
+              ? 'stop following — the table stops updating on its own'
+              : 'follow: show records as they are written to the log files'
+          }
+        >
+          {live ? '● live' : '○ live'}
+        </button>
+        <button
           class={`clear ${showHelp ? 'on' : ''}`}
           onClick={() => setShowHelp((v) => !v)}
           title="filter syntax (?)"
@@ -306,6 +462,19 @@ export function App() {
 
       {error && <div class="error-bar">{error}</div>}
 
+      {/* A source that stopped being readable, or a stream that fell behind.
+          Never folded into silence: a live tail that has quietly stopped
+          covering one file is exactly the confident wrong answer this tool
+          exists to avoid. */}
+      {notices.map((message) => (
+        <div class="notice-bar" key={message}>
+          {message}
+          <button class="clear" onClick={() => setNotices((held) => held.filter((m) => m !== message))}>
+            dismiss
+          </button>
+        </div>
+      ))}
+
       <Histogram hist={hist} timeZone={timeZone} onRange={onRange} />
 
       <div class="colhead">
@@ -315,6 +484,12 @@ export function App() {
         <span class="c-msg">message</span>
       </div>
 
+      {pendingCount > 0 && (
+        <button class="pending" onClick={flushPending}>
+          {number(pendingCount)} new {pendingCount === 1 ? 'record' : 'records'} — click to show
+        </button>
+      )}
+
       <Rows
         rows={rows}
         columns={result?.columns ?? []}
@@ -322,11 +497,13 @@ export function App() {
         filter={filter}
         onFilter={applyNow}
         onLoadMore={loadMore}
+        onAtTop={onAtTop}
+        jumpToTop={jumpToTop}
         hasMore={!!result && rows.length < result.total}
         empty={emptyMessage(result, error)}
       />
 
-      <Footer result={result} hist={hist} schema={schema} sort={sort} onSort={setSort} />
+      <Footer result={result} hist={hist} schema={schema} sort={sort} onSort={setSort} live={live} />
 
       <Browser
         open={showBrowser}
@@ -411,19 +588,28 @@ function Header({ schema, timeZone }) {
   );
 }
 
-function Footer({ result, hist, schema, sort, onSort }) {
+function Footer({ result, hist, schema, sort, onSort, live }) {
   const shown = result?.rows?.length ?? 0;
   const total = result?.total ?? 0;
 
   return (
     <footer>
+      {/* Following pins the order. Arrivals go on top; oldest-first would put
+          them off the end of a list nobody is looking at, which reads as the
+          tail having stopped. */}
       <button
         class="clear"
+        disabled={live}
         onClick={() => onSort(sort === '-time' ? 'time' : '-time')}
-        title="switch between newest and oldest first"
+        title={
+          live
+            ? 'newest first while following — stop the live tail to sort oldest first'
+            : 'switch between newest and oldest first'
+        }
       >
         {sort === '-time' ? 'newest first' : 'oldest first'}
       </button>
+      {live && <span class="live-mark">● following</span>}
       <span>
         <b>{number(shown)}</b> of <b>{number(total)}</b> records
         {result?.took_ms !== undefined && <> · <b>{result.took_ms.toFixed(0)}ms</b></>}

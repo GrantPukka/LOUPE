@@ -259,3 +259,46 @@ func TestPollCompletesARecordWrittenAcrossTicks(t *testing.T) {
 		}
 	}
 }
+
+// Following an uncached session must not re-read what it already has.
+//
+// The per-file offsets are how a poll knows where to resume. They were written
+// only when a cache file was being written, so `--no-cache --follow` started
+// with no offsets at all: the first poll planned a re-read of every file and
+// republished the entire dataset as if it had just arrived. In a live tail
+// that is thousands of lines the user has already seen, scrolling past the one
+// they were waiting for.
+func TestFollowWithoutACacheResumesRatherThanRereading(t *testing.T) {
+	dir := logDir(t)
+	ctx := context.Background()
+
+	cached := openCached(t, dir, t.TempDir(), CacheOptions{Disabled: true})
+	if _, _, err := cached.DB.InferAndPromote(ctx, schema.Options{}); err != nil {
+		t.Fatalf("InferAndPromote: %v", err)
+	}
+	f, err := cached.DB.NewFollower(ctx, walker(dir), LoadOptions{})
+	if err != nil {
+		t.Fatalf("NewFollower: %v", err)
+	}
+
+	// Nothing has been written, so there is nothing to report.
+	batch, err := f.Poll(ctx)
+	if err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
+	if batch.Records != 0 {
+		t.Fatalf("first poll on an uncached session reported %d records as new; "+
+			"it re-read the whole file instead of resuming", batch.Records)
+	}
+
+	appendTo(t, dir, "app.log",
+		`{"ts":"2026-08-13T14:00:09Z","level":"error","msg":"live","status":503}`)
+
+	batch, err = f.Poll(ctx)
+	if err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
+	if batch.Records != 1 {
+		t.Fatalf("poll after one append reported %d records, want 1", batch.Records)
+	}
+}
