@@ -205,6 +205,35 @@ format:jsonl               everything parsed by a given parser
 
 ---
 
+## 4.1 Message templates
+
+```
+pattern:72537a34170e       every record sharing a message template
+pattern:72537a            a unique prefix of the id, like a git short hash
+-pattern:72537a34170e      exclude that template
+pattern:none               records with no template at all
+```
+
+The id is what `loupe patterns` prints beside each template. It names the
+template's text, so it is stable across runs and across machines without
+anything being stored between them — the same shape always gets the same id.
+`pattern:` takes the id, not the template's text; the text can contain spaces
+and masks and would be miserable to type.
+
+**An id that is not in the loaded data is an error, not an empty result.** This
+is the opposite of how `source:` behaves, deliberately. A source name is
+something the user knows from outside the data, so "is nginx in here?" is a real
+question with "no" as a real answer. A template id only ever comes from a
+listing of this same data, so an id that is not present is a typo or a stale
+paste. The error suggests the nearest ids by prefix, which is what a mistyped
+id looks like.
+
+Value-shaped tokens are masked when the template is derived: numbers, uuids,
+addresses, quoted strings, path segments, timestamps, and hex ids. A bare word
+is never masked, so two messages differing by a word stay two templates.
+
+---
+
 ## 5. Message and free text
 
 ```

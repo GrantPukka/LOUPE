@@ -13,7 +13,7 @@ built without breaking one of those is not on this list.
 | EC | Item | Tier | Status |
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
-| [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **in progress** — 2 of 4 stages done |
+| [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **in progress** — 3 of 4 stages done |
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | not started |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
@@ -163,8 +163,8 @@ Optional follow-up, only if refresh latency becomes a complaint.
 
 ## EC002 — Pattern clustering / message grouping
 
-**Status: in progress.** Stages 1 and 2 complete and tested. Work is on branch
-`EC002`, cut from `main` after EC001 merged.
+**Status: in progress.** Stages 1, 2 and 3 complete and tested. Only the UI
+remains. Work is on branch `EC002`, cut from `main` after EC001 merged.
 
 The highest-leverage triage feature: *"34,000 lines → 12 distinct templates, and
 this one is new in the last 5 minutes."*
@@ -282,13 +282,34 @@ rather than a list — `chr(31)` is the honest way to say it. And the footer was
 built from `plural()`, which returns only the noun, so it read "templates
 covering records" until the numbers were put back.
 
-### EC002.3 — `pattern:<id>` as a DSL term — **not started**
+### EC002.3 — `pattern:<id>` as a DSL term — **done**
 
-- [ ] A template must expand back to its matching records, or the view is a dead
-      end
-- [ ] Compiles to a parameterised predicate on `pattern_id`
-- [ ] Round-trip test: `parse(render(ast)) == ast`
-- [ ] An unknown id errors with a suggestion and never returns an empty result
+- [x] A template expands back to exactly its matching records — a test asserts
+      the listed count and the `pattern:<id>` count agree for every template
+- [x] Compiles to a parameterised predicate on `pattern_id`
+- [x] Round-trip tests: `pattern:<id>`, a short id, negation, a comma list, and
+      `pattern:none` all added to `TestRoundTrip`
+- [x] An unknown id errors with the nearest ids by prefix, never an empty result
+- [x] Short ids resolve like git short hashes; an ambiguous one lists candidates
+- [x] `docs/FILTER-DSL.md` §4.1 written
+
+**Id resolution lives in the session, not the compiler**, because resolving one
+needs the database and `internal/query` deliberately never touches one. It uses
+bounded prefix lookups rather than loading every id into `query.Schema`: a
+corpus where every line is unique has as many templates as records, and holding
+that list in memory to validate one term would be a poor trade.
+
+**An unknown id is an error, unlike an unknown source.** A source name is
+something the user knows from outside the data, so `source:nginx` matching
+nothing is a real answer to a real question. A template id only ever comes from
+a `loupe patterns` listing of this same data, so an id that is not present is a
+typo or a stale paste. The three failures are told apart and corrected
+differently: an id that does not exist suggests the nearest by prefix, a short
+id matching several lists them, and a value that is not hexadecimal is told that
+`pattern:` takes an id rather than a template's text.
+
+Resolving a short id copies the term rather than rewriting it, so the query
+reported back to the user stays the one they typed. A test pins that.
 
 ### EC002.4 — The UI — **not started**
 

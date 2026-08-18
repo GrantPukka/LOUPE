@@ -417,3 +417,59 @@ func asError[T error](err error, target *T) bool {
 	}
 	return false
 }
+
+// pattern: selects a message template by id, which is a plain equality on the
+// stored column. The whole point of computing templates at ingest is that this
+// is an ordinary predicate and not a second implementation of the masking
+// rules written in SQL.
+func TestPatternTermCompilesToTheStoredColumn(t *testing.T) {
+	sql := compile(t, "pattern:72537a34170e")
+
+	if !strings.Contains(sql.Where, "pattern_id") {
+		t.Errorf("pattern: does not reference pattern_id: %s", sql.Where)
+	}
+	// The id is data, not SQL, however hexadecimal it looks.
+	if strings.Contains(sql.Where, "72537a34170e") {
+		t.Errorf("the id was interpolated rather than parameterised: %s", sql.Where)
+	}
+	if len(sql.Args) != 1 || sql.Args[0] != "72537a34170e" {
+		t.Errorf("args = %v, want the id as the only parameter", sql.Args)
+	}
+}
+
+func TestPatternTermNegationAndExistence(t *testing.T) {
+	tests := []struct {
+		input    string
+		contains string
+	}{
+		{"-pattern:72537a34170e", "NOT"},
+		{"pattern:none", "IS NULL"},
+		{"pattern:*", "IS NOT NULL"},
+		{"pattern:002cf356a676,a11462dd2ea1", "OR"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			sql := compile(t, tt.input)
+			if !strings.Contains(sql.Where, tt.contains) {
+				t.Errorf("compiled %q to %s, want it to contain %q",
+					tt.input, sql.Where, tt.contains)
+			}
+			if !strings.Contains(sql.Where, "pattern_id") {
+				t.Errorf("compiled %q without referencing pattern_id: %s",
+					tt.input, sql.Where)
+			}
+		})
+	}
+}
+
+// A user who types a field that does not exist gets a list of what does, and
+// pattern has to be in it or the term is undiscoverable.
+func TestPatternIsAKnownField(t *testing.T) {
+	for _, name := range testSchema().Known() {
+		if name == "pattern" {
+			return
+		}
+	}
+	t.Error("pattern is not listed among the known fields")
+}
