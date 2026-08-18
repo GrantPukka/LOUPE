@@ -14,7 +14,7 @@ built without breaking one of those is not on this list.
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
-| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
+| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **in progress** — 0 of 3 stages done |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
@@ -354,25 +354,48 @@ text shows exactly what was collapsed. `TestWordsAreNeverMasked` pins it.
 
 ## EC003 — First-class trace / request correlation
 
-**Status: not started.** Tier 1. The demo already brags that one `trace_id` runs
-through all six sources; that is currently the pitch, not a feature.
+**Status: in progress.** Work is on branch `EC003`, cut from `main` after EC004
+merged.
+
+The demo already brags that one `trace_id` runs through all six sources; that is
+currently the pitch, not a feature.
 
 Delivers the README's exact promise: watch the pool exhaust, then the app error,
 then Nginx 502, in the order it happened.
 
+**What the data actually looks like**, measured on the demo corpus: `trace_id`
+reaches three of the six sources. Nginx, Postgres and syslog carry no
+correlation id at all in their formats. That is not a gap in the fixture, it is
+the normal state of a real system, and it is why the third checklist item
+matters more than it first reads: a trace view that lists three sources must not
+let anyone conclude the request never reached the other three.
+
+### EC003.1 — Detection and `loupe trace` — **not started**
+
 - [ ] `loupe trace <id> ./logs` — one request's timeline across every source
 - [ ] Show the latency gap between consecutive hops; the gap is the finding
 - [ ] Auto-detect the correlation field: `trace_id`, `traceId`, `request_id`,
-      `req_id`, `x-request-id`, `correlation_id` — configurable, detected by
-      default, because a flag here is an admission of failure per invariant 5
+      `req_id`, `x-request-id`, `correlation_id` — detected by default, and the
+      choice is stated, because an assumption nobody can see is one nobody
+      checks
 - [ ] Handle a trace present in some sources and absent from others without
       implying the request skipped a service
 - [ ] Records with no timestamp still belong to the trace — order them last and
       say so, never drop them
-- [ ] UI: click any trace value to open the trace view
-- [ ] Handoff export of a single trace, which is what gets pasted into an incident
-      channel
-- [ ] Tests over the demo directory, whose shared trace id is the fixture
+- [ ] Tests over a generated demo corpus, whose shared trace id is the fixture
+
+### EC003.2 — Handoff export of one trace — **not started**
+
+- [ ] `loupe trace <id> ./logs --handoff incident.md`, which is what gets pasted
+      into an incident channel
+- [ ] Carries the same disclosures as the terminal view: assumed zones, the
+      correlation field used, which sources could not have been checked
+
+### EC003.3 — The trace view in the browser — **not started**
+
+- [ ] Click any trace value in a record's detail to open the trace
+- [ ] The gap between hops is the thing to see, so it is the thing drawn
+- [ ] Playwright coverage
 
 ---
 
