@@ -119,6 +119,7 @@ func writeHandoffMarkdown(w io.Writer, h session.Handoff) error {
 	}
 
 	writeHandoffSources(&b, h)
+	writeHandoffTrace(&b, h)
 	writeHandoffRecords(&b, h)
 	writeHandoffRaw(&b, h)
 
@@ -131,6 +132,63 @@ func writeHandoffMarkdown(w io.Writer, h session.Handoff) error {
 
 	_, err := io.WriteString(w, b.String())
 	return err
+}
+
+// writeHandoffTrace renders one request's path, when the extract is about one.
+//
+// Above the record table, because the order and the waits are the finding and
+// the records below are the evidence for it. What could not be checked is
+// printed with it: a receiver cannot see the absence of a source that was never
+// able to answer in the first place.
+func writeHandoffTrace(b *strings.Builder, h session.Handoff) {
+	t := h.Trace
+	if t == nil {
+		return
+	}
+
+	fmt.Fprintf(b, "\n## Trace %s\n\n", t.ID)
+	fmt.Fprintf(b, "Followed on `%s`", t.Field)
+	if t.Span != "" {
+		fmt.Fprintf(b, ", spanning %s", t.Span)
+	}
+	b.WriteString(".\n\n")
+
+	b.WriteString("| Time | UTC | Wait | Source | Level | Message |\n")
+	b.WriteString("|---|---|---|---|---|---|\n")
+
+	for _, hop := range t.Hops {
+		local, utc := hop.Local, hop.UTC
+		if local == "" {
+			// Stated, not blank. A blank cell reads as a rendering fault,
+			// where "no timestamp" is a fact about the record.
+			local, utc = "no timestamp", "—"
+		}
+
+		wait := hop.Gap
+		if wait != "" {
+			wait = "+" + wait
+			if hop.Slowest {
+				wait += " ◀"
+			}
+		}
+
+		fmt.Fprintf(b, "| %s | %s | %s | %s | %s | %s |\n",
+			local, utc, wait, markdownCell(hop.Source), hop.Level,
+			markdownCell(firstLine(hop.Message)))
+	}
+
+	if t.Undated > 0 {
+		fmt.Fprintf(b, "\n**Undated**  %d hop(s) carry no timestamp and are listed last, "+
+			"in ingest order.\n", t.Undated)
+	}
+	if len(t.Blind) > 0 {
+		fmt.Fprintf(b, "\n**Not checked** %s never record `%s`, so this trace cannot say "+
+			"whether the request reached them.\n", strings.Join(t.Blind, ", "), t.Field)
+	}
+	if len(t.Silent) > 0 {
+		fmt.Fprintf(b, "\n**Silent** %s record `%s` but none for this id.\n",
+			strings.Join(t.Silent, ", "), t.Field)
+	}
 }
 
 func writeHandoffSources(b *strings.Builder, h session.Handoff) {

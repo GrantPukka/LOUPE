@@ -14,7 +14,7 @@ built without breaking one of those is not on this list.
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
-| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **in progress** — 1 of 3 stages done |
+| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **in progress** — 2 of 3 stages done |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
@@ -412,12 +412,33 @@ that parses back to what was meant.
 `loupe trace` reads the whole dataset before answering, including a piped one:
 it cannot know which sources stayed silent until every source has been read.
 
-### EC003.2 — Handoff export of one trace — **not started**
+### EC003.2 — Handoff export of one trace — **done**
 
-- [ ] `loupe trace <id> ./logs --handoff incident.md`, which is what gets pasted
-      into an incident channel
-- [ ] Carries the same disclosures as the terminal view: assumed zones, the
-      correlation field used, which sources could not have been checked
+- [x] `loupe trace <id> ./logs --handoff incident.md`
+- [x] The timeline sits above the record table, in both zones, with the longest
+      wait marked
+- [x] Carries the same disclosures as the terminal view, plus everything an
+      ordinary extract carries: assumed zones, unparsed counts, truncation
+- [x] Tests at both levels — the extract's shape, and the markdown it renders to
+
+A trace extract is the ordinary handoff for the records the trace matched, with
+the timeline attached, so it cannot show records the same filter would not. That
+is the property `docs/HANDOFF.md` asks for, and building a second record path
+for traces would have quietly broken it.
+
+**Which sources could not answer travels with the extract.** The receiver is
+reading a claim about where a request went, in a channel, without the data in
+front of them — they cannot see that Nginx was never able to be asked. An
+extract naming three services and staying quiet about the other three misleads
+by omission, which is the one thing a handoff must not do.
+
+`runHandoff` was split so the extract-building and the write-and-rename are
+separate: a trace extract reuses the atomic write rather than copying it, and
+both paths share one `handoffOptions`, so a trace extract and a filter extract
+cannot be built to different rules.
+
+`humanGap` in the CLI and the same logic needed by the extract became one
+exported `session.HumanDuration` rather than a second copy.
 
 ### EC003.3 — The trace view in the browser — **not started**
 

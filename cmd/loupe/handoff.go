@@ -22,16 +22,27 @@ func runHandoff(cmd *cobra.Command, g *globals, sess *session.Session, plan sess
 		return err
 	}
 
-	extract, err := sess.Handoff(cmd.Context(), plan, session.HandoffOptions{
-		Limit:   handoffLimit(g),
-		Redact:  g.redact,
-		Version: version,
-		Command: invocation(),
-	})
+	extract, err := sess.Handoff(cmd.Context(), plan, handoffOptions(g))
 	if err != nil {
 		return err
 	}
 
+	return emitHandoff(g, sess, extract, format)
+}
+
+// handoffOptions is the extract configuration every caller shares, so a trace
+// extract and a filter extract cannot be built to different rules.
+func handoffOptions(g *globals) session.HandoffOptions {
+	return session.HandoffOptions{
+		Limit:   handoffLimit(g),
+		Redact:  g.redact,
+		Version: version,
+		Command: invocation(),
+	}
+}
+
+// emitHandoff writes an extract to its destination.
+func emitHandoff(g *globals, sess *session.Session, extract session.Handoff, format render.HandoffFormat) error {
 	if g.handoff == "-" {
 		return render.WriteHandoff(os.Stdout, extract, format)
 	}

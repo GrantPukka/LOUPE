@@ -384,3 +384,81 @@ func joinList(names []string) string {
 	}
 	return out
 }
+
+// TraceHandoff builds a pasteable extract for one request.
+//
+// It is the ordinary handoff for the records the trace matched, with the
+// timeline and its disclosures attached. Sharing the record path rather than
+// building a second one means the extract cannot show records the same filter
+// would not, which is the property docs/HANDOFF.md asks for.
+func (s *Session) TraceHandoff(ctx context.Context, t Trace, opts HandoffOptions) (Handoff, error) {
+	plan, err := s.Plan(ctx, renderTerm(t.Field, t.ID))
+	if err != nil {
+		return Handoff{}, err
+	}
+
+	out, err := s.Handoff(ctx, plan, opts)
+	if err != nil {
+		return Handoff{}, err
+	}
+
+	out.Trace = &HandoffTrace{
+		ID:      t.ID,
+		Field:   t.Field,
+		Undated: t.Undated,
+		Blind:   reachNames(t.Blind()),
+		Silent:  reachNames(t.Silent()),
+	}
+	if t.Span > 0 {
+		out.Trace.Span = HumanDuration(t.Span)
+	}
+
+	slowest := t.Slowest()
+	for i, h := range t.Hops {
+		hop := HandoffHop{
+			Source:  h.Source,
+			Level:   h.Level,
+			Message: h.Message,
+			Slowest: i == slowest,
+		}
+		if h.Dated() {
+			hop.Local = h.Time.In(s.Loc).Format("2006-01-02 15:04:05.000 MST")
+			hop.UTC = h.Time.UTC().Format("15:04:05.000")
+		}
+		if h.HasGap {
+			hop.Gap = HumanDuration(h.Gap)
+		}
+		out.Trace.Hops = append(out.Trace.Hops, hop)
+	}
+
+	return out, nil
+}
+
+func reachNames(reach []SourceReach) []string {
+	if len(reach) == 0 {
+		return nil
+	}
+	out := make([]string, len(reach))
+	for i, r := range reach {
+		out[i] = r.Name
+	}
+	return out
+}
+
+// HumanDuration renders a gap at a precision a reader can compare at a glance.
+//
+// Full precision on a four-millisecond wait and on a four-second one makes the
+// two hard to tell apart, which defeats the point of putting them in a column
+// together.
+func HumanDuration(d time.Duration) string {
+	switch {
+	case d >= time.Minute:
+		return d.Round(time.Second).String()
+	case d >= time.Second:
+		return d.Round(10 * time.Millisecond).String()
+	case d >= time.Millisecond:
+		return d.Round(time.Millisecond).String()
+	default:
+		return d.Round(time.Microsecond).String()
+	}
+}

@@ -306,3 +306,124 @@ func names(reach []SourceReach) []string {
 	}
 	return out
 }
+
+// An extract about one request carries the timeline, not just the records.
+func TestTraceHandoffCarriesTheTimeline(t *testing.T) {
+	sess := traceFixture(t)
+	trace := traceOf(t, sess, "abc123")
+
+	got, err := sess.TraceHandoff(context.Background(), trace, HandoffOptions{})
+	if err != nil {
+		t.Fatalf("TraceHandoff: %v", err)
+	}
+
+	if got.Trace == nil {
+		t.Fatal("the extract has no trace section")
+	}
+	if got.Trace.ID != "abc123" || got.Trace.Field != "trace_id" {
+		t.Errorf("trace section = %+v, want the id and field followed", got.Trace)
+	}
+	if len(got.Trace.Hops) != len(trace.Hops) {
+		t.Errorf("extract has %d hops, the trace had %d", len(got.Trace.Hops), len(trace.Hops))
+	}
+
+	// The record table has to agree with the timeline above it, or the extract
+	// contradicts itself.
+	if got.Counts.Matched != int64(len(trace.Hops)) {
+		t.Errorf("matched %d records but the timeline shows %d hops",
+			got.Counts.Matched, len(trace.Hops))
+	}
+}
+
+// Both times on every hop, so neither end of the handoff does offset
+// arithmetic.
+func TestTraceHandoffHopsCarryBothZones(t *testing.T) {
+	sess := traceFixture(t)
+	got, err := sess.TraceHandoff(context.Background(), traceOf(t, sess, "abc123"), HandoffOptions{})
+	if err != nil {
+		t.Fatalf("TraceHandoff: %v", err)
+	}
+
+	var dated, undated int
+	for _, h := range got.Trace.Hops {
+		if h.Local == "" {
+			undated++
+			if h.UTC != "" {
+				t.Errorf("an undated hop carries a UTC time: %+v", h)
+			}
+			continue
+		}
+		dated++
+		if h.UTC == "" {
+			t.Errorf("hop %q has a local time but no UTC one", h.Message)
+		}
+	}
+	if dated == 0 {
+		t.Error("no hop carried a time")
+	}
+	if undated != 1 {
+		t.Errorf("%d undated hops in the extract, want 1", undated)
+	}
+}
+
+// The largest wait is marked, because it is usually the finding.
+func TestTraceHandoffMarksTheSlowestHop(t *testing.T) {
+	sess := traceFixture(t)
+	got, err := sess.TraceHandoff(context.Background(), traceOf(t, sess, "abc123"), HandoffOptions{})
+	if err != nil {
+		t.Fatalf("TraceHandoff: %v", err)
+	}
+
+	marked := 0
+	for _, h := range got.Trace.Hops {
+		if h.Slowest {
+			marked++
+			if h.Message != "upstream timeout" {
+				t.Errorf("marked %q as slowest, want the four-second wait", h.Message)
+			}
+		}
+	}
+	if marked != 1 {
+		t.Errorf("%d hops marked slowest, want exactly 1", marked)
+	}
+}
+
+// A receiver cannot see the absence of a source that was never able to answer,
+// so the extract has to say which those were.
+func TestTraceHandoffCarriesWhatCouldNotBeChecked(t *testing.T) {
+	sess := traceFixture(t)
+
+	got, err := sess.TraceHandoff(context.Background(), traceOf(t, sess, "abc123"), HandoffOptions{})
+	if err != nil {
+		t.Fatalf("TraceHandoff: %v", err)
+	}
+	if len(got.Trace.Blind) != 1 || got.Trace.Blind[0] != "access" {
+		t.Errorf("blind = %v, want [access]", got.Trace.Blind)
+	}
+	if got.Trace.Undated != 1 {
+		t.Errorf("undated = %d, want 1", got.Trace.Undated)
+	}
+
+	// And for a trace only one service saw, the silent ones travel too.
+	other, err := sess.TraceHandoff(context.Background(), traceOf(t, sess, "other"), HandoffOptions{})
+	if err != nil {
+		t.Fatalf("TraceHandoff: %v", err)
+	}
+	if len(other.Trace.Silent) != 2 {
+		t.Errorf("silent = %v, want the two services that record ids but not this one",
+			other.Trace.Silent)
+	}
+}
+
+// An extract that is not about a trace must not grow a trace section.
+func TestOrdinaryHandoffHasNoTraceSection(t *testing.T) {
+	sess := traceFixture(t)
+
+	got, err := sess.Handoff(context.Background(), plan(t, sess, "level:error"), HandoffOptions{})
+	if err != nil {
+		t.Fatalf("Handoff: %v", err)
+	}
+	if got.Trace != nil {
+		t.Errorf("a filter extract carries a trace section: %+v", got.Trace)
+	}
+}

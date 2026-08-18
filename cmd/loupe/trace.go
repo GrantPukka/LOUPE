@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GrantPukka/loupe/internal/render"
 	"github.com/GrantPukka/loupe/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -146,10 +147,10 @@ func writeTraceFooter(w io.Writer, t session.Trace, loc *time.Location) {
 	fmt.Fprintln(w)
 
 	if t.Span > 0 {
-		fmt.Fprintf(w, "Span %s", humanGap(t.Span))
+		fmt.Fprintf(w, "Span %s", session.HumanDuration(t.Span))
 		if at := t.Slowest(); at >= 0 {
 			fmt.Fprintf(w, ", of which %s waiting before %s",
-				humanGap(t.Hops[at].Gap), t.Hops[at].Source)
+				session.HumanDuration(t.Hops[at].Gap), t.Hops[at].Source)
 		}
 		fmt.Fprintln(w, ".")
 	}
@@ -190,7 +191,7 @@ func hopGap(h session.Hop) string {
 	if !h.HasGap {
 		return ""
 	}
-	return "+" + humanGap(h.Gap)
+	return "+" + session.HumanDuration(h.Gap)
 }
 
 func gapWidth(t session.Trace) int {
@@ -201,23 +202,6 @@ func gapWidth(t session.Trace) int {
 		}
 	}
 	return width
-}
-
-// humanGap renders a duration at a precision a reader can compare at a glance.
-//
-// Full precision on a four-millisecond gap and on a four-second one makes the
-// two hard to tell apart, which defeats the point of showing them side by side.
-func humanGap(d time.Duration) string {
-	switch {
-	case d >= time.Minute:
-		return d.Round(time.Second).String()
-	case d >= time.Second:
-		return d.Round(10 * time.Millisecond).String()
-	case d >= time.Millisecond:
-		return d.Round(time.Millisecond).String()
-	default:
-		return d.Round(time.Microsecond).String()
-	}
 }
 
 func namesOf(reach []session.SourceReach) string {
@@ -242,9 +226,21 @@ func firstLine(s string) string {
 	return s
 }
 
-// runTraceHandoff writes a trace as a pasteable extract. Built in EC003.2.
+// runTraceHandoff writes a trace as a pasteable extract.
+//
+// This is what gets dropped into an incident channel: the order, the waits,
+// the records behind them, and — the part that cannot be left out — which
+// sources were never able to answer.
 func runTraceHandoff(cmd *cobra.Command, g *globals, sess *session.Session, t session.Trace) error {
-	return fmt.Errorf("--handoff for a trace is not built yet; "+
-		"for now, `loupe <dir> '%s:%s' --handoff` exports the records without the timeline",
-		t.Field, t.ID)
+	format, err := render.HandoffFormatFor(g.handoff)
+	if err != nil {
+		return err
+	}
+
+	extract, err := sess.TraceHandoff(cmd.Context(), t, handoffOptions(g))
+	if err != nil {
+		return err
+	}
+
+	return emitHandoff(g, sess, extract, format)
 }

@@ -67,12 +67,55 @@ type Handoff struct {
 	Counts  HandoffCounts   `json:"counts"`
 	Records []HandoffRecord `json:"records"`
 
+	// Trace, when set, is the request timeline this extract is about. It sits
+	// above the record table because the order and the waits are the finding;
+	// the records underneath are the evidence for it.
+	Trace *HandoffTrace `json:"trace,omitempty"`
+
 	// Truncated says the record table is not the whole match set. An extract
 	// that does not admit it is truncated is worse than no extract.
 	Truncated bool `json:"truncated"`
 
 	Redacted []string          `json:"redacted,omitempty"`
 	Meta     HandoffProvenance `json:"generated"`
+}
+
+// HandoffTrace is one request's path, as it appears in an extract.
+type HandoffTrace struct {
+	ID    string `json:"id"`
+	Field string `json:"field"`
+	// Span is the first dated hop to the last, already rendered.
+	Span string       `json:"span,omitempty"`
+	Hops []HandoffHop `json:"hops"`
+
+	// Blind names sources that never record the correlation field, and Silent
+	// those that record it but not this id.
+	//
+	// Both travel with the extract because a trace is a claim about where a
+	// request went, and the receiver cannot see what was not checked. An
+	// extract listing three services without saying that Nginx could never
+	// have been asked is an extract that misleads by omission.
+	Blind  []string `json:"blind,omitempty"`
+	Silent []string `json:"silent,omitempty"`
+
+	// Undated is how many hops carry no timestamp and are therefore listed
+	// last rather than in place.
+	Undated int `json:"undated,omitempty"`
+}
+
+// HandoffHop is one step of a trace.
+type HandoffHop struct {
+	// Local and UTC are the same instant, so neither end of the handoff does
+	// offset arithmetic.
+	Local string `json:"local,omitempty"`
+	UTC   string `json:"utc,omitempty"`
+	// Gap is the wait since the previous dated hop, already rendered.
+	Gap     string `json:"gap,omitempty"`
+	Source  string `json:"source"`
+	Level   string `json:"level,omitempty"`
+	Message string `json:"message"`
+	// Slowest marks the longest wait, which is usually the finding.
+	Slowest bool `json:"slowest,omitempty"`
 }
 
 // HandoffSource is one file the records came from.
