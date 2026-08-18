@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { LIST_COLUMNS, getHistogram, getSchema, getSubscriptions, openTail, runQuery } from './api.js';
+import {
+  LIST_COLUMNS, getHistogram, getSchema, getSubscriptions, getTraceField, openTail, runQuery,
+} from './api.js';
 import { Browser, Subscriptions } from './Browser.jsx';
 import { FilterHelp } from './FilterHelp.jsx';
 import { Histogram } from './Histogram.jsx';
 import { Patterns } from './Patterns.jsx';
+import { Trace } from './Trace.jsx';
 import { alignRows, prependNewest, withoutDuplicates } from './live.js';
 import { Rows } from './Rows.jsx';
 import { number, removeTerm, sourceColour, splitTerms, termLabel, withoutTimeTerms } from './format.js';
@@ -38,6 +41,11 @@ export function App() {
   // takes width from the message column, and the single screen in
   // ARCHITECTURE.md section 6 is worth protecting from anything permanent.
   const [showPatterns, setShowPatterns] = useState(false);
+  // The open trace, and the field a trace would follow. The field is asked for
+  // once: without one there is nothing to correlate on, and the affordance
+  // should not appear at all rather than appear and fail.
+  const [traceID, setTraceID] = useState(null);
+  const [traceField, setTraceField] = useState('');
   const [showBrowser, setShowBrowser] = useState(false);
   const [showSubs, setShowSubs] = useState(false);
   const [subs, setSubs] = useState(null);
@@ -79,6 +87,13 @@ export function App() {
 
   useEffect(() => {
     getSchema().then(setSchema).catch((e) => setError(e.message));
+    getTraceField()
+      .then((f) => setTraceField(f?.name ?? ''))
+      .catch(() => {
+        // An older binary, or data with nothing correlation-shaped in it.
+        // Either way there is no trace view to offer.
+        setTraceField('');
+      });
     getSubscriptions().then(setSubs).catch(() => {
       // An older binary, or one started without a workspace. The rest of the
       // UI works; only the subscription controls are unavailable.
@@ -309,6 +324,10 @@ export function App() {
         input.current?.focus();
       }
       if (e.key === 'Escape') {
+        if (traceID) {
+          setTraceID(null);
+          return;
+        }
         if (showBrowser || showSubs || showHelp) {
           setShowBrowser(false);
           setShowSubs(false);
@@ -332,7 +351,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showBrowser, showSubs, showHelp, clearFilter]);
+  }, [showBrowser, showSubs, showHelp, traceID, clearFilter]);
 
   /** A timeline drag replaces any existing time term with the dragged range. */
   const onRange = useCallback((term) => {
@@ -525,6 +544,8 @@ export function App() {
         onLoadMore={loadMore}
         onAtTop={onAtTop}
         jumpToTop={jumpToTop}
+        traceField={traceField}
+        onTrace={setTraceID}
         hasMore={!!result && rows.length < result.total}
         empty={emptyMessage(result, error)}
       />
@@ -532,6 +553,14 @@ export function App() {
       </div>
 
       <Footer result={result} hist={hist} schema={schema} sort={sort} onSort={setSort} live={live} />
+
+      <Trace
+        id={traceID}
+        field={traceField}
+        timeZone={timeZone}
+        onClose={() => setTraceID(null)}
+        onFilter={applyNow}
+      />
 
       <Browser
         open={showBrowser}

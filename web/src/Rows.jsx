@@ -15,6 +15,7 @@ const OVERSCAN = 12;
  */
 export function Rows({
   rows, columns, timeZone, filter, onFilter, onLoadMore, onAtTop, jumpToTop, hasMore, empty,
+  traceField, onTrace,
 }) {
   const scroller = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -141,6 +142,8 @@ export function Rows({
           record={detail}
           filter={filter}
           onFilter={onFilter}
+          traceField={traceField}
+          onTrace={onTrace}
         />,
       );
     }
@@ -204,7 +207,7 @@ function Row({ row, index, stamp, shared, expanded, onClick }) {
  * The raw line is always shown, in its native format. The receiver of a finding
  * may not trust our parser, and they are right not to.
  */
-function Detail({ record, filter, onFilter }) {
+function Detail({ record, filter, onFilter, traceField, onTrace }) {
   if (!record) {
     return (
       <div class="detail">
@@ -258,6 +261,22 @@ function Detail({ record, filter, onFilter }) {
               {displayValue(v)}
               {applied && <span class="v-on"> ✓ filtering</span>}
             </span>
+
+            {/* Only on the field that actually correlates, and only when the
+                data has one. An affordance offered everywhere would mostly
+                lead to an empty trace. */}
+            {traceField && k === traceField && v && (
+              <button
+                class="v-trace"
+                title={`follow ${v} across every source`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTrace(String(v));
+                }}
+              >
+                → trace
+              </button>
+            )}
           </div>
         );
       })}

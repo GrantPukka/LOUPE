@@ -14,7 +14,7 @@ built without breaking one of those is not on this list.
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
-| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **in progress** — 2 of 3 stages done |
+| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **done** |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
@@ -354,8 +354,8 @@ text shows exactly what was collapsed. `TestWordsAreNeverMasked` pins it.
 
 ## EC003 — First-class trace / request correlation
 
-**Status: in progress.** Work is on branch `EC003`, cut from `main` after EC004
-merged.
+**Status: done.** All three stages complete and tested. Work is on branch
+`EC003`, cut from `main` after EC004 merged.
 
 The demo already brags that one `trace_id` runs through all six sources; that is
 currently the pitch, not a feature.
@@ -440,11 +440,35 @@ cannot be built to different rules.
 `humanGap` in the CLI and the same logic needed by the extract became one
 exported `session.HumanDuration` rather than a second copy.
 
-### EC003.3 — The trace view in the browser — **not started**
+### EC003.3 — The trace view in the browser — **done**
 
-- [ ] Click any trace value in a record's detail to open the trace
-- [ ] The gap between hops is the thing to see, so it is the thing drawn
-- [ ] Playwright coverage
+- [x] `GET /api/trace` and `GET /api/trace-field`, after the CLI existed
+- [x] A **→ trace** button on the correlation field in a record's detail
+- [x] The gap between hops is drawn as a bar scaled to the longest wait in the
+      trace, and the longest row is highlighted
+- [x] The footer says which sources could not answer, which stayed quiet, and
+      how many hops carry no timestamp
+- [x] Playwright coverage — six specs against the real binary
+
+The endpoint returns `session.Trace` unchanged, with silent and blind computed
+on the Go side, so the browser cannot re-derive the distinction differently from
+the terminal.
+
+`/api/trace-field` exists so the affordance appears only where it would work.
+Data with nothing correlation-shaped in it gets no trace button rather than a
+button that opens an empty panel, and that is an ordinary answer rather than an
+error.
+
+**The bar is scaled to the longest wait in the trace, not to an absolute
+duration.** A four-millisecond trace and a four-second one would otherwise look
+identical, which is the opposite of the point.
+
+**Regression caught by the existing suite:** the trace panel registered a
+capture-phase Escape listener that stayed attached while the panel was closed,
+so it swallowed Escape before the rest of the app saw it — and Escape is also
+how the filter is cleared and the help panel dismissed. Two `ui.spec.js` tests
+that had nothing to do with traces went red, which is exactly what they are for.
+The listener is now scoped to an open trace.
 
 ---
 
