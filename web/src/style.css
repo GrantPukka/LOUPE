@@ -304,6 +304,84 @@ footer .clear:disabled { color: var(--text-ghost); cursor: default; opacity: .6;
 }
 .empty span { color: var(--text-ghost); }
 
+/* -------------------------------------------------------------- pattern rail */
+
+/* The rail sits beside the record list only. The header, filter box and
+   timeline stay full width, so opening it narrows one column rather than
+   rearranging the screen — ARCHITECTURE.md section 6 asks for one screen and
+   means it. */
+.split { display: flex; flex: 1; min-height: 0; }
+.listwrap { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+
+.rail {
+  display: flex; flex-direction: column; flex: none;
+  width: 320px;
+  border-right: 1px solid var(--rule);
+  background: var(--panel);
+}
+.rail-head {
+  display: flex; align-items: baseline; gap: 8px; flex: none;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-2);
+  font-family: var(--mono); font-size: 10px; color: var(--text-ghost);
+  text-transform: uppercase; letter-spacing: .08em;
+}
+.rail-busy { color: var(--steel); }
+.rail-x {
+  margin-left: auto;
+  background: none; border: 0; cursor: pointer;
+  color: var(--text-ghost); font-size: 13px; line-height: 1;
+}
+.rail-x:hover { color: var(--text); }
+
+.rail-list { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+.rail-item {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 3px 10px;
+  border: 0; border-left: 2px solid transparent;
+  background: none; cursor: pointer; text-align: left;
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+}
+.rail-item:hover { background: var(--panel-2); color: var(--text); }
+.rail-item.on {
+  border-left-color: var(--steel);
+  background: var(--steel-soft);
+  color: var(--text);
+}
+/* Counts are the column the eye scans, so they line up and the templates
+   flow after them. */
+.rail-n {
+  flex: none; min-width: 48px; text-align: right;
+  color: var(--text-ghost); font-size: 10px;
+}
+.rail-item.on .rail-n { color: var(--steel); }
+/* One line each: a rail of wrapped templates cannot be scanned, and the full
+   text is in the tooltip along with an example. */
+.rail-t {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.rail-empty, .rail-error {
+  padding: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-ghost);
+  white-space: pre-wrap; line-height: 1.5;
+}
+.rail-error { color: var(--error); }
+
+/* What the rail is not showing is stated, never implied. */
+.rail-foot {
+  flex: none;
+  padding: 6px 10px;
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--mono); font-size: 10px; color: var(--text-ghost);
+  line-height: 1.5;
+}
+.rail-foot b { color: var(--text-dim); font-weight: 500; }
+.rail-note { color: var(--warn); }
+
 /* ------------------------------------------------------------------ footer */
 
 footer {

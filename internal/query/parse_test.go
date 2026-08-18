@@ -220,6 +220,13 @@ func TestRoundTrip(t *testing.T) {
 		"on:2026-08-13",
 		"after:2026-08-13T14:00:00Z",
 		"14:00-15:00",
+		// Template ids, which the pattern listing prints for pasting back.
+		"pattern:72537a34170e",
+		"pattern:72537a",
+		"-pattern:72537a34170e",
+		"pattern:002cf356a676,a11462dd2ea1",
+		"pattern:none",
+		"level:error pattern:72537a34170e",
 		"level:error source:nginx timeout",
 		"between:14:00-15:00 level:>=warn -source:nginx timeout",
 		`user:"a name with spaces"`,

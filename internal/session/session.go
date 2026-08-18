@@ -259,6 +259,15 @@ func (s *Session) Plan(ctx context.Context, filter string) (Plan, error) {
 		return Plan{}, err
 	}
 
+	// Template ids are expanded here rather than in the compiler, because
+	// resolving one needs the database and internal/query never touches it.
+	// A short id becomes a full one and an id that is not in the data becomes
+	// an error, so pattern: cannot answer a typo with an empty table.
+	resolved, err = s.resolvePatterns(ctx, resolved)
+	if err != nil {
+		return Plan{}, err
+	}
+
 	sch, err := s.Schema(ctx)
 	if err != nil {
 		return Plan{}, err

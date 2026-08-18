@@ -225,3 +225,54 @@ func BenchmarkOfPlainMessage(b *testing.B) {
 		Of(message)
 	}
 }
+
+// Control characters are named rather than left to render as nothing.
+//
+// The blaster's corrupted lines are full of NULs, and a NUL prints as nothing
+// in a terminal and as a replacement box in a browser. Both read as a fault in
+// the tool rather than damage in the log.
+func TestControlCharactersAreMasked(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"POST /api\x00\x00/orders/2291", "POST /api<ctl>/orders/<num>"},
+		{"PO\x00ST /healthz", "PO<ctl>ST /healthz"},
+		{"bell\x07here", "bell<ctl>here"},
+		{"del\x7fhere", "del<ctl>here"},
+		// A tab is a separator, not damage, and survives as whitespace.
+		{"a\tb", "a\tb"},
+	}
+
+	for _, tt := range tests {
+		if got := Template(tt.in); got != tt.want {
+			t.Errorf("Template(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+// A template must be printable, or it cannot do its job on any surface.
+func TestTemplatesNeverContainControlCharacters(t *testing.T) {
+	inputs := []string{
+		"POST /api\x00\x00/orders/2291",
+		"plain message",
+		"\x00\x00\x00",
+		"trailing\x1b[31m colour codes",
+	}
+
+	for _, in := range inputs {
+		got := Of(in).Text
+		for i := 0; i < len(got); i++ {
+			if c := got[i]; (c < 0x20 && c != '\t') || c == 0x7f {
+				t.Errorf("Template(%q) = %q still contains a control byte at %d", in, got, i)
+			}
+		}
+	}
+}
+
+// Damage at different positions is different damage, and must not collapse.
+func TestControlMaskKeepsThePositionOfTheDamage(t *testing.T) {
+	a := Of("PO\x00\x00ST /api/cart")
+	b := Of("POST \x00\x00/api/cart")
+
+	if a.ID == b.ID {
+		t.Errorf("corruption in two different places collapsed into %q", a.Text)
+	}
+}

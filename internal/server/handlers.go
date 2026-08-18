@@ -3,8 +3,10 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
+	"github.com/GrantPukka/loupe/internal/query"
 	"github.com/GrantPukka/loupe/internal/session"
 	"github.com/GrantPukka/loupe/internal/store"
 )
@@ -349,4 +351,65 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"ok":      true,
 		"records": s.sess.Load.Stats.Records,
 	})
+}
+
+// patternsResponse is a template listing plus everything needed to trust it.
+//
+// The shape is session.PatternSet as it stands, because the CLI and the UI must
+// not be able to disagree about what a listing contains. A hand-built subset
+// here would be the first place the two drifted.
+type patternsResponse struct {
+	session.PatternSet
+	Timezone string `json:"timezone"`
+}
+
+func (s *Server) handlePatterns(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	plan, err := s.sess.Plan(ctx, r.URL.Query().Get("filter"))
+	if err != nil {
+		// A filter error, an unknown template id, or an ambiguous short id all
+		// arrive here with the message the CLI would print, suggestions and
+		// all. Flattening them would make the UI worse than the terminal at
+		// the moment the user most needs help.
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	q := session.PatternQuery{Limit: session.DefaultPatternLimit}
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest,
+				fmt.Errorf("limit must be a number, got %q", raw))
+			return
+		}
+		q.Limit = n
+	}
+	if raw := r.URL.Query().Get("new_since"); raw != "" {
+		// The DSL's own parser, so the endpoint accepts exactly what
+		// --new-since and last: do.
+		since, err := query.ParseDuration(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest,
+				fmt.Errorf("new_since %q: %w (try 15m, 2h, or 1d)", raw, err))
+			return
+		}
+		q.NewSince = since
+	}
+
+	set, err := s.sess.Patterns(ctx, plan, q)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	// A nil slice marshals to null, and "no templates matched" is a normal
+	// answer every client has to handle. Sending null would make the empty
+	// case a different shape from every other response.
+	if set.Patterns == nil {
+		set.Patterns = []session.Pattern{}
+	}
+
+	writeJSON(w, http.StatusOK, patternsResponse{PatternSet: set, Timezone: s.sess.Loc.String()})
 }

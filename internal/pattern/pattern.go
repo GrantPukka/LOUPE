@@ -16,6 +16,16 @@ const (
 	MaskIP   = "<ip>"
 	MaskID   = "<id>"
 	MaskTime = "<ts>"
+
+	// MaskCtl stands in for a run of control characters.
+	//
+	// A template is something a human reads, and a control character does not
+	// render: a NUL prints as nothing, so "POST /api\0\0/orders/1" appears on
+	// screen as "POST /api  /orders/1" and the reader concludes the tool has a
+	// spacing bug rather than that the log line is corrupt. In a browser the
+	// same bytes come out as replacement boxes, which reads as a font problem.
+	// Naming the corruption is the only rendering that tells the truth.
+	MaskCtl = "<ctl>"
 )
 
 // IDLength is how many hex characters of the digest name a template.
@@ -61,6 +71,25 @@ func Template(line string) string {
 	written := 0
 
 	for i := 0; i < len(line); {
+		// A run of control characters collapses to one mask, the same way a
+		// run of digits collapses to one <num>. How many NULs a truncated
+		// write left behind is not information anybody can act on, and the
+		// position of the damage — which is what distinguishes one corrupt
+		// line from another — is preserved either way.
+		if isControl(line[i]) {
+			start := i
+			for i < len(line) && isControl(line[i]) {
+				i++
+			}
+			if written == 0 {
+				b.Grow(len(line) + len(MaskCtl))
+			}
+			b.WriteString(line[written:start])
+			b.WriteString(MaskCtl)
+			written = i
+			continue
+		}
+
 		if isSpace(line[i]) {
 			i++
 			continue
@@ -77,7 +106,10 @@ func Template(line string) string {
 		if m, next, ok := maskQuotedAt(line, i); ok {
 			masked, i, changed = m, next, true
 		} else {
-			for i < len(line) && !isSpace(line[i]) {
+			// Control characters end a token as whitespace does, so damage in
+			// the middle of a word is masked rather than swallowed into the
+			// token and left to render as nothing.
+			for i < len(line) && !isSpace(line[i]) && !isControl(line[i]) {
 				i++
 			}
 			tok := line[start:i]
@@ -563,9 +595,16 @@ func firstLine(s string) string {
 	return s
 }
 
-func isSpace(c byte) bool  { return c == ' ' || c == '\t' }
-func isDigit(c byte) bool  { return c >= '0' && c <= '9' }
-func isLetter(c byte) bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') }
+func isSpace(c byte) bool { return c == ' ' || c == '\t' }
+
+// isControl reports a byte that will not render.
+//
+// Tab is excluded on purpose: it is a legitimate separator in a log line, not
+// damage, and it is already handled as whitespace. Newline never reaches here
+// because only the first line of a message is templated.
+func isControl(c byte) bool { return (c < 0x20 && c != '\t') || c == 0x7f }
+func isDigit(c byte) bool   { return c >= '0' && c <= '9' }
+func isLetter(c byte) bool  { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') }
 
 func isHex(c byte) bool {
 	return isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')

@@ -42,6 +42,12 @@ var columns = map[string]string{
 	"parsed":   "parsed",
 	"seq":      "seq",
 	"ts_zoned": "ts_zoned",
+
+	// pattern names a message template by its id, not by its text. The id is
+	// what `loupe patterns` prints beside each template and the only handle
+	// short enough to type, so the DSL term takes the handle. The template
+	// text lives in the pattern column and is not addressable on its own.
+	"pattern": "pattern_id",
 }
 
 // Known reports every field name a user could reference, for error messages.
