@@ -78,7 +78,7 @@ func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbos
 
 	paths, note := resolvePaths(g, given)
 
-	sess, err := g.open(cmd.Context(), paths...)
+	sess, err := g.openBatch(cmd.Context(), paths...)
 	if err != nil {
 		return err
 	}

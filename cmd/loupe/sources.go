@@ -32,7 +32,7 @@ assumption is made auditable in ten seconds rather than discovered later.`,
 }
 
 func runSources(cmd *cobra.Command, g *globals, path string) error {
-	sess, err := g.open(cmd.Context(), path)
+	sess, err := g.openBatch(cmd.Context(), path)
 	if err != nil {
 		return err
 	}

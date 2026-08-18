@@ -202,10 +202,46 @@ func (g *globals) parseRelativeTo() (bool, error) {
 	}
 }
 
+// openBatch opens the logs for a command that cannot answer until the whole
+// read has finished.
+//
+// Grouping into templates, drawing a timeline, or running SQL over the lot
+// cannot say anything true about records that have not arrived yet, so a
+// stream is read to the end first. That blocks until the writer closes the
+// pipe, which is what `sort` or `wc` do with a pipe and what anyone typing
+// this expects — but it is said out loud, because a tool sitting silently on
+// a pipe is indistinguishable from a tool that has hung.
+func (g *globals) openBatch(ctx context.Context, paths ...string) (*session.Session, error) {
+	sess, err := g.open(ctx, paths...)
+	if err != nil {
+		return nil, err
+	}
+
+	if sess.Streaming() {
+		if !g.quiet {
+			fmt.Fprintln(os.Stderr,
+				"Reading standard input to the end before answering; this waits for the pipe to close.")
+		}
+		if err := sess.Drain(ctx); err != nil {
+			sess.Close()
+			return nil, err
+		}
+	}
+	return sess, nil
+}
+
 func (g *globals) renderer(loc *time.Location) (*render.Writer, error) {
+	return g.rendererFor(loc, false)
+}
+
+// rendererFor builds a renderer, marking it continuous for output that arrives
+// in batches but is one listing — a live tail, or a stream being read as it is
+// written.
+func (g *globals) rendererFor(loc *time.Location, continuous bool) (*render.Writer, error) {
 	opts := render.Options{
-		Location: loc,
-		Colour:   !g.noColour && os.Getenv("NO_COLOR") == "" && render.IsTerminal(os.Stdout),
+		Location:   loc,
+		Continuous: continuous,
+		Colour:     !g.noColour && os.Getenv("NO_COLOR") == "" && render.IsTerminal(os.Stdout),
 	}
 	if g.format != "" {
 		f, err := render.ParseFormat(g.format)

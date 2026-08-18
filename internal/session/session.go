@@ -50,6 +50,13 @@ type Options struct {
 	Walk source.WalkOptions
 }
 
+// StdinPath is the path that means "read standard input".
+//
+// A single dash, as every other tool on the system spells it. It is a path
+// rather than a flag so that it composes: `loupe ./logs -` reads a directory
+// and a pipe onto one timeline, which is the whole premise applied to a stream.
+const StdinPath = "-"
+
 // Session is an opened set of logs, ready to query.
 type Session struct {
 	DB   *store.DB
@@ -71,6 +78,10 @@ type Session struct {
 	Promoted []schema.Promotion
 
 	relativeToNow bool
+
+	// pending are sources not yet read, set only for a streaming session.
+	// Their presence is what Streaming() reports and what Stream() consumes.
+	pending []source.Source
 
 	// load and walkOpts are kept so a follower reads new records exactly as the
 	// initial ingest did — same parser, same assumed zones. A follow that
@@ -103,6 +114,11 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 	var sources []source.Source
 
 	for _, path := range opts.Paths {
+		if path == StdinPath {
+			sources = append(sources, source.NewStdin())
+			continue
+		}
+
 		found, err := source.Walk(path, &walk)
 		if err != nil {
 			// One unreadable location must not stop the others. A directory
@@ -116,6 +132,14 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 
 	if len(sources) == 0 {
 		return nil, NoSourcesError{Paths: opts.Paths, Skipped: walk.Skipped}
+	}
+
+	// A stream is read as it arrives rather than all at once, so the session is
+	// built without reading anything and the caller drives it through Stream.
+	// Finite sources come first: a pipe that never ends would otherwise stop
+	// the files behind it from ever being read.
+	if streams := countStreams(sources); streams > 0 {
+		return openStreaming(opts, orderStreamsLast(sources), walk)
 	}
 
 	loadOpts := store.LoadOptions{Parser: opts.Parser, SourceZones: opts.SourceZones}
@@ -150,12 +174,59 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 	}, nil
 }
 
+// countStreams reports how many sources arrive over time rather than sitting
+// on disk. A source with no fingerprint cannot be re-read, which is exactly
+// what makes it a stream.
+func countStreams(sources []source.Source) int {
+	n := 0
+	for _, src := range sources {
+		if src.Fingerprint() == "" {
+			n++
+		}
+	}
+	return n
+}
+
+// orderStreamsLast puts the finite sources first.
+//
+// Load reads sources in order, and a pipe from a running pod never returns. A
+// directory listed alongside one would never be read at all if the stream came
+// first, which would be a silent loss of everything the user named.
+func orderStreamsLast(sources []source.Source) []source.Source {
+	out := make([]source.Source, 0, len(sources))
+	for _, src := range sources {
+		if src.Fingerprint() != "" {
+			out = append(out, src)
+		}
+	}
+	for _, src := range sources {
+		if src.Fingerprint() == "" {
+			out = append(out, src)
+		}
+	}
+	return out
+}
+
 func resolvePromotions(ctx context.Context, db *store.DB, cacheHit bool) ([]schema.Promotion, error) {
 	if cacheHit {
 		return db.Promotions(ctx)
 	}
 	promotions, _, err := db.InferAndPromote(ctx, schema.Options{})
 	return promotions, err
+}
+
+// HasStream reports whether any source is a stream.
+//
+// Callers use it to refuse what a stream cannot do — resuming, following,
+// re-reading — rather than letting it surface as a confusing failure further
+// down.
+func (s *Session) HasStream() bool {
+	for _, path := range s.Paths {
+		if path == StdinPath {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Session) Close() error { return s.DB.Close() }
@@ -394,6 +465,13 @@ func (s *Session) Follower(ctx context.Context) (*store.Follower, error) {
 		walk := s.walkOpts
 		var found []source.Source
 		for _, path := range s.Paths {
+			// A stream is not re-resolvable and not seekable. Handing one to
+			// the follower would have it plan a re-read of something that is
+			// no longer there to be read.
+			if path == StdinPath {
+				continue
+			}
+
 			got, err := source.Walk(path, &walk)
 			if err != nil {
 				// A location that has become unreadable must not end the

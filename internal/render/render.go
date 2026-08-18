@@ -56,12 +56,20 @@ type Options struct {
 	// must be stated on screen so nobody has to guess whose clock they are
 	// looking at.
 	Location *time.Location
+
+	// Continuous marks output that arrives in batches but is one listing: a
+	// live tail, or a stream being read as it is written. The table header is
+	// printed once rather than once per batch, which is the difference between
+	// a log view and a stack of tiny tables.
+	Continuous bool
 }
 
 // Writer renders results.
 type Writer struct {
 	w    io.Writer
 	opts Options
+	// headed records that a continuous listing has already printed its header.
+	headed bool
 }
 
 // New builds a Writer, filling in defaults from the environment.

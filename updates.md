@@ -15,7 +15,7 @@ built without breaking one of those is not on this list.
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
-| [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | not started |
+| [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
 | [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | not started |
@@ -378,29 +378,93 @@ then Nginx 502, in the order it happened.
 
 ## EC004 — Wire up stdin streaming
 
-**Status: not started.** Tier 1, and the cheapest item on this list.
+**Status: done.** Both stages complete and tested. Work is on branch `EC004`,
+cut from `main` after EC002 merged.
 
-`internal/source/file.go:113` defines `Stdin` and its comment says it is for
-``kubectl logs -f api | loupe``. Verified: **`NewStdin` has no callers outside
-tests.** The type is complete and unreachable, so the documented pipeline does
-not work today.
+`internal/source/file.go` defined `Stdin` and its comment said it was for
+``kubectl logs -f api | loupe``. `NewStdin` had no callers outside tests: the
+type was complete and unreachable, so the documented pipeline did not work.
 
 Opens the whole container ecosystem with no new concepts and no daemon:
 `kubectl logs -f`, `docker logs`, `journalctl -f` all pipe straight in.
 
-- [ ] Detect a piped stdin and use it when no path is given
-- [ ] Explicit `-` as a path argument, which composes with real paths
-- [ ] Never block on an interactive terminal waiting for input nobody is typing
-- [ ] Uncacheable by design — `Fingerprint()` already returns empty, so confirm
-      `OpenCached` degrades cleanly and *says why* in the status line
-- [ ] A stream has no size, so progress reporting must not divide by it
-- [ ] Streaming mode: render as records arrive rather than after EOF, or
-      `kubectl logs -f` hangs silently forever
-- [ ] Interaction with EC001: a stream is not `Tailable` and must never be asked
-      to seek
-- [ ] Piped gzip already works via magic-byte detection — keep a test on it
-- [ ] Tests: piped fixture, empty stdin, stdin plus a directory, stdin closed
-      mid-record
+### EC004.1 — stdin as a real source — **done**
+
+- [x] Detect a piped stdin and use it when no path is given
+- [x] Explicit `-` as a path argument, which composes with real paths
+- [x] Never block on an interactive terminal waiting for input nobody is typing
+- [x] Uncacheable by design — the status line says so in its own words rather
+      than claiming it "re-read the log files", which a pipe has none of
+- [x] A stream has no size, and nothing divides by it
+- [x] A stream is not `Tailable` and is never asked to seek — the follower skips
+      it, and a test pins both
+- [x] Piped gzip works, detected from the magic bytes
+- [x] Tests: piped fixture, empty stdin, stdin plus a directory, stdin closed
+      mid-record, gzip, peek-does-not-consume, follower-skips-a-stream
+
+**Bug found: format detection was eating the first two hundred lines of every
+stream.** `parserFor` opened the source to sample it, then `loadOne` opened it
+again to read it. A file can be opened twice; a stream cannot, so the sample
+was consumed and lost. Piping 500 lines ingested 157 — and nothing said so,
+which is precisely the confident wrong answer this project exists to avoid.
+
+Sources can now be peeked instead: `source.Peekable` returns leading bytes
+without consuming them, `Stdin` wraps the pipe exactly once so every `Open`
+returns the same reader at the same position, and detection reads through a
+peek. Gzip is decompressed inside that single wrap, so detection scores plain
+text rather than compressed bytes — which is why the checklist's claim that
+piped gzip "already works" was wrong: it produced zero records.
+
+`--follow` on a stream is refused rather than silently polling nothing:
+standard input is already live, and ends when the writer closes it.
+
+### EC004.2 — Streaming render — **done**
+
+- [x] Render as records arrive rather than after EOF
+- [x] A stream's filter compiles once, against the records that have arrived,
+      and an unknown field says so rather than returning nothing
+- [x] Finite sources are read before streams, so a pipe that never ends cannot
+      starve a directory listed beside it
+- [x] Ctrl-C ends a stream the way closing the pipe does, and exits zero
+- [x] Batch commands — `patterns`, `histogram`, `sql`, `sources`, `tui`,
+      `serve` — read the stream to the end first, and say they are doing it
+- [x] Tests: every record once across batch boundaries, filtering, bag-field
+      filtering, unknown field, finite-source ordering, cancellation, empty pipe
+
+**Two things had to change below the streaming layer, and both were bugs in
+their own right.**
+
+`parse.ReadAll` held every record until the *next* line arrived, so that a
+continuation line could be attached to it. On a file that costs nothing. On a
+stream it meant always showing the record before last — a service logging once
+a minute would look permanently stuck one record behind. Only Log4j has
+continuations, so a parser with no `Continuer` now flushes immediately; the
+lookahead is kept for the formats that actually need it, because a stack trace
+emitted before its own trace would be worse than a late one.
+
+`bufio.Peek` blocks until it has *exactly* the number of bytes asked for.
+Format detection asked for its full window, which on a live pipe never arrives,
+so `kubectl logs -f` on a quiet pod hung in detection before reading a single
+record. `Stdin.Peek` now waits for the first byte and takes what came with it.
+The cost is that a slow producer is detected from less text than a file would
+be; `--parser` is the escape hatch for a format that needs more than its
+opening lines.
+
+**Streaming gives up promotion, and says so.** Promotion rewrites the logs
+table, which is not something to do to a table an appender is still writing
+into. Every field stays queryable — read from the JSON bag instead of a typed
+column — so this is a performance difference rather than a correctness one, and
+the status line states it. A *drained* stream does get promoted, because by
+then the read has finished, which is why `cat app.log | loupe patterns` gets
+the same typed columns a file would.
+
+**Also fixed, and it belongs to EC001:** the table renderer reprinted its header
+for every batch, so `--follow` produced a stack of one-row tables rather than a
+log. `render.Options.Continuous` prints the header once, and follow mode now
+sets it.
+
+`--handoff` is refused on a stream: an extract describes a finished read, and
+silently covering "whatever had arrived" would be the wrong kind of honest.
 
 ---
 

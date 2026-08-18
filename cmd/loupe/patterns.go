@@ -74,7 +74,7 @@ func runPatterns(cmd *cobra.Command, g *globals, args []string, limit int, newSi
 		}
 	}
 
-	sess, err := g.open(cmd.Context(), paths...)
+	sess, err := g.openBatch(cmd.Context(), paths...)
 	if err != nil {
 		return err
 	}

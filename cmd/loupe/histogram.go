@@ -45,7 +45,7 @@ func runHistogram(cmd *cobra.Command, g *globals, args []string, buckets int) er
 	}
 	paths, _ := resolvePaths(g, given)
 
-	sess, err := g.open(cmd.Context(), paths...)
+	sess, err := g.openBatch(cmd.Context(), paths...)
 	if err != nil {
 		return err
 	}
