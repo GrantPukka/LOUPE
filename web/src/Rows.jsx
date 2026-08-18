@@ -13,7 +13,9 @@ const OVERSCAN = 12;
  * records would otherwise build 30,000 nodes and lock the tab, and the whole
  * promise of the tool is that it stays responsive on a real log directory.
  */
-export function Rows({ rows, columns, timeZone, filter, onFilter, onLoadMore, hasMore, empty }) {
+export function Rows({
+  rows, columns, timeZone, filter, onFilter, onLoadMore, onAtTop, jumpToTop, hasMore, empty,
+}) {
   const scroller = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [height, setHeight] = useState(600);
@@ -37,8 +39,24 @@ export function Rows({ rows, columns, timeZone, filter, onFilter, onLoadMore, ha
   useEffect(() => {
     setOpen(null);
     setDetail(null);
+    setScrollTop(0);
     if (scroller.current) scroller.current.scrollTop = 0;
   }, [filter]);
+
+  // Whether the reader is at the top, which is what decides if a live tail may
+  // insert rows or has to hold them. A row's worth of slack, so nudging the
+  // wheel does not count as having scrolled away.
+  useEffect(() => {
+    onAtTop?.(scrollTop < ROW_HEIGHT);
+  }, [scrollTop, onAtTop]);
+
+  // Held live records were just released, so go and look at them. Skipped on
+  // the first render: the initial value is not a request.
+  useEffect(() => {
+    if (!jumpToTop) return;
+    setScrollTop(0);
+    if (scroller.current) scroller.current.scrollTop = 0;
+  }, [jumpToTop]);
 
   const index = columnIndex(columns);
 

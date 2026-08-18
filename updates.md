@@ -12,7 +12,7 @@ built without breaking one of those is not on this list.
 
 | EC | Item | Tier | Status |
 |---|---|---|---|
-| [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **in progress** — 2 of 3 stages done |
+| [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | not started |
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | not started |
@@ -30,8 +30,8 @@ built without breaking one of those is not on this list.
 
 ## EC001 — Live tail (`--follow`) + incremental ingest
 
-**Status: in progress.** Stages 1 and 2 complete and tested; stage 3 not started.
-Work is on branch `EC001`, uncommitted.
+**Status: done.** Stages 1, 2 and 3 complete and tested. EC001.4 remains as an
+optional follow-up and is deliberately not started. Work is on branch `EC001`.
 
 Turns loupe from "look at yesterday's logs" into "watch this incident unfold".
 The two halves are one project: following a file is incremental reading with a
@@ -93,19 +93,53 @@ Accepted and documented: a record that gains continuation lines after it was
 first emitted is corrected in the store but not reprinted. Printing the same
 line twice in a live tail is worse.
 
-### EC001.3 — `/api/tail` and the live UI — **not started**
+### EC001.3 — `/api/tail` and the live UI — **done**
 
-The CLI-before-UI rule is now satisfied: the capability exists and is tested
-below the UI layer.
+- [x] `GET /api/tail` as SSE — as specified at `ARCHITECTURE.md` §5
+- [x] One server-side follower **shared by every connection**, with the poll
+      loop starting on the first subscriber and stopping when the last leaves
+- [x] Reuse `Batch.Predicate()` so the stream and a later query agree
+- [x] Browser `EventSource` client; new rows enter the existing table, and the
+      histogram is redrawn on a throttle, without a reload
+- [x] Pause-on-scroll: records are held and offered as a count, and clicking
+      the count shows them and jumps to the top
+- [x] TUI streaming (`loupe tui --follow`)
+- [x] Playwright coverage of the live path — four specs against the real binary
+- [x] `ARCHITECTURE.md` §5, `README.md`, and `loupe serve --help` updated
 
-- [ ] `GET /api/tail` as SSE — already specified at `ARCHITECTURE.md` §5
-- [ ] Server-side follower per connection, stopping when the client disconnects
-- [ ] Reuse `Batch.Predicate()` so the stream and a later query agree
-- [ ] Browser `EventSource` client; new rows enter the existing table and
-      histogram without a reload
-- [ ] Pause-on-scroll, or the view fights the user during an incident
-- [ ] TUI streaming (`loupe tui --follow`)
-- [ ] Playwright coverage of the live path
+**Corrected from the plan above: one follower per server, not per connection.**
+A `Follower` carries its own record of where it has read to in each file, and a
+poll rewinds to the start of the last record to re-read it. Two of them over
+one store would each rewind past the other's writes, so two open tabs would see
+duplicated lines in one and missing lines in the other. Sharing one also keeps
+the store's writes on a single goroutine, which is what makes them safe
+alongside the query handlers.
+
+The per-subscriber queries run on the poll goroutine before it returns, rather
+than the batch being handed out to be queried later. `Predicate()` excludes the
+boundary record by file and line number, and the next poll may delete and
+reinsert that record under a new sequence number — a query deferred past the
+next poll would select the wrong rows.
+
+Bug found and fixed in stage 1's code: `writeFileStates` ran only when a cache
+file was being written, so `--no-cache` left a follower with no offsets to
+resume from. Its first poll planned a re-read of every file and republished the
+whole dataset as if it had just arrived. Invisible in the CLI, where the first
+poll's output looks like a busy log; fatal in the UI, where it floods the
+table. The offsets are now recorded either way — they describe where a read got
+to, which follow mode needs whether or not the database is being kept.
+
+Deliberate deviations, both under invariant 5: there is **no `serve --follow`
+flag** — the endpoint is always present and idle until subscribed — and the
+UI's live view is **off until switched on**, so opening the page never starts
+polling somebody's log directory. Following pins the sort to newest-first while
+it is on, because arrivals appended to the bottom of an oldest-first list land
+off the end of a page nobody is looking at.
+
+A slow client has a bounded buffer; overflowing it sends a `lag` event naming
+the number of dropped updates and saying the records are still in the store.
+Blocking would stall every other client on one unresponsive tab, and dropping
+silently would be a live tail that had quietly stopped being complete.
 
 ### EC001.4 — Remove the promotion rebuild from the refresh path — **not started**
 

@@ -40,10 +40,17 @@ Endpoints:
     POST /api/query       {filter|sql, limit, offset, sort} -> records
     POST /api/histogram   {filter, buckets} -> counts over time
     GET  /api/sources     per-file formats and timezone provenance
-    GET  /api/health`,
+    GET  /api/tail        {filter} -> live records, as server-sent events
+    GET  /api/health
+
+/api/tail follows the log files for as long as something is connected to it,
+and stops when the last client disconnects. Nothing is polled and no file is
+opened until then, so an idle server is idle. The UI's live view is off until
+you switch it on, for the same reason.`,
 		Example: `  loupe serve ./logs
   loupe serve ./logs --addr 127.0.0.1:9000
-  curl -s localhost:7717/api/schema | jq`,
+  curl -s localhost:7717/api/schema | jq
+  curl -sN 'localhost:7717/api/tail?filter=level:error'`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runServe(cmd, g, args, addr, verbose, openBrowser)

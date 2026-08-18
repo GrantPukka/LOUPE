@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/GrantPukka/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/store"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -19,8 +20,21 @@ const page = 500
 // It is a third view over the same session the CLI and the HTTP API use, for
 // the common case of being on a box with no browser and no way to copy a log
 // directory off it. Anything reachable here is reachable from the CLI.
-func Run(ctx context.Context, sess *session.Session, initialFilter string) error {
+//
+// follow keeps reading as records are written. It is opt-in for the same
+// reason the web UI's is: opening a viewer must not start polling somebody's
+// log directory, and a reader who has narrowed to last Tuesday should stay
+// there.
+func Run(ctx context.Context, sess *session.Session, initialFilter string, follow bool) error {
 	m := newModel(ctx, sess, initialFilter)
+
+	if follow {
+		follower, err := sess.Follower(ctx)
+		if err != nil {
+			return fmt.Errorf("start following: %w", err)
+		}
+		m.follower = follower
+	}
 
 	program := tea.NewProgram(m, tea.WithAltScreen(), tea.WithContext(ctx))
 	_, err := program.Run()
@@ -67,6 +81,17 @@ type model struct {
 	loading bool
 	showAll bool
 
+	// follower is nil unless --follow was given, and its presence is what
+	// "following" means throughout the model.
+	follower *store.Follower
+	// unseen counts live records appended below a cursor that was not at the
+	// end. Reported rather than jumped to: a list that scrolls itself while
+	// somebody is reading it is unusable during an incident.
+	unseen int
+	// notices are live-tail warnings, such as a source that stopped being
+	// readable.
+	notices []string
+
 	width, height int
 }
 
@@ -90,7 +115,10 @@ func newModel(ctx context.Context, sess *session.Session, initialFilter string) 
 }
 
 func (m model) Init() tea.Cmd {
-	return m.runQuery(m.applied)
+	if m.follower == nil {
+		return m.runQuery(m.applied)
+	}
+	return tea.Batch(m.runQuery(m.applied), tick())
 }
 
 // ---------------------------------------------------------------- messages
@@ -232,7 +260,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.rows, m.columns, m.total, m.took = msg.rows, msg.columns, msg.total, msg.took
 		m.hist, m.notes, m.window, m.explain = msg.hist, msg.notes, msg.window, msg.explain
 		m.cursor, m.offset, m.expanded, m.detail = 0, 0, -1, nil
-		m.err, m.loading = nil, false
+		m.err, m.loading, m.unseen = nil, false, 0
 		return m, nil
 
 	case moreMsg:
@@ -248,6 +276,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.detail = msg.record
 		}
 		return m, nil
+
+	case tickMsg:
+		return m, m.poll()
+
+	case liveMsg:
+		return m.onLive(msg)
 
 	case errMsg:
 		if msg.filter != "" && msg.filter != m.applied {
@@ -330,6 +364,8 @@ func (m model) onListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor, m.offset = 0, 0
 		return m, nil
 	case "G", "end":
+		// Going to the end is how you catch up, so nothing is unread after it.
+		m.unseen = 0
 		return m.move(len(m.rows))
 
 	case "enter", " ":

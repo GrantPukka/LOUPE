@@ -24,6 +24,7 @@ loupe ./logs ~/Downloads     # several locations, still one timeline
 loupe ./logs --ui            # same thing, in the browser
 loupe tui ./logs             # same thing, in the terminal
 loupe ./logs --follow        # keep watching as new records are written
+loupe tui ./logs --follow    # the same, in the full-screen terminal view
 
 loupe subscribe /var/log     # remember it
 loupe                        # read everything subscribed

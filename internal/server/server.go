@@ -37,6 +37,10 @@ type Server struct {
 	work *workspace.Workspace
 	opts Options
 	mux  *http.ServeMux
+
+	// tail is the single follower behind /api/tail. It is idle, and touches
+	// no files, until a client subscribes.
+	tail *tailHub
 }
 
 // New builds a server over an open session.
@@ -48,7 +52,7 @@ func New(sess *session.Session, work *workspace.Workspace, opts Options) *Server
 		opts.Addr = DefaultAddr
 	}
 
-	s := &Server{sess: sess, work: work, opts: opts, mux: http.NewServeMux()}
+	s := &Server{sess: sess, work: work, opts: opts, mux: http.NewServeMux(), tail: newTailHub(sess)}
 	s.routes()
 	return s
 }
@@ -58,6 +62,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /api/query", s.handleQuery)
 	s.mux.HandleFunc("POST /api/histogram", s.handleHistogram)
 	s.mux.HandleFunc("GET /api/sources", s.handleSources)
+	s.mux.HandleFunc("GET /api/tail", s.handleTail)
 	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 	s.mux.HandleFunc("GET /api/browse", s.handleBrowse)
 	s.mux.HandleFunc("GET /api/subscriptions", s.handleSubscriptions)

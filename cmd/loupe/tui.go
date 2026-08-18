@@ -10,7 +10,7 @@ import (
 )
 
 func newTUICommand(g *globals) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "tui [directory] [filter]",
 		Short: "Explore the logs in a full-screen terminal interface",
 		Long: `The same screen as the web UI, in the terminal.
@@ -23,14 +23,27 @@ Keys:
     /            edit the filter          enter   apply, or expand a record
     j k ↑ ↓      move                     f       filter by the selected source
     ctrl-d/u     half a page              esc     clear the filter
-    g G          top, bottom              q       quit`,
+    g G          top, bottom              q       quit
+
+With --follow the list keeps reading as records are written. New records are
+appended, and the cursor moves with them only if it was already on the last
+row; otherwise the footer counts what has arrived and G goes to it.`,
 		Example: `  loupe tui ./logs
-  loupe tui ./logs 'level:>=error'`,
+  loupe tui ./logs 'level:>=error'
+  loupe tui ./logs --follow`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTUI(cmd, g, args)
 		},
 	}
+
+	// Bound to the shared flag the root command uses, so --follow also
+	// switches last: to the wall clock here. Anchoring it to the newest record
+	// while records are arriving would slide the window forward on every poll.
+	cmd.Flags().BoolVar(&g.follow, "follow", false,
+		"keep reading as records are written")
+
+	return cmd
 }
 
 func runTUI(cmd *cobra.Command, g *globals, args []string) error {
@@ -53,5 +66,5 @@ func runTUI(cmd *cobra.Command, g *globals, args []string) error {
 	}
 	defer sess.Close()
 
-	return tui.Run(cmd.Context(), sess, filter)
+	return tui.Run(cmd.Context(), sess, filter, g.follow)
 }

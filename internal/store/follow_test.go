@@ -116,6 +116,13 @@ func TestPollPicksUpAppendedRecords(t *testing.T) {
 		}
 		got = append(got, m)
 	}
+	// An iteration that stopped early on an error would leave a short slice,
+	// and the comparison below would be made against records that were never
+	// read. A test that can silently check less than it says it does is worse
+	// than no test.
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate new records: %v", err)
+	}
 	if len(got) != 2 || got[0] != "live one" || got[1] != "live two" {
 		t.Errorf("new records = %v, want [live one, live two]", got)
 	}
@@ -248,6 +255,9 @@ func TestPollCompletesARecordWrittenAcrossTicks(t *testing.T) {
 		}
 		messages = append(messages, m)
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate records: %v", err)
+	}
 
 	want := []string{"one", "two", "three"}
 	if len(messages) != len(want) {
@@ -257,5 +267,48 @@ func TestPollCompletesARecordWrittenAcrossTicks(t *testing.T) {
 		if messages[i] != want[i] {
 			t.Errorf("message %d = %q, want %q (full set %v)", i, messages[i], want[i], messages)
 		}
+	}
+}
+
+// Following an uncached session must not re-read what it already has.
+//
+// The per-file offsets are how a poll knows where to resume. They were written
+// only when a cache file was being written, so `--no-cache --follow` started
+// with no offsets at all: the first poll planned a re-read of every file and
+// republished the entire dataset as if it had just arrived. In a live tail
+// that is thousands of lines the user has already seen, scrolling past the one
+// they were waiting for.
+func TestFollowWithoutACacheResumesRatherThanRereading(t *testing.T) {
+	dir := logDir(t)
+	ctx := context.Background()
+
+	cached := openCached(t, dir, t.TempDir(), CacheOptions{Disabled: true})
+	if _, _, err := cached.DB.InferAndPromote(ctx, schema.Options{}); err != nil {
+		t.Fatalf("InferAndPromote: %v", err)
+	}
+	f, err := cached.DB.NewFollower(ctx, walker(dir), LoadOptions{})
+	if err != nil {
+		t.Fatalf("NewFollower: %v", err)
+	}
+
+	// Nothing has been written, so there is nothing to report.
+	batch, err := f.Poll(ctx)
+	if err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
+	if batch.Records != 0 {
+		t.Fatalf("first poll on an uncached session reported %d records as new; "+
+			"it re-read the whole file instead of resuming", batch.Records)
+	}
+
+	appendTo(t, dir, "app.log",
+		`{"ts":"2026-08-13T14:00:09Z","level":"error","msg":"live","status":503}`)
+
+	batch, err = f.Poll(ctx)
+	if err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
+	if batch.Records != 1 {
+		t.Fatalf("poll after one append reported %d records, want 1", batch.Records)
 	}
 }

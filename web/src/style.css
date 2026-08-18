@@ -142,6 +142,41 @@ header {
   max-height: 30vh; overflow-y: auto;
 }
 
+/* A live tail's own warnings: a source that stopped being readable, or a
+   stream that fell behind. Amber, not red — the tail is still running, and one
+   unreadable file must not look like the whole thing has failed. */
+.notice-bar {
+  flex: none; display: flex; gap: 10px; align-items: baseline;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: #241f17;
+  color: var(--warn);
+  font-family: var(--mono); font-size: 11.5px;
+  line-height: 1.5;
+}
+.notice-bar .clear { margin-left: auto; }
+
+/* ------------------------------------------------------------------- live */
+
+.filterbar .live { font-variant-numeric: tabular-nums; }
+.filterbar .live.on { color: var(--error); }
+
+/* Held records, offered rather than inserted. Full width and above the list,
+   so it cannot be mistaken for a row and cannot cover one. */
+.pending {
+  flex: none; width: 100%;
+  padding: 5px 14px;
+  border: 0; border-bottom: 1px solid var(--rule);
+  background: var(--steel-soft);
+  color: var(--text);
+  font-family: var(--mono); font-size: 11px; text-align: left;
+  cursor: pointer;
+}
+.pending:hover { background: rgba(91, 140, 173, .28); }
+
+footer .live-mark { color: var(--error); }
+footer .clear:disabled { color: var(--text-ghost); cursor: default; opacity: .6; }
+
 /* --------------------------------------------------------------- histogram */
 
 .histwrap {
