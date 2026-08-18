@@ -61,7 +61,7 @@ func runSQL(cmd *cobra.Command, g *globals, path, query string) error {
 		return fmt.Errorf("empty query")
 	}
 
-	sess, err := g.open(cmd.Context(), path)
+	sess, err := g.openBatch(cmd.Context(), path)
 	if err != nil {
 		return err
 	}

@@ -232,6 +232,20 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 			pendingBefore.Truncated--
 		}
 
+		// A format with no continuation lines has a complete record the moment
+		// its line is read, so holding it back until the next one arrives buys
+		// nothing — and on a stream it costs everything. `kubectl logs -f` on a
+		// service that logs once a minute would always be showing the record
+		// before last, which reads as the tail being stuck.
+		//
+		// Log4j and anything else that can continue still waits, because a
+		// stack trace emitted before its own trace would be worse than late.
+		if continuer == nil {
+			if ferr := flush(); ferr != nil {
+				return stats, tail, ferr
+			}
+		}
+
 		if err == io.EOF {
 			break
 		}

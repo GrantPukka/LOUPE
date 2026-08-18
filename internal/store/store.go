@@ -114,6 +114,12 @@ func (s *DB) Close() error {
 	return err
 }
 
+// NextSeq is the sequence number the next ingested record will be given.
+//
+// Everything below it has been added, so a streaming caller uses it as the
+// boundary between what it has already shown and what has yet to arrive.
+func (s *DB) NextSeq() int64 { return s.seq }
+
 // SQL exposes the underlying handle for the raw `loupe sql` path.
 func (s *DB) SQL() *sql.DB { return s.db }
 

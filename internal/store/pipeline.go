@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -36,7 +37,28 @@ type LoadOptions struct {
 	// the beginning; one absent from it is read whole, which is what makes a
 	// first run and a newly appeared file behave identically.
 	Resume map[string]Resume
+
+	// OnBatch, when set, is called during the read with the sequence number
+	// the batch began at. Everything below that point has been flushed and is
+	// visible to a query.
+	//
+	// This is what makes a stream usable. A pipe from `kubectl logs -f` never
+	// reaches EOF, so an ingest that only reported at the end would sit there
+	// producing nothing for as long as the pod lived — a hang, as far as the
+	// person watching is concerned.
+	OnBatch func(from int64) error
 }
+
+// Batching thresholds for OnBatch.
+//
+// Whichever comes first: enough records to be worth a flush, or enough time
+// that a slow stream should not be sitting on them. A quiet pipe emits its
+// first record immediately, because the elapsed check is measured from a zero
+// time on the first record and always trips.
+const (
+	batchRecords  = 500
+	batchInterval = 200 * time.Millisecond
+)
 
 // Resume is where a previous read of a file stopped.
 //
@@ -186,7 +208,13 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 	}
 	defer rc.Close()
 
-	var ingestErr error
+	var (
+		ingestErr error
+		batchFrom = s.seq
+		batchN    int
+		lastFlush time.Time
+	)
+
 	stats, tail, err := parse.ReadAll(rc,
 		parse.ReaderOptions{Parser: parser, Loc: loc, StartLine: resume.LastLine},
 		func(e parse.Entry) error {
@@ -194,6 +222,23 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 				ingestErr = err
 				return err
 			}
+			if opts.OnBatch == nil {
+				return nil
+			}
+
+			batchN++
+			if batchN < batchRecords && time.Since(lastFlush) < batchInterval {
+				return nil
+			}
+			if err := ing.Flush(); err != nil {
+				ingestErr = err
+				return err
+			}
+			if err := opts.OnBatch(batchFrom); err != nil {
+				ingestErr = err
+				return err
+			}
+			batchFrom, batchN, lastFlush = s.seq, 0, time.Now()
 			return nil
 		})
 	if ingestErr != nil {
@@ -201,6 +246,17 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 	}
 	if err != nil {
 		return IngestResult{}, fmt.Errorf("read %s: %w", src.Name(), err)
+	}
+
+	// Whatever the last batch did not reach. A stream that ends between
+	// thresholds must not leave its final records unshown.
+	if opts.OnBatch != nil && batchN > 0 {
+		if err := ing.Flush(); err != nil {
+			return IngestResult{}, err
+		}
+		if err := opts.OnBatch(batchFrom); err != nil {
+			return IngestResult{}, err
+		}
 	}
 
 	return IngestResult{
@@ -212,6 +268,46 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 		ResumeLine: tail.Line,
 		Before:     tail.Before,
 	}, nil
+}
+
+// sampleFor reads enough of a source to detect its format.
+//
+// A source that can be peeked is peeked, because detection happens before the
+// ingest reads the same source again. A file can be opened twice and is; a
+// stream cannot, and sampling one by reading it would consume the first two
+// hundred lines and lose them — records gone before anything counted them.
+func sampleFor(ctx context.Context, src source.Source) ([][]byte, error) {
+	if p, ok := src.(source.Peekable); ok {
+		head, err := p.Peek(source.PeekBytes)
+		if err != nil {
+			return nil, fmt.Errorf("sample %s: %w", src.Name(), err)
+		}
+
+		// The window almost certainly ends mid-line. Detection scores whole
+		// lines, so the fragment is dropped rather than counted as a line that
+		// no parser understood.
+		if cut := bytes.LastIndexByte(head, '\n'); cut >= 0 {
+			head = head[:cut+1]
+		}
+
+		sample, err := parse.SampleLines(bytes.NewReader(head), 0)
+		if err != nil {
+			return nil, fmt.Errorf("sample %s: %w", src.Name(), err)
+		}
+		return sample, nil
+	}
+
+	rc, err := src.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open %s for detection: %w", src.Name(), err)
+	}
+	defer rc.Close()
+
+	sample, err := parse.SampleLines(rc, 0)
+	if err != nil {
+		return nil, fmt.Errorf("sample %s: %w", src.Name(), err)
+	}
+	return sample, nil
 }
 
 // openAt opens a source, from offset when one is given.
@@ -249,15 +345,9 @@ func (s *DB) parserFor(ctx context.Context, src source.Source, override string) 
 		return p, nil
 	}
 
-	rc, err := src.Open(ctx)
+	sample, err := sampleFor(ctx, src)
 	if err != nil {
-		return nil, fmt.Errorf("open %s for detection: %w", src.Name(), err)
-	}
-	defer rc.Close()
-
-	sample, err := parse.SampleLines(rc, 0)
-	if err != nil {
-		return nil, fmt.Errorf("sample %s: %w", src.Name(), err)
+		return nil, err
 	}
 
 	det := parse.Detect(sample)

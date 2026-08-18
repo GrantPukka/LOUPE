@@ -63,20 +63,25 @@ func (w *Writer) table(res store.Result) error {
 	widths := columnWidths(res.Columns, cells, w.opts.Width)
 	levelIdx := indexOf(res.Columns, "level")
 
-	// Header.
+	// Header, once for a continuous listing and once per result otherwise. A
+	// live tail that reprinted its header every time records arrived would
+	// read as a stack of tiny tables rather than a log.
 	var sb strings.Builder
-	for i, col := range res.Columns {
-		if i > 0 {
-			sb.WriteString("  ")
+	if !w.opts.Continuous || !w.headed {
+		for i, col := range res.Columns {
+			if i > 0 {
+				sb.WriteString("  ")
+			}
+			sb.WriteString(pad(strings.ToUpper(col), widths[i]))
 		}
-		sb.WriteString(pad(strings.ToUpper(col), widths[i]))
-	}
-	header := strings.TrimRight(sb.String(), " ")
-	if w.opts.Colour {
-		header = ansiDim + header + ansiReset
-	}
-	if _, err := fmt.Fprintln(w.w, header); err != nil {
-		return err
+		header := strings.TrimRight(sb.String(), " ")
+		if w.opts.Colour {
+			header = ansiDim + header + ansiReset
+		}
+		if _, err := fmt.Fprintln(w.w, header); err != nil {
+			return err
+		}
+		w.headed = true
 	}
 
 	for _, row := range cells {

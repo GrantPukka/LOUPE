@@ -27,6 +27,10 @@ loupe ./logs --follow        # keep watching as new records are written
 loupe tui ./logs --follow    # the same, in the full-screen terminal view
 
 loupe patterns ./logs        # 34,000 lines as a dozen message templates
+loupe patterns ./logs --new-since 15m   # which shapes just started happening
+
+kubectl logs -f api | loupe  # read a pipe, live
+loupe ./logs -               # a directory and a pipe, on one timeline
 
 loupe subscribe /var/log     # remember it
 loupe                        # read everything subscribed
@@ -84,11 +88,92 @@ source:nginx                    one source
 -source:nginx                   everything else
 status:>=500 latency_ms:>1000   any field, promoted or nested
 trace_id:a91c40f2               one request across every service
+pattern:9acf7d11271f            every record sharing a message template
 "read timed out"                exact phrase
 ```
 
 Everything above composes. `loupe sql "SELECT ..."` drops to raw DuckDB when you
 need more. Full syntax: [docs/FILTER-DSL.md](docs/FILTER-DSL.md).
+
+## Watching an incident happen
+
+`--follow` keeps reading as records are written, through the same filter:
+
+```bash
+loupe ./logs 'level:>=error' --follow    # the terminal
+loupe tui ./logs --follow                # the full-screen view
+loupe serve ./logs                       # the browser — click ● live
+```
+
+New records go through the same compiled filter as everything else, so a live
+view and the same query run afterwards can never disagree. In the browser, the
+pattern rail and the live stream are both off until you switch them on: opening
+a page should not start polling your log directory.
+
+In follow mode `last:15m` counts back from the wall clock rather than from the
+newest record, because the newest record is a moving target while records are
+arriving.
+
+## Reading from a pipe
+
+Anything that writes logs to stdout can be read directly, and records appear as
+they arrive rather than after the pipe closes:
+
+```bash
+kubectl logs -f api | loupe 'level:>=error'
+docker logs -f web | loupe
+journalctl -f | loupe
+zcat old.log.gz | loupe          # gzip is detected from the content
+loupe ./logs -                   # a pipe and a directory on one timeline
+```
+
+A bare `loupe` with something piped into it reads the pipe. A bare `-` names it
+explicitly, which is what lets it compose with real paths.
+
+Three things worth knowing:
+
+- **A stream is never cached.** The same bytes will not be there to re-read, so
+  every run pays full price. The status line says so.
+- **The filter is resolved against the records that have arrived.** A field that
+  only appears later is an error rather than an empty result, and the message
+  says why.
+- **`patterns`, `histogram`, `sql`, `sources`, `tui`, and `serve` read the pipe
+  to the end first.** None of them can say anything true about records that have
+  not arrived. They print a line saying they are waiting for the pipe to close.
+
+## Grouping messages into patterns
+
+Thirty-four thousand lines are usually a dozen shapes with the values filled in
+differently. `loupe patterns` collapses them and counts each shape:
+
+```bash
+loupe patterns ./logs                      # every template, most frequent first
+loupe patterns ./logs 'level:>=error'      # templates within a filter
+loupe patterns ./logs --new-since 15m      # only shapes with nothing older
+loupe patterns ./logs --all                # the whole long tail
+```
+
+```
+002cf356a676  62,549  request completed
+21ff829cbed3  14,237  POST /api/orders/<num>
+9acf7d11271f   4,397  PaymentGatewayException: read timed out after <num>ms
+```
+
+Only value-shaped tokens are masked — numbers, uuids, addresses, quoted
+strings, path segments, timestamps, hex ids. A bare word is never touched, so
+`/api/cart` and `/api/checkout` stay separate templates: which endpoint is
+failing is usually the whole finding.
+
+The id on the left is a filter term. Paste it back to see the records behind a
+template, short-hash style like git:
+
+```bash
+loupe ./logs 'pattern:9acf7d11271f'
+loupe ./logs 'pattern:9acf7d'
+```
+
+An id that is not in the data is an error with the nearest matches, never an
+empty table. In the browser, press `p` for the same list as a clickable rail.
 
 ## Timezones
 
@@ -113,6 +198,9 @@ loupe ./logs '02:00-07:30 level:>=error' --handoff incident.md
 Produces a pasteable extract with the window in both timezones, the query, the
 source files and their timezone assumptions, the matched records, and the raw
 lines. See [docs/HANDOFF.md](docs/HANDOFF.md).
+
+A handoff describes a finished read, so it is refused on a live pipe: redirect
+the stream to a file first, then hand off from that.
 
 ## Formats
 

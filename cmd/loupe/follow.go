@@ -24,7 +24,9 @@ func runFollow(ctx context.Context, g *globals, sess *session.Session, plan sess
 		return err
 	}
 
-	writer, err := g.renderer(sess.Loc)
+	// Continuous: the tail is one listing arriving in pieces, so the table
+	// header belongs at the top of it and not above every batch.
+	writer, err := g.rendererFor(sess.Loc, true)
 	if err != nil {
 		return err
 	}

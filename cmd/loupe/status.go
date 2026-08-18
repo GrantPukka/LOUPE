@@ -19,7 +19,13 @@ import (
 // depend on a guessed zone. Nothing here is optional decoration — an omitted
 // count is how a handoff misleads.
 func statusLine(w io.Writer, s *session.Session) {
-	fmt.Fprintf(w, "%s · %s\n", describeSources(s.Load), s.Load.Stats.Describe())
+	// A stream has not been read yet when this prints, so there are no counts
+	// to give. Printing the empty ones would say "0 records" about a pipe that
+	// is about to deliver thousands. They are reported when the stream ends
+	// instead, which is the first moment they are true.
+	if !s.Streaming() {
+		fmt.Fprintf(w, "%s · %s\n", describeSources(s.Load), s.Load.Stats.Describe())
+	}
 
 	// The display timezone, always, even when it is UTC. A user must never
 	// have to guess whose clock they are reading.
@@ -33,6 +39,14 @@ func statusLine(w io.Writer, s *session.Session) {
 	}
 	zone, offset := at.In(s.Loc).Zone()
 	fmt.Fprintf(w, "Times shown in %s (%s, %s)\n", s.Loc, zone, formatOffset(offset))
+
+	if s.Streaming() {
+		// The rest of this reports what a finished read found. A stream has
+		// not finished, so only what is already true is printed: the zone
+		// above, and why nothing was cached.
+		cacheLine(w, s)
+		return
+	}
 
 	for _, a := range s.Load.AssumedZones() {
 		fmt.Fprintf(w, "Note: %s has %d record(s) with no timezone in the format, read as %s (%s)\n",
@@ -63,6 +77,12 @@ func cacheLine(w io.Writer, s *session.Session) {
 		// confusing one.
 		fmt.Fprintf(w, "Reused a cached ingest — the original read took %s. Pass --no-cache to re-read the files.\n",
 			s.Load.Took.Round(time.Millisecond))
+	case s.HasStream():
+		// "Re-read the log files" is wrong for a pipe: there are no files, and
+		// nothing was re-read because nothing was ever stored. Saying so is
+		// the point — somebody piping a large stream twice should know why it
+		// costs full price both times.
+		fmt.Fprintf(w, "Not cached: %s. A stream is gone once read.\n", s.CacheReason)
 	case s.CacheReason != "":
 		fmt.Fprintf(w, "Re-read the log files: %s\n", s.CacheReason)
 	}

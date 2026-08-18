@@ -60,11 +60,16 @@ func runTUI(cmd *cobra.Command, g *globals, args []string) error {
 	}
 	paths, _ := resolvePaths(g, given)
 
-	sess, err := g.open(cmd.Context(), paths...)
+	sess, err := g.openBatch(cmd.Context(), paths...)
 	if err != nil {
 		return err
 	}
 	defer sess.Close()
+
+	if g.follow && sess.HasStream() {
+		return fmt.Errorf("--follow has nothing to poll on a stream: " +
+			"standard input is already live, and ends when the writer closes it")
+	}
 
 	return tui.Run(cmd.Context(), sess, filter, g.follow)
 }
