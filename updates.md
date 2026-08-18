@@ -14,7 +14,7 @@ built without breaking one of those is not on this list.
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
-| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **in progress** — 0 of 3 stages done |
+| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **in progress** — 1 of 3 stages done |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
@@ -370,19 +370,47 @@ the normal state of a real system, and it is why the third checklist item
 matters more than it first reads: a trace view that lists three sources must not
 let anyone conclude the request never reached the other three.
 
-### EC003.1 — Detection and `loupe trace` — **not started**
+### EC003.1 — Detection and `loupe trace` — **done**
 
-- [ ] `loupe trace <id> ./logs` — one request's timeline across every source
-- [ ] Show the latency gap between consecutive hops; the gap is the finding
-- [ ] Auto-detect the correlation field: `trace_id`, `traceId`, `request_id`,
-      `req_id`, `x-request-id`, `correlation_id` — detected by default, and the
-      choice is stated, because an assumption nobody can see is one nobody
-      checks
-- [ ] Handle a trace present in some sources and absent from others without
-      implying the request skipped a service
-- [ ] Records with no timestamp still belong to the trace — order them last and
-      say so, never drop them
-- [ ] Tests over a generated demo corpus, whose shared trace id is the fixture
+- [x] `loupe trace <id> ./logs` — one request's timeline across every source
+- [x] The gap between consecutive hops, with the largest one marked
+- [x] The correlation field is detected and the choice is stated; `--field`
+      overrides it
+- [x] A trace present in some sources and absent from others does not imply the
+      request skipped a service
+- [x] Records with no timestamp are ordered last, counted, and never dropped
+- [x] Tests: ordering, gaps, undated hops, silent vs blind sources, detection
+      by coverage, no correlation field at all, awkward ids
+
+```
+  00:16:00.000          auth-svc       info  token validated
+▸ 00:16:00.632  +632ms  checkout-api   info  request completed
+  00:16:00.700   +68ms  payment-worker error PaymentGatewayException: read timed out after 3000ms …
+
+Span 700ms, of which 632ms waiting before checkout-api.
+access, postgresql, syslog never record trace_id, so this trace cannot say
+whether the request reached them.
+```
+
+**Silent and blind sources are different facts, and conflating them is the trap
+this stage exists to avoid.** A source that records correlation ids and has none
+for this trace probably did not handle the request. A source that never records
+them — Nginx combined has nowhere to put one — may have handled it and simply
+cannot say. Reported as one category, the reader concludes a request skipped
+services it went straight through.
+
+**Detection is by coverage, not by list order.** The candidate order only breaks
+ties, so a `request_id` on three records cannot outrank a `trace_id` on three
+hundred. Other candidates present are named, so a wrong guess is visible.
+
+The correlation field is resolved through the ordinary filter path rather than
+by reading the schema directly, so a promoted column and a key still in the JSON
+bag are found the same way. The filter term is built from the AST rather than
+pasted together, so an id containing a quote or a space still produces a term
+that parses back to what was meant.
+
+`loupe trace` reads the whole dataset before answering, including a piped one:
+it cannot know which sources stayed silent until every source has been read.
 
 ### EC003.2 — Handoff export of one trace — **not started**
 
