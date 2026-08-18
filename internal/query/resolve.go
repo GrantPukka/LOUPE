@@ -39,8 +39,13 @@ func (tc TimeContext) location() *time.Location {
 	return tc.Loc
 }
 
-// anchor is the instant last: counts back from.
-func (tc TimeContext) anchor() (time.Time, string) {
+// Anchor is the instant last: counts back from, and a phrase naming it.
+//
+// Exported because anything else measuring a window backwards — `loupe
+// patterns --new-since`, for one — has to land on the same instant as last:
+// does. A second implementation would drift, and the two would disagree about
+// which records are recent while both looked right.
+func (tc TimeContext) Anchor() (time.Time, string) {
 	if tc.RelativeToNow || tc.Newest.IsZero() {
 		now := tc.Now
 		if now.IsZero() {
@@ -183,7 +188,7 @@ func resolveTerm(t *TimeTerm, tc TimeContext, res *Resolution) (Interval, error)
 }
 
 func resolveLast(expr string, tc TimeContext, res *Resolution) (Interval, error) {
-	d, err := parseDuration(expr)
+	d, err := ParseDuration(expr)
 	if err != nil {
 		return Interval{}, &TimeError{
 			Expr:     "last:" + expr,
@@ -192,7 +197,7 @@ func resolveLast(expr string, tc TimeContext, res *Resolution) (Interval, error)
 		}
 	}
 
-	anchor, description := tc.anchor()
+	anchor, description := tc.Anchor()
 	if anchor.IsZero() {
 		return Interval{}, &TimeError{
 			Expr:   "last:" + expr,

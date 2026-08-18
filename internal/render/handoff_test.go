@@ -284,3 +284,22 @@ func TestHumanBytes(t *testing.T) {
 		}
 	}
 }
+
+// Commas moved here from the TUI when the pattern listing became the third
+// caller. The test came with it.
+func TestCommas(t *testing.T) {
+	tests := map[int64]string{
+		0:       "0",
+		42:      "42",
+		1000:    "1,000",
+		33939:   "33,939",
+		1234567: "1,234,567",
+		-1000:   "-1,000",
+	}
+
+	for n, want := range tests {
+		if got := Commas(n); got != want {
+			t.Errorf("Commas(%d) = %q, want %q", n, got, want)
+		}
+	}
+}

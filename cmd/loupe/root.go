@@ -103,6 +103,7 @@ Read-only, local-only, no daemon, no network.`,
 		newSourcesCommand(g),
 		newCacheCommand(g),
 		newHistogramCommand(g),
+		newPatternsCommand(g),
 		newServeCommand(g),
 		newTUICommand(g),
 	)

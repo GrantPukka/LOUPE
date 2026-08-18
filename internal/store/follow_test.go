@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -310,5 +311,100 @@ func TestFollowWithoutACacheResumesRatherThanRereading(t *testing.T) {
 	}
 	if batch.Records != 1 {
 		t.Fatalf("poll after one append reported %d records, want 1", batch.Records)
+	}
+}
+
+// A live record must arrive with its pattern computed, exactly as a record
+// read by the initial ingest does.
+//
+// This is the same shape of bug EC001 found with promoted columns: the
+// appender writes the base column set, and a live record that arrived with a
+// NULL pattern would be invisible to `loupe patterns` and to pattern:<id> —
+// silently absent from the view of the incident being watched, which is the
+// worst possible time for it.
+func TestFollowComputesThePatternOnLiveRecords(t *testing.T) {
+	dir := logDir(t)
+	cached, f := followed(t, dir, t.TempDir())
+	ctx := context.Background()
+
+	appendTo(t, dir, "app.log",
+		`{"ts":"2026-08-13T14:00:07Z","level":"error","msg":"user 4821 timed out","status":500}`,
+		`{"ts":"2026-08-13T14:00:08Z","level":"error","msg":"user 9903 timed out","status":500}`)
+
+	batch, err := f.Poll(ctx)
+	if err != nil {
+		t.Fatalf("Poll: %v", err)
+	}
+	if batch.Records != 2 {
+		t.Fatalf("poll added %d records, want 2", batch.Records)
+	}
+
+	where, args := batch.Predicate()
+	rows, err := cached.DB.Query(ctx,
+		`SELECT pattern, pattern_id FROM logs WHERE `+where+` ORDER BY seq`, args...)
+	if err != nil {
+		t.Fatalf("select live patterns: %v", err)
+	}
+	defer rows.Close()
+
+	var templates, ids []string
+	for rows.Next() {
+		var template, id sql.NullString
+		if err := rows.Scan(&template, &id); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		if !template.Valid || template.String == "" {
+			t.Fatal("a live record arrived with no pattern")
+		}
+		if !id.Valid || id.String == "" {
+			t.Fatal("a live record arrived with no pattern id")
+		}
+		templates = append(templates, template.String)
+		ids = append(ids, id.String)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate live patterns: %v", err)
+	}
+
+	if len(templates) != 2 {
+		t.Fatalf("got %d live records, want 2", len(templates))
+	}
+	// The two messages differ only in a number, so they are one shape — and
+	// the live path must agree with the ingest path about that.
+	if templates[0] != "user <num> timed out" {
+		t.Errorf("template = %q, want %q", templates[0], "user <num> timed out")
+	}
+	if ids[0] != ids[1] {
+		t.Errorf("same shape got two ids: %q and %q", ids[0], ids[1])
+	}
+}
+
+// Every record carries a pattern, including the ones no parser understood.
+// Templating an empty message would file every unparsed line under one
+// nameless template, which is the opposite of surfacing them.
+func TestUnparsedRecordsStillGetAPattern(t *testing.T) {
+	dir := logDir(t)
+	cached := openCached(t, dir, t.TempDir(), CacheOptions{})
+	ctx := context.Background()
+
+	var missing int64
+	err := cached.DB.QueryRow(ctx,
+		`SELECT count(*) FROM logs WHERE pattern IS NULL OR pattern = ''`).Scan(&missing)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if missing != 0 {
+		t.Errorf("%d record(s) have no pattern", missing)
+	}
+
+	// logDir's fixture contains a line that is not JSON at all.
+	var unparsed int64
+	err = cached.DB.QueryRow(ctx,
+		`SELECT count(*) FROM logs WHERE NOT parsed AND pattern <> ''`).Scan(&unparsed)
+	if err != nil {
+		t.Fatalf("count unparsed: %v", err)
+	}
+	if unparsed == 0 {
+		t.Error("no unparsed record carried a pattern; the raw fallback is not working")
 	}
 }

@@ -44,12 +44,16 @@ const (
 	precisionSecond
 )
 
-// parseDuration reads the duration forms accepted by last:.
+// ParseDuration reads the duration forms accepted by last:.
 //
 // Go's time.ParseDuration does not understand days, which is the unit people
 // most often want here, so the units are handled directly. Weeks are included
 // because they cost two lines and someone will type them.
-func parseDuration(s string) (time.Duration, error) {
+//
+// Exported so a flag that takes a window — `--new-since 15m` — accepts exactly
+// what the filter language does. A flag that quietly understood a different
+// set of units from the DSL beside it would be its own small betrayal.
+func ParseDuration(s string) (time.Duration, error) {
 	s = strings.TrimSpace(strings.ToLower(s))
 	if s == "" {
 		return 0, fmt.Errorf("empty duration")

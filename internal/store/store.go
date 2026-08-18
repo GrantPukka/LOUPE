@@ -31,7 +31,15 @@ CREATE TABLE IF NOT EXISTS logs (
     line_no   BIGINT,
     parsed    BOOLEAN,           -- false when no parser understood the line
     raw       VARCHAR NOT NULL,  -- the original text, always
-    fields    VARCHAR            -- unpromoted fields, JSON text (see below)
+    fields    VARCHAR,           -- unpromoted fields, JSON text (see below)
+
+    -- The message with its variable parts masked, and a stable name for that
+    -- shape. Computed at ingest rather than per query: pattern:<id> has to
+    -- compile to an ordinary predicate, and deriving templates in SQL would
+    -- mean a second implementation of the masking rules that could disagree
+    -- with the Go one. See internal/pattern.
+    pattern    VARCHAR,
+    pattern_id VARCHAR
 )`
 
 // fields is VARCHAR rather than JSON on purpose.
@@ -50,6 +58,7 @@ CREATE TABLE IF NOT EXISTS logs (
 var Columns = []string{
 	"seq", "ts", "ts_zoned", "level", "message",
 	"source", "file", "format", "line_no", "parsed", "raw", "fields",
+	"pattern", "pattern_id",
 }
 
 // DB is a DuckDB instance holding ingested logs.
