@@ -116,6 +116,13 @@ func TestPollPicksUpAppendedRecords(t *testing.T) {
 		}
 		got = append(got, m)
 	}
+	// An iteration that stopped early on an error would leave a short slice,
+	// and the comparison below would be made against records that were never
+	// read. A test that can silently check less than it says it does is worse
+	// than no test.
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate new records: %v", err)
+	}
 	if len(got) != 2 || got[0] != "live one" || got[1] != "live two" {
 		t.Errorf("new records = %v, want [live one, live two]", got)
 	}
@@ -247,6 +254,9 @@ func TestPollCompletesARecordWrittenAcrossTicks(t *testing.T) {
 			t.Fatalf("scan: %v", err)
 		}
 		messages = append(messages, m)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate records: %v", err)
 	}
 
 	want := []string{"one", "two", "three"}

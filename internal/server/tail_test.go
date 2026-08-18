@@ -49,40 +49,51 @@ func liveServer(t *testing.T) (*Server, string, string) {
 }
 
 // openTail connects to /api/tail and decodes events onto a channel.
+//
+// The whole life of the connection sits inside the reading goroutine: it makes
+// the request, owns the response body, and closes it on the way out. Doing the
+// request out here and handing the body over would split ownership of a thing
+// that has to stay open for the length of the test, which is how a leaked
+// connection ends up holding a subscriber open on a server that is meant to
+// have stopped polling.
 func openTail(t *testing.T, base, filter string) *tailClient {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	url := base + "/api/tail?filter=" + strings.ReplaceAll(filter, " ", "%20")
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		cancel()
-		t.Fatalf("request: %v", err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		cancel()
-		t.Fatalf("connect to %s: %v", url, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		cancel()
-		t.Fatalf("tail returned %d: %s", resp.StatusCode, body)
-	}
-	if got := resp.Header.Get("Content-Type"); got != "text/event-stream" {
-		resp.Body.Close()
-		cancel()
-		t.Fatalf("content-type = %q, want text/event-stream", got)
-	}
-
 	c := &tailClient{events: make(chan sseEvent, 64), cancel: cancel, done: make(chan struct{})}
+
+	// Connecting is reported back here so the failure is raised on the test's
+	// own goroutine. t.Fatal from anywhere else does not stop the test.
+	ready := make(chan error, 1)
 
 	go func() {
 		defer close(c.done)
+
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			ready <- fmt.Errorf("request: %w", err)
+			return
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			ready <- fmt.Errorf("connect to %s: %w", url, err)
+			return
+		}
 		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			ready <- fmt.Errorf("tail returned %d: %s", resp.StatusCode, body)
+			return
+		}
+		if got := resp.Header.Get("Content-Type"); got != "text/event-stream" {
+			ready <- fmt.Errorf("content-type = %q, want text/event-stream", got)
+			return
+		}
+		ready <- nil
 
 		scanner := bufio.NewScanner(resp.Body)
 		scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
@@ -103,6 +114,12 @@ func openTail(t *testing.T, base, filter string) *tailClient {
 		}
 	}()
 
+	if err := <-ready; err != nil {
+		cancel()
+		<-c.done
+		t.Fatal(err)
+	}
+
 	t.Cleanup(func() { cancel(); <-c.done })
 	return c
 }
@@ -119,24 +136,20 @@ func (c *tailClient) await(t *testing.T, within time.Duration) sseEvent {
 	}
 }
 
-// records decodes a records event, failing on anything else.
+// records waits for one records event and decodes it, failing on anything else.
 func (c *tailClient) records(t *testing.T, within time.Duration) tailRecords {
 	t.Helper()
 
-	deadline := time.Now().Add(within)
-	for time.Now().Before(deadline) {
-		ev := c.await(t, time.Until(deadline))
-		if ev.name != "records" {
-			t.Fatalf("expected a records event, got %s: %s", ev.name, ev.data)
-		}
-		var got tailRecords
-		if err := json.Unmarshal(ev.data, &got); err != nil {
-			t.Fatalf("decode records: %v", err)
-		}
-		return got
+	ev := c.await(t, within)
+	if ev.name != "records" {
+		t.Fatalf("expected a records event, got %s: %s", ev.name, ev.data)
 	}
-	t.Fatal("no records event arrived")
-	return tailRecords{}
+
+	var got tailRecords
+	if err := json.Unmarshal(ev.data, &got); err != nil {
+		t.Fatalf("decode records: %v", err)
+	}
+	return got
 }
 
 func appendLines(t *testing.T, dir, name string, lines ...string) {
