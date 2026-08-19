@@ -413,3 +413,58 @@ func (s *Server) handlePatterns(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, patternsResponse{PatternSet: set, Timezone: s.sess.Loc.String()})
 }
+
+// topResponse is a value breakdown plus the display timezone.
+//
+// session.TopSet unchanged, for the same reason the pattern listing is: the
+// terminal and the browser must not be able to disagree about what a breakdown
+// contains, and a hand-built subset here is the first place they would.
+type topResponse struct {
+	session.TopSet
+	Timezone string `json:"timezone"`
+}
+
+func (s *Server) handleTop(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	field := r.URL.Query().Get("field")
+	if field == "" {
+		writeError(w, http.StatusBadRequest,
+			fmt.Errorf("name a field to break down as ?field="))
+		return
+	}
+
+	plan, err := s.sess.Plan(ctx, r.URL.Query().Get("filter"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	q := session.TopQuery{Field: field, Limit: session.DefaultTopLimit}
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest,
+				fmt.Errorf("limit must be a number, got %q", raw))
+			return
+		}
+		q.Limit = n
+	}
+
+	set, err := s.sess.Top(ctx, plan, q)
+	if err != nil {
+		// An unknown field arrives here with the spelling suggestion the CLI
+		// would print. Flattening it would make the UI worse than the terminal
+		// at the moment the user most needs help.
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// A nil slice marshals to null, and "nothing carries this field" is a
+	// normal answer every client has to handle.
+	if set.Values == nil {
+		set.Values = []session.TopValue{}
+	}
+
+	writeJSON(w, http.StatusOK, topResponse{TopSet: set, Timezone: s.sess.Loc.String()})
+}

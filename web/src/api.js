@@ -152,3 +152,18 @@ export const getPatterns = ({ filter, limit, newSince } = {}) => {
   const query = params.toString();
   return request(`/api/patterns${query ? `?${query}` : ''}`);
 };
+
+/**
+ * Fetch the value breakdown of one field.
+ *
+ * The server returns session.TopSet unchanged, including the share of each
+ * value and how many matching records carry no value at all. The browser must
+ * not recompute either: a percentage the UI derived itself could disagree with
+ * the one `loupe top` prints.
+ */
+export const getTop = ({ field, filter, limit } = {}) => {
+  const params = new URLSearchParams({ field: field ?? '' });
+  if (filter) params.set('filter', filter);
+  if (limit !== undefined) params.set('limit', String(limit));
+  return request(`/api/top?${params}`);
+};

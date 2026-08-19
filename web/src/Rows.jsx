@@ -15,6 +15,7 @@ const OVERSCAN = 12;
  */
 export function Rows({
   rows, columns, timeZone, filter, onFilter, onLoadMore, onAtTop, jumpToTop, hasMore, empty,
+  onTop,
 }) {
   const scroller = useRef(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -141,6 +142,7 @@ export function Rows({
           record={detail}
           filter={filter}
           onFilter={onFilter}
+          onTop={onTop}
         />,
       );
     }
@@ -204,7 +206,7 @@ function Row({ row, index, stamp, shared, expanded, onClick }) {
  * The raw line is always shown, in its native format. The receiver of a finding
  * may not trust our parser, and they are right not to.
  */
-function Detail({ record, filter, onFilter }) {
+function Detail({ record, filter, onFilter, onTop }) {
   if (!record) {
     return (
       <div class="detail">
@@ -258,6 +260,20 @@ function Detail({ record, filter, onFilter }) {
               {displayValue(v)}
               {applied && <span class="v-on"> ✓ filtering</span>}
             </span>
+
+            {/* The breakdown of this field, not of this value: the useful
+                question is "which paths are there", asked from a record that
+                happens to have one. */}
+            <button
+              class="v-top"
+              title={`count every value of ${k}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTop?.(k);
+              }}
+            >
+              % top
+            </button>
           </div>
         );
       })}

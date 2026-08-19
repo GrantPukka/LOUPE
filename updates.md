@@ -16,7 +16,7 @@ built without breaking one of those is not on this list.
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
-| [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **in progress** — 1 of 2 stages done |
+| [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **done** |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
 | [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | not started |
 | [EC008](#ec008--broaden-intake) | Broaden intake | 2 | not started |
@@ -472,7 +472,7 @@ silently covering "whatever had arrived" would be the wrong kind of honest.
 
 ## EC005 — Faceted breakdowns / top-N
 
-**Status: in progress.** Stage 1 complete and tested. Work is on branch `EC005`,
+**Status: done.** Both stages complete and tested. Work is on branch `EC005`,
 cut from `main` — note that EC003 was not merged when this branched, so the two
 both add a command to `root.go` and will conflict trivially there on merge.
 
@@ -524,12 +524,31 @@ reached for template text and for the same reason: a NUL renders as nothing in a
 terminal, so a corrupted path looked like a spacing bug in loupe rather than
 damage in the log.
 
-### EC005.2 — Click-to-facet in the browser — **not started**
+### EC005.2 — Click-to-facet in the browser — **done**
 
-- [ ] `GET /api/top`, after the CLI exists
-- [ ] Click any field value in a record's detail to see its breakdown
-- [ ] Percentages and the absent count travel with it
-- [ ] Playwright coverage
+- [x] `GET /api/top`, after the CLI existed
+- [x] A **% top** button on every field in an expanded record
+- [x] Percentages, the denominator, and the absent count all travel with the
+      response and are stated in the panel
+- [x] Clicking a value filters on it; the absent count offers `field:none`
+- [x] Playwright coverage — seven specs against the real binary
+
+The endpoint returns `session.TopSet` unchanged, so the browser never recomputes
+a share. A percentage the UI derived itself could disagree with the one
+`loupe top` prints, and there would be no way to tell which was right.
+
+**The affordance is on the field, not the value.** A record showing
+`path=/api/cart` is the place you ask "what paths are there", so the button
+breaks down the field and the existing click-to-filter still handles the value.
+Putting a breakdown on the value would have answered a question nobody asks.
+
+**Bars scale to the largest value, not to the total.** Scaling to the total
+flattens every bar as soon as one value dominates, which is the case most worth
+seeing.
+
+The Escape listener is scoped to an open panel from the outset — a
+capture-phase listener left attached while closed swallows the key that clears
+the filter, which is the regression EC003 shipped and the existing suite caught.
 
 ---
 
