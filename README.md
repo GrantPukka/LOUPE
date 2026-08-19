@@ -30,6 +30,7 @@ loupe patterns ./logs        # 34,000 lines as a dozen message templates
 loupe patterns ./logs --new-since 15m   # which shapes just started happening
 
 loupe trace a91c40f2 ./logs  # one request across every service, with the waits
+loupe top path ./logs 'status:>=500'    # which endpoints are 500ing
 
 kubectl logs -f api | loupe  # read a pipe, live
 loupe ./logs -               # a directory and a pipe, on one timeline
@@ -197,6 +198,41 @@ you need.
 
 `--handoff` exports the timeline and its disclosures as a pasteable extract, and
 in the browser any trace value in a record's detail has a **→ trace** button.
+## Breaking a field down by value
+
+The most common triage question, without dropping to SQL:
+
+```bash
+loupe top path ./logs 'status:>=500'     # which endpoints are 500ing
+loupe top status ./logs 'level:>=error'  # what statuses come with errors
+loupe top source ./logs --all            # the whole tail
+```
+
+```
+2,936   20.3%  ████████████████████████  /healthz
+2,905   20.1%  ███████████████████████   /api/orders/2291
+2,896   20.0%  ███████████████████████   /api/session
+
+10 values of path across 14,480 records.
+```
+
+Works on any field the filter language knows — a real column, a promoted one,
+or a key still in the JSON bag — and a typo gets the same spelling suggestion it
+would get in a filter.
+
+**The percentage has a stated denominator**, because the obvious two differ: 300
+of 412 records that carry a path is 72.8%, while 300 of 500 matched records is
+60%. The shares are of the records carrying the field, so they sum to 100%, and
+records with no value for it are counted and reported separately rather than
+folded in where they would silently shrink every percentage:
+
+```
+43,630 records matched the filter but carry no path, so they are outside the
+percentages above (path:none finds them).
+```
+
+In the browser, every field in an expanded record has a **% top** button, and
+clicking a value in the breakdown filters on it.
 
 ## Grouping messages into patterns
 

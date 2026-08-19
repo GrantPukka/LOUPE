@@ -315,8 +315,9 @@ POST /api/histogram {filter, bucket}  → [{bucket_start, count, level_breakdown
 GET  /api/tail    (SSE)               → live records, for `loupe serve --follow`
 ```
 
-**As built.** Eight endpoints: `/api/schema`, `/api/query`, `/api/histogram`, `/api/sources`,
-`/api/tail`, `/api/patterns`, `/api/trace`, and `/api/trace-field`, plus `/api/health`. All of them call `internal/session`, which is the same
+**As built.** Nine endpoints: `/api/schema`, `/api/query`, `/api/histogram`, `/api/sources`,
+`/api/tail`, `/api/patterns`, `/api/trace`, `/api/trace-field`, and `/api/top`, plus
+`/api/health`. All of them call `internal/session`, which is the same
 code path `cmd/loupe` uses — a capability reachable over HTTP but not from the terminal
 would be a bug.
 

@@ -7,6 +7,7 @@ import { FilterHelp } from './FilterHelp.jsx';
 import { Histogram } from './Histogram.jsx';
 import { Patterns } from './Patterns.jsx';
 import { Trace } from './Trace.jsx';
+import { Top } from './Top.jsx';
 import { alignRows, prependNewest, withoutDuplicates } from './live.js';
 import { Rows } from './Rows.jsx';
 import { number, removeTerm, sourceColour, splitTerms, termLabel, withoutTimeTerms } from './format.js';
@@ -46,6 +47,8 @@ export function App() {
   // should not appear at all rather than appear and fail.
   const [traceID, setTraceID] = useState(null);
   const [traceField, setTraceField] = useState('');
+  // The field whose breakdown is open, or null.
+  const [topField, setTopField] = useState(null);
   const [showBrowser, setShowBrowser] = useState(false);
   const [showSubs, setShowSubs] = useState(false);
   const [subs, setSubs] = useState(null);
@@ -328,6 +331,10 @@ export function App() {
           setTraceID(null);
           return;
         }
+        if (topField) {
+          setTopField(null);
+          return;
+        }
         if (showBrowser || showSubs || showHelp) {
           setShowBrowser(false);
           setShowSubs(false);
@@ -351,7 +358,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showBrowser, showSubs, showHelp, traceID, clearFilter]);
+  }, [showBrowser, showSubs, showHelp, traceID, topField, clearFilter]);
 
   /** A timeline drag replaces any existing time term with the dragged range. */
   const onRange = useCallback((term) => {
@@ -546,6 +553,7 @@ export function App() {
         jumpToTop={jumpToTop}
         traceField={traceField}
         onTrace={setTraceID}
+        onTop={setTopField}
         hasMore={!!result && rows.length < result.total}
         empty={emptyMessage(result, error)}
       />
@@ -553,6 +561,14 @@ export function App() {
       </div>
 
       <Footer result={result} hist={hist} schema={schema} sort={sort} onSort={setSort} live={live} />
+
+      <Top
+        field={topField}
+        filter={applied}
+        timeZone={timeZone}
+        onClose={() => setTopField(null)}
+        onFilter={applyNow}
+      />
 
       <Trace
         id={traceID}

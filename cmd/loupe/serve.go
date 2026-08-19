@@ -44,6 +44,7 @@ Endpoints:
     GET  /api/patterns    {filter, limit, new_since} -> message templates
     GET  /api/trace       {id, field} -> one request across every source
     GET  /api/trace-field which field a trace would follow, if any
+    GET  /api/top         {field, filter, limit} -> value counts for a field
     GET  /api/health
 
 /api/tail follows the log files for as long as something is connected to it,

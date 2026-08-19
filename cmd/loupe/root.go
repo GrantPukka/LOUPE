@@ -105,6 +105,7 @@ Read-only, local-only, no daemon, no network.`,
 		newHistogramCommand(g),
 		newPatternsCommand(g),
 		newTraceCommand(g),
+		newTopCommand(g),
 		newServeCommand(g),
 		newTUICommand(g),
 	)
