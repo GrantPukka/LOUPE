@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -33,20 +33,32 @@ export function ensureFixtures() {
     );
   }
 
+  const args = [
+    'run', './cmd/blaster',
+    '-out', FIXTURES,
+    '-seed', '42',
+    '-scenario', 'incident',
+    '-duration', '4m',
+    '-rotate=false',
+  ];
+
+  // Regenerate whenever the recipe changes, not merely when the directory is
+  // empty.
+  //
+  // CI always starts empty and so always generates fresh; a developer's
+  // machine keeps whatever was there. When the two diverge, local runs test
+  // different data from CI — which is how a suite passes here and fails there,
+  // and the failure looks like flakiness rather than a stale fixture.
+  const stamp = path.join(FIXTURES, '.recipe');
+  const recipe = args.join(' ');
+
   if (existsSync(FIXTURES) && readdirSync(FIXTURES).length > 0) {
-    return;
+    if (existsSync(stamp) && readFileSync(stamp, 'utf8') === recipe) {
+      return;
+    }
+    rmSync(FIXTURES, { recursive: true, force: true });
   }
 
-  execFileSync(
-    'go',
-    [
-      'run', './cmd/blaster',
-      '-out', FIXTURES,
-      '-seed', '42',
-      '-scenario', 'incident',
-      '-duration', '4m',
-      '-rotate=false',
-    ],
-    { cwd: repo, stdio: 'inherit' },
-  );
+  execFileSync('go', args, { cwd: repo, stdio: 'inherit' });
+  writeFileSync(stamp, recipe);
 }

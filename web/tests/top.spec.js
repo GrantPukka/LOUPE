@@ -10,20 +10,56 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator(rows).first()).toBeVisible({ timeout: 20_000 });
 });
 
-/** Expand a record and open the breakdown of the named field. */
+/** The detail row for one field, matched exactly so trace_id is not path. */
+const fieldRow = (page, field) =>
+  page.locator('.detail .kv', {
+    has: page.locator('.k', { hasText: new RegExp(`^${field}$`) }),
+  });
+
+/**
+ * Expand a record and wait for its contents.
+ *
+ * The panel renders "loading…" before the record arrives, so waiting on
+ * `.detail` alone returns while it is still empty — which is how counting its
+ * fields got zero.
+ */
+async function expand(page, index) {
+  await page.locator(rows).nth(index).click();
+  await expect(page.locator('.detail .kv').first()).toBeVisible({ timeout: 20_000 });
+}
+
+/**
+ * Open the breakdown of `field` from the first visible record carrying it.
+ *
+ * Chosen by what the record contains rather than by position: which record is
+ * newest depends on the fixture, and assuming the top row carries a given
+ * field is how this passed locally and failed in CI.
+ */
 async function openTop(page, field) {
-  await page.locator(rows).first().click();
-  await expect(page.locator('.detail')).toBeVisible({ timeout: 20_000 });
+  const count = Math.min(await page.locator(rows).count(), 20);
 
-  const row = page.locator('.detail .kv', { has: page.locator('.k', { hasText: field }) }).first();
-  await row.locator('.v-top').click();
+  for (let i = 0; i < count; i++) {
+    await expand(page, i);
 
-  await expect(page.locator('.modal.top')).toBeVisible({ timeout: 20_000 });
+    const button = fieldRow(page, field).locator('.v-top');
+    if ((await button.count()) > 0) {
+      await button.first().click();
+      await expect(page.locator('.modal.top')).toBeVisible({ timeout: 20_000 });
+      // The values arrive after the panel does.
+      await expect(
+        page.locator('.top-row').first().or(page.locator('.rail-empty')),
+      ).toBeVisible({ timeout: 20_000 });
+      return;
+    }
+
+    await page.locator(rows).nth(i).click(); // collapse, try the next
+  }
+
+  throw new Error(`no visible record carries ${field}`);
 }
 
 test('every field in a record offers a breakdown', async ({ page }) => {
-  await page.locator(rows).first().click();
-  await expect(page.locator('.detail')).toBeVisible({ timeout: 20_000 });
+  await expand(page, 0);
 
   // One affordance per field row, not one for the whole record.
   const fields = await page.locator('.detail .kv .k').count();
@@ -36,7 +72,6 @@ test('the breakdown counts values with percentages, descending', async ({ page }
   await openTop(page, 'source');
 
   const values = page.locator('.top-row');
-  await expect(values.first()).toBeVisible();
   expect(await values.count()).toBeGreaterThan(1);
 
   // Most frequent first.
@@ -77,13 +112,10 @@ test('clicking a value filters on it', async ({ page }) => {
 
 // Records missing the field sit outside the percentages, and the panel offers
 // the term that finds them.
+//
+// No filter is applied: trace_id is absent from three of the six demo sources,
+// so an unfiltered breakdown is the one that has records to report as missing.
 test('records missing the field are reported and reachable', async ({ page }) => {
-  // trace_id is absent from three of the six demo sources.
-  await page.fill(filterBox, 'trace_id:*');
-  await expect(page.locator('.terms .term')).toHaveCount(1, { timeout: 20_000 });
-  await page.fill(filterBox, '');
-  await expect(page.locator('.terms .term')).toHaveCount(0, { timeout: 20_000 });
-
   await openTop(page, 'trace_id');
 
   const footer = page.locator('.top-foot');
@@ -97,6 +129,7 @@ test('records missing the field are reported and reachable', async ({ page }) =>
 test('escape closes the breakdown and leaves the filter alone', async ({ page }) => {
   await page.fill(filterBox, 'level:error');
   await expect(page.locator('.terms .term')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator(rows).first()).toBeVisible({ timeout: 20_000 });
 
   await openTop(page, 'source');
   await page.keyboard.press('Escape');
@@ -109,6 +142,7 @@ test('escape closes the breakdown and leaves the filter alone', async ({ page })
 test('the breakdown narrows with the filter', async ({ page }) => {
   await openTop(page, 'source');
   const all = await page.locator('.top-row').count();
+  expect(all).toBeGreaterThan(1);
   await page.keyboard.press('Escape');
 
   // A real source in this corpus: the logical name comes from the file, so
@@ -118,7 +152,5 @@ test('the breakdown narrows with the filter', async ({ page }) => {
   await expect(page.locator(rows).first()).toBeVisible({ timeout: 20_000 });
 
   await openTop(page, 'source');
-  await expect
-    .poll(async () => page.locator('.top-row').count(), { timeout: 20_000 })
-    .toBeLessThan(all);
+  expect(await page.locator('.top-row').count()).toBeLessThan(all);
 });
