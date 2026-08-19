@@ -242,9 +242,30 @@ clicking a value in the breakdown filters on it.
 the command line and in the UI's filter box:
 
 ```bash
-loupe ./logs 'level:>=error stats count() by path'
-loupe ./logs 'last:1h stats count(), p99(latency_ms) by source, bin(1m)'
-loupe ./logs 'stats avg(bytes), max(bytes) by path'
+# Counting
+loupe ./logs 'stats count()'                             # how many records match
+loupe ./logs 'stats count() by level'                    # how many of each severity
+loupe ./logs 'level:>=error stats count() by path'       # which endpoints are failing
+loupe ./logs 'stats count(), count(trace_id)'            # all records, and those carrying a trace
+
+# Latency and size
+loupe ./logs 'stats p99(latency_ms) by path'             # tail latency per endpoint
+loupe ./logs 'stats p50(latency_ms), p95(latency_ms), p99(latency_ms) by path'
+loupe ./logs 'stats avg(latency_ms), max(latency_ms) by source'
+loupe ./logs 'stats sum(bytes), min(bytes), max(bytes) by path'
+
+# Rates over time
+loupe ./logs 'stats count() by bin(1m)'                  # records per minute
+loupe ./logs 'level:>=error stats count() by bin(30s)'   # error rate, every 30 seconds
+loupe ./logs 'stats count() by level, bin(1h)'           # rate per severity, per hour
+loupe ./logs 'last:1h stats count(), p99(latency_ms) by source, bin(5m)'
+
+# Composing with everything else
+loupe ./logs '14:00-15:00 source:nginx stats count() by status'
+loupe ./logs 'pattern:9acf7d11271f stats count() by source'
+loupe ./logs 'stats count() by path' --limit 5           # just the head (200 by default)
+loupe ./logs 'stats count() by path' --limit 0           # every group
+loupe ./logs 'stats count() by level' --format csv       # or json, ndjson
 ```
 
 ```
@@ -257,8 +278,17 @@ PATH              COUNT()  P99(LATENCY_MS)
 824 records matched the filter but carry no path, so they are in no group (path:none finds them).
 ```
 
-`count`, `sum`, `avg`, `min`, `max`, `p50`, `p95`, `p99`. `count()` counts
-records; `count(field)` counts the ones that carry it, whatever it holds.
+| Function | Reads | Answers |
+|---|---|---|
+| `count()` | nothing | how many records matched |
+| `count(field)` | any field | how many carry it, whatever it holds |
+| `sum` `avg` `min` `max` | numbers | as written |
+| `p50` `p95` `p99` | numbers | the percentile |
+
+`by` takes fields, `bin(...)` buckets, or both, comma separated — `by level`,
+`by path, status`, `by bin(1m)`, `by level, bin(1m)`. Grouping columns print
+first, then the aggregates. With a bin, rows come out in time order; without
+one, largest first.
 
 **`by bin(1m)` buckets time**, which is what makes a rate. Buckets are anchored
 to local midnight in your display timezone, so `bin(1h)` lands on the hour on
@@ -272,6 +302,11 @@ groups a `--limit` cut are all stated below the table.
 **Aggregating something that is not a number is an error**, naming a sample
 value, rather than a column of blanks — with `count(field)` and `loupe top
 field` offered as the two things that would have worked.
+
+`stats` summarises, so it does not combine with the flags that list records:
+`--follow` and `--handoff` both say so rather than ignoring the clause. Anything
+the language cannot express is still one `loupe sql "SELECT ..."` away. Full
+syntax: [docs/FILTER-DSL.md §10](docs/FILTER-DSL.md).
 
 ## Grouping messages into patterns
 
