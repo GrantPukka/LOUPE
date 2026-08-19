@@ -42,6 +42,8 @@ Endpoints:
     GET  /api/sources     per-file formats and timezone provenance
     GET  /api/tail        {filter} -> live records, as server-sent events
     GET  /api/patterns    {filter, limit, new_since} -> message templates
+    GET  /api/trace       {id, field} -> one request across every source
+    GET  /api/trace-field which field a trace would follow, if any
     GET  /api/health
 
 /api/tail follows the log files for as long as something is connected to it,

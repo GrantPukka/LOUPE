@@ -413,3 +413,65 @@ func (s *Server) handlePatterns(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, patternsResponse{PatternSet: set, Timezone: s.sess.Loc.String()})
 }
+
+// traceResponse is one request's path, plus the display timezone.
+//
+// session.Trace unchanged, for the same reason the pattern listing is: the
+// terminal and the browser must not be able to disagree about what a trace
+// contains, and a hand-built subset here is the first place they would.
+type traceResponse struct {
+	session.Trace
+	Timezone string `json:"timezone"`
+	// Blind and Silent are computed on the Go side rather than left to the
+	// client, so the distinction cannot be re-derived differently there.
+	Blind  []session.SourceReach `json:"blind,omitempty"`
+	Silent []session.SourceReach `json:"silent,omitempty"`
+	// Slowest is the index of the longest wait, or -1.
+	Slowest int `json:"slowest"`
+}
+
+func (s *Server) handleTrace(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("give a trace id as ?id="))
+		return
+	}
+
+	trace, err := s.sess.Trace(ctx, id, r.URL.Query().Get("field"))
+	if err != nil {
+		// A data set with no correlation field at all, or a field named by the
+		// caller that does not exist. Both come back with the message the CLI
+		// would print.
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// A nil slice marshals to null, and "this id matched nothing" is a normal
+	// answer every client has to handle.
+	if trace.Hops == nil {
+		trace.Hops = []session.Hop{}
+	}
+
+	writeJSON(w, http.StatusOK, traceResponse{
+		Trace:    trace,
+		Timezone: s.sess.Loc.String(),
+		Blind:    trace.Blind(),
+		Silent:   trace.Silent(),
+		Slowest:  trace.Slowest(),
+	})
+}
+
+// handleTraceField reports which field a trace would follow, so the UI can
+// offer the view only where it would work.
+func (s *Server) handleTraceField(w http.ResponseWriter, r *http.Request) {
+	field, err := s.sess.DetectTraceField(r.Context())
+	if err != nil {
+		// Not an error condition for the UI: data with no correlation field is
+		// ordinary, and the answer is that there is no trace view to offer.
+		writeJSON(w, http.StatusOK, map[string]any{"field": ""})
+		return
+	}
+	writeJSON(w, http.StatusOK, field)
+}

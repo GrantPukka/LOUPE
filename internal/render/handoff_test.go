@@ -303,3 +303,87 @@ func TestCommas(t *testing.T) {
 		}
 	}
 }
+
+// traceExtract is the base extract with a request timeline attached.
+func traceExtract() session.Handoff {
+	h := sample()
+	h.Trace = &session.HandoffTrace{
+		ID:    "abc123",
+		Field: "trace_id",
+		Span:  "5s",
+		Hops: []session.HandoffHop{
+			{Local: "2026-08-13 03:00:00.000 BST", UTC: "02:00:00.000",
+				Source: "auth-svc", Level: "info", Message: "token validated"},
+			{Local: "2026-08-13 03:00:04.500 BST", UTC: "02:00:04.500", Gap: "4.5s",
+				Source: "checkout-api", Level: "error", Message: "upstream | timeout",
+				Slowest: true},
+			{Source: "worker", Level: "fatal", Message: "died mid-write"},
+		},
+		Blind:   []string{"nginx"},
+		Silent:  []string{"postgres"},
+		Undated: 1,
+	}
+	return h
+}
+
+// A trace extract has to carry the order, the waits, and — the part a receiver
+// cannot see for themselves — which sources were never able to answer.
+func TestMarkdownCarriesTheTraceTimeline(t *testing.T) {
+	got := renderMarkdown(t, traceExtract())
+
+	for _, want := range []string{
+		"## Trace abc123",
+		"Followed on `trace_id`",
+		"spanning 5s",
+		"auth-svc",
+		"+4.5s",
+		// The largest wait is marked, because it is usually the finding.
+		"◀",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("markdown is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestMarkdownTraceStatesWhatCouldNotBeChecked(t *testing.T) {
+	got := renderMarkdown(t, traceExtract())
+
+	if !strings.Contains(got, "**Not checked** nginx never record `trace_id`") {
+		t.Errorf("the extract does not say nginx could not answer:\n%s", got)
+	}
+	if !strings.Contains(got, "**Silent** postgres record `trace_id` but none for this id") {
+		t.Errorf("the extract does not distinguish the silent source:\n%s", got)
+	}
+	if !strings.Contains(got, "1 hop(s) carry no timestamp") {
+		t.Errorf("the undated hop is not declared:\n%s", got)
+	}
+}
+
+// A hop with no timestamp says so rather than leaving a blank cell, which
+// would read as a rendering fault instead of a fact about the record.
+func TestMarkdownTraceNamesUndatedHops(t *testing.T) {
+	got := renderMarkdown(t, traceExtract())
+
+	if !strings.Contains(got, "| no timestamp |") {
+		t.Errorf("an undated hop rendered as a blank cell:\n%s", got)
+	}
+}
+
+// A pipe in a message must not break the table it sits in.
+func TestMarkdownTraceEscapesTableCells(t *testing.T) {
+	got := renderMarkdown(t, traceExtract())
+
+	if !strings.Contains(got, `upstream \| timeout`) {
+		t.Errorf("a pipe in a hop message was not escaped:\n%s", got)
+	}
+}
+
+// An extract that is not about a trace must not grow the section.
+func TestMarkdownWithoutATrace(t *testing.T) {
+	got := renderMarkdown(t, sample())
+
+	if strings.Contains(got, "## Trace") {
+		t.Errorf("a filter extract rendered a trace section:\n%s", got)
+	}
+}
