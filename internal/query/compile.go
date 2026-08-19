@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/GrantPukka/loupe/internal/parse"
 )
@@ -427,4 +428,250 @@ func (b *builder) freeTerm(t *FreeTerm) (string, error) {
 		return negate(pred), nil
 	}
 	return pred, nil
+}
+
+// StatsColumn is one output column of an aggregation.
+type StatsColumn struct {
+	// Name is the column's DSL text, used as its heading. A heading that is
+	// the thing you would type to ask the question again is worth more than a
+	// prettier one.
+	Name string
+	// Expr is the SQL that produces the column.
+	Expr string
+	// Group is true for a grouping column, false for an aggregate.
+	Group bool
+	// Bin is true for the grouping column that buckets time.
+	Bin bool
+	// Present is the condition a record must satisfy to belong to a group at
+	// all, set only on grouping columns. A record with no value for a grouping
+	// field has no group to sit in; excluding it is unavoidable, so the count
+	// of what was excluded travels back to the caller to be reported.
+	Present string
+}
+
+// StatsNumeric names a field a numeric aggregate reads.
+//
+// The caller probes these before running the aggregation, because a field that
+// holds no numbers must produce an error rather than a column of NULLs. A
+// summary that quietly reports nothing where it should report a refusal is the
+// confident wrong answer this project exists to avoid.
+type StatsNumeric struct {
+	// Field is the name as written, for the error message.
+	Field string
+	// Agg is the first aggregate reading it, e.g. avg(latency_ms).
+	Agg string
+	// Expr is the SQL that reads the raw value, before any cast.
+	Expr string
+}
+
+// StatsSQL is a compiled aggregation clause: everything except the filter's
+// own WHERE, which Compile produces separately and the caller ANDs in.
+//
+// No parameters. Every value in a stats clause is a field name or a bucket
+// width: a field name is resolved to a column expression by the schema, and a
+// width is a number this package computed. Nothing from the query string is
+// interpolated, which is why Args does not appear here at all.
+type StatsSQL struct {
+	// Select is the output columns, grouping columns first.
+	Select []StatsColumn
+	// GroupBy and OrderBy are clauses, empty when there is nothing to group.
+	GroupBy string
+	OrderBy string
+	// Numeric is the fields to probe before running the aggregation.
+	Numeric []StatsNumeric
+	// Bin is the bucket width when the grouping includes one.
+	Bin time.Duration
+	// Origin is what the buckets are anchored to.
+	Origin time.Time
+}
+
+// StatsOptions is what compiling an aggregation needs beyond the schema.
+type StatsOptions struct {
+	// Origin anchors time bins: a bucket boundary falls on Origin plus a whole
+	// multiple of the bin width. The caller passes local midnight in the
+	// display timezone, so bin(1h) lands on the hour on the user's clock
+	// rather than on the hour in UTC.
+	Origin time.Time
+}
+
+// CompileStats turns an aggregation clause into the SQL that answers it.
+//
+// Grouping columns come first and aggregates after, which is the order every
+// stats table has been printed in since the invention of the stats table.
+func CompileStats(s *Stats, schema Schema, opts StatsOptions) (StatsSQL, error) {
+	if s == nil || len(s.Aggs) == 0 {
+		return StatsSQL{}, fmt.Errorf("internal: no aggregates to compile")
+	}
+
+	out := StatsSQL{Bin: s.BinWidth(), Origin: opts.Origin}
+
+	for _, key := range s.By {
+		col, err := statsGroupColumn(key, schema, opts)
+		if err != nil {
+			return StatsSQL{}, err
+		}
+		out.Select = append(out.Select, col)
+	}
+
+	for _, agg := range s.Aggs {
+		expr, err := statsAggExpr(agg, schema)
+		if err != nil {
+			return StatsSQL{}, err
+		}
+		out.Select = append(out.Select, StatsColumn{Name: agg.String(), Expr: expr})
+		out.Numeric = appendNumeric(out.Numeric, agg, schema)
+	}
+
+	out.GroupBy, out.OrderBy = statsClauses(s)
+	return out, nil
+}
+
+// statsGroupColumn compiles one grouping.
+func statsGroupColumn(key GroupKey, schema Schema, opts StatsOptions) (StatsColumn, error) {
+	if key.IsBin() {
+		return StatsColumn{
+			Name:  key.String(),
+			Expr:  binExpr(key.Bin, opts.Origin),
+			Group: true,
+			Bin:   true,
+			// A record with no timestamp belongs in no bucket. ts:none still
+			// finds it, and the caller states how many there were, which is
+			// what docs/FILTER-DSL.md section 2.4 requires of anything that
+			// filters on time.
+			Present: "ts IS NOT NULL",
+		}, nil
+	}
+
+	expr, err := schema.resolve(key.Field)
+	if err != nil {
+		return StatsColumn{}, err
+	}
+	return StatsColumn{
+		Name:    key.String(),
+		Expr:    expr,
+		Group:   true,
+		Present: "(" + expr + ") IS NOT NULL",
+	}, nil
+}
+
+// statsAggExpr compiles one aggregate.
+//
+// The function name reaches SQL as text, which is safe for exactly one reason:
+// AggFunc values come from a closed lookup table in the parser, never from the
+// query string. A name that is not in that table has already been refused with
+// a spelling suggestion.
+func statsAggExpr(agg Aggregate, schema Schema) (string, error) {
+	if agg.Func == AggCount && agg.Field == "" {
+		return "count(*)", nil
+	}
+
+	expr, err := schema.resolve(agg.Field)
+	if err != nil {
+		return "", err
+	}
+
+	// count(field) counts the records that carry the field, whatever it holds.
+	// It is the one aggregate that does not need a number.
+	if agg.Func == AggCount {
+		return "count(" + expr + ")", nil
+	}
+
+	// TRY_CAST yields NULL for a value that is not a number, which excludes it
+	// rather than failing the whole query — the same rule the ordering
+	// comparisons use. How many were excluded is reported, so an average over
+	// two thirds of the values never passes as an average over all of them.
+	num := "TRY_CAST(" + expr + " AS DOUBLE)"
+
+	if q, ok := quantiles[agg.Func]; ok {
+		return fmt.Sprintf("quantile_cont(%s, %s)",
+			num, strconv.FormatFloat(q, 'f', -1, 64)), nil
+	}
+	return string(agg.Func) + "(" + num + ")", nil
+}
+
+// binExpr buckets the timestamp.
+//
+// The width and the origin are numbers computed here, never user text, and are
+// formatted into the statement because DuckDB accepts no placeholder in an
+// INTERVAL or a TIMESTAMP literal. This is the same bargain internal/session's
+// histogram makes, for the same reason.
+func binExpr(width time.Duration, origin time.Time) string {
+	return fmt.Sprintf("time_bucket(INTERVAL '%d' MICROSECOND, ts, TIMESTAMP '%s')",
+		width.Microseconds(), origin.UTC().Format("2006-01-02 15:04:05.999999"))
+}
+
+// appendNumeric records a field that has to hold numbers, once per field.
+func appendNumeric(list []StatsNumeric, agg Aggregate, schema Schema) []StatsNumeric {
+	if !agg.Func.Numeric() {
+		return list
+	}
+	for _, n := range list {
+		if n.Field == agg.Field {
+			return list
+		}
+	}
+
+	// resolve already succeeded in statsAggExpr, so this cannot fail.
+	expr, err := schema.resolve(agg.Field)
+	if err != nil {
+		return list
+	}
+	return append(list, StatsNumeric{Field: agg.Field, Agg: agg.String(), Expr: expr})
+}
+
+// statsClauses builds GROUP BY and ORDER BY from column positions.
+//
+// Positions rather than names: two aggregates can render to the same text —
+// `stats count(), count()` is legal if pointless — and an ambiguous ORDER BY
+// would be an error rather than a listing.
+//
+// Ordering is by time when the grouping has a bin, because a rate over time
+// read in any other order is not a rate over time. Otherwise it is by the
+// first aggregate, largest first, which puts the answer to "which is worst" on
+// the first line. Group columns break ties so that the same data always lists
+// in the same order.
+func statsClauses(s *Stats) (groupBy, orderBy string) {
+	if len(s.By) == 0 {
+		return "", ""
+	}
+
+	positions := make([]string, len(s.By))
+	for i := range s.By {
+		positions[i] = strconv.Itoa(i + 1)
+	}
+	groupBy = "GROUP BY " + strings.Join(positions, ", ")
+
+	if bin := binPosition(s); bin > 0 {
+		order := []string{strconv.Itoa(bin)}
+		for i := range s.By {
+			if i+1 != bin {
+				order = append(order, strconv.Itoa(i+1))
+			}
+		}
+		return groupBy, "ORDER BY " + strings.Join(order, ", ")
+	}
+
+	first := strconv.Itoa(len(s.By) + 1)
+	return groupBy, "ORDER BY " + first + " DESC NULLS LAST, " + strings.Join(positions, ", ")
+}
+
+// binPosition is the 1-based column of the time bucket, or zero if there is
+// none.
+func binPosition(s *Stats) int {
+	for i, key := range s.By {
+		if key.IsBin() {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// SelectItem is the column's SQL with its heading as an alias.
+//
+// The alias is the DSL text of the column, so the table's headings are the
+// words that produced them and a reader can retype the question from the
+// output. Quoting goes through the same identifier quoter the schema uses, so
+// a field named `order` or one containing a quote cannot break the statement.
+func (c StatsColumn) SelectItem() string {
+	return "(" + c.Expr + ") AS " + quoteIdent(c.Name)
 }

@@ -96,6 +96,7 @@ trace_id:a91c40f2               one request across every service
                                 (`loupe trace` puts it on a timeline)
 pattern:9acf7d11271f            every record sharing a message template
 "read timed out"                exact phrase
+stats count() by level          a summary instead of a listing
 ```
 
 Everything above composes. `loupe sql "SELECT ..."` drops to raw DuckDB when you
@@ -234,6 +235,43 @@ percentages above (path:none finds them).
 
 In the browser, every field in an expanded record has a **% top** button, and
 clicking a value in the breakdown filters on it.
+
+## Counting, averaging, and rates over time
+
+`stats` is part of the filter, not another command, so the same string works on
+the command line and in the UI's filter box:
+
+```bash
+loupe ./logs 'level:>=error stats count() by path'
+loupe ./logs 'last:1h stats count(), p99(latency_ms) by source, bin(1m)'
+loupe ./logs 'stats avg(bytes), max(bytes) by path'
+```
+
+```
+PATH              COUNT()  P99(LATENCY_MS)
+/api/orders/2291  560      4961.2
+/api/cart         547      4963.44
+/healthz          544      4971.48
+
+6 groups over 2,700 of 3,524 matching records.
+824 records matched the filter but carry no path, so they are in no group (path:none finds them).
+```
+
+`count`, `sum`, `avg`, `min`, `max`, `p50`, `p95`, `p99`. `count()` counts
+records; `count(field)` counts the ones that carry it, whatever it holds.
+
+**`by bin(1m)` buckets time**, which is what makes a rate. Buckets are anchored
+to local midnight in your display timezone, so `bin(1h)` lands on the hour on
+your clock rather than on the hour in UTC — and if the clocks change inside the
+window, it says so instead of quietly shifting the columns.
+
+**Nothing is dropped without being counted.** Records with no value for a
+grouping field, records with no timestamp, buckets that came out empty, and
+groups a `--limit` cut are all stated below the table.
+
+**Aggregating something that is not a number is an error**, naming a sample
+value, rather than a column of blanks — with `count(field)` and `loupe top
+field` offered as the two things that would have worked.
 
 ## Grouping messages into patterns
 

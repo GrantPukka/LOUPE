@@ -17,7 +17,7 @@ built without breaking one of those is not on this list.
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **done** |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **done** |
-| [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
+| [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | **done** |
 | [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | not started |
 | [EC008](#ec008--broaden-intake) | Broaden intake | 2 | not started |
 | [EC009](#ec009--ad-hoc-regex-field-extraction) | Ad-hoc regex field extraction | 3 | not started |
@@ -650,21 +650,181 @@ the filter, which is the regression EC003 shipped and the existing suite caught.
 
 ## EC006 — Aggregations in the DSL
 
-**Status: not started.** People drop to `loupe sql` mainly for counts, p99s and
-rates. A thin layer over the AST → SQL compiler keeps them in the fast lane.
+**Status: done.** Both stages complete and tested. Work is on branch `EC006`,
+cut from `main`.
 
-- [ ] `stats count() by level`, `stats p99(latency_ms) by path`
-- [ ] Functions: `count`, `sum`, `avg`, `min`, `max`, `p50`, `p95`, `p99`
-- [ ] Compile through the existing AST to parameterised SQL — never string
-      concatenation, however small the change looks
-- [ ] Round-trip test per aggregate form: `parse(render(ast)) == ast`
-- [ ] Aggregating a non-numeric field must error clearly, not return zeroes
-- [ ] Time bucketing — `by bin(1m)` or similar — since rate-over-time is most of
-      the value
-- [ ] `docs/FILTER-DSL.md` grammar updated
+People drop to `loupe sql` mainly for counts, p99s and rates. A thin layer over
+the AST → SQL compiler keeps them in the fast lane.
+
+### EC006.1 — The grammar and the compiler — **done**
+
+- [x] `stats count() by level`, `stats p99(latency_ms) by path`
+- [x] Functions: `count`, `sum`, `avg`, `min`, `max`, `p50`, `p95`, `p99`
+- [x] Several aggregates and several groupings, comma separated
+- [x] Time bucketing — `by bin(1m)` — as a grouping, not a separate clause
+- [x] Compile through the existing AST to parameterised SQL
+- [x] Round-trip test per aggregate form: `parse(render(ast)) == ast`
+- [x] An unknown aggregate errors with a spelling suggestion, like an unknown
+      field
+
+```
+query   := term* [stats]
+stats   := 'stats' agg (',' agg)* ['by' groupkey (',' groupkey)*]
+agg     := aggfunc '(' [key | '*'] ')'
+groupkey:= key | 'bin' '(' duration ')'
+```
+
+**Aggregation is part of the filter, not a subcommand.** `loupe ./logs
+'level:>=error stats count() by path'` is one question, and the same string
+works on the command line, in a saved query, and in the UI's filter box. A
+`loupe stats` command would have been a second place to express a filter and a
+second thing to keep in step with the first.
+
+**The lexer never learned about parentheses.** `count(latency_ms)` arrives as a
+single word and is taken apart by the parser, which is the same division of
+labour that leaves a time expression whole for the resolver. Making `(`
+structural in the lexer would have been the obvious move and would have broken
+every value containing one — `/api/v1/(id)`, `message~(GET)`, and most stack
+traces. The cost is one lookahead for the `p99("odd key")` form, where the lexer
+ends the bare word at the quote and the closing bracket arrives as its own token.
+
+**`stats` is reserved where a term begins.** A bare `stats` is a clause with
+nothing in it and errors saying how to search for the word instead: `"stats"`.
+The parser marks such a free-text value `Quoted` at parse time, exactly as it
+already does for a value starting with an operator, so rendering puts the quotes
+back and the round trip holds. A field *called* stats is unaffected — `stats:5`
+and `stats~high` are ordinary field terms, because the keyword only counts where
+the word is not being used as a name. This is the same bargain the time keywords
+already make, and it is the price of putting aggregation in the language rather
+than behind a flag.
+
+**A bin is a whole number of seconds.** The duration grammar's smallest unit is
+the second, so `bin(0.5s)` could not be rendered back to something that parses
+to the same width — and a filter that changes when the UI writes it back into
+the box is the failure the round-trip rule exists to prevent. Refusing it is one
+error message; accepting it would have been a silent drift. `bin(60s)` renders
+as `bin(1m)`, which is the same query, not a second spelling.
+
+**Nothing in a stats clause is a value, so nothing in it needs a parameter.**
+Field names resolve to column expressions through `Schema.resolve` — the same
+resolver a filter uses, so a facet, a filter and an aggregate cannot disagree
+about what a name means — and a bucket width is a number the compiler computed.
+`StatsSQL` therefore has no `Args` field at all, which is what lets the counting
+query reuse the grouping conditions inside a `FILTER` without binding the
+filter's arguments a second time. The first draft did not, and DuckDB said
+"have 2 want 4".
+
+`FuzzParse` and `FuzzCompile` were extended with the new shapes and run for
+15.5M executions across the two, with the round-trip comparison widened from
+`Query.Terms` to the whole `Query` so a clause that did not survive rendering
+would be caught.
+
+### EC006.2 — Running it — **done**
+
+- [x] `Session.Stats` over a real DuckDB instance, through the same plan as
+      every filter
+- [x] Aggregating a non-numeric field errors clearly, naming a sample value
+- [x] Every record the summary could not place is counted and named
+- [x] Buckets anchored to local midnight in the display timezone, stated in both
+      zones
+- [x] `docs/FILTER-DSL.md` §1 grammar and a new §10; `ARCHITECTURE.md` §3.5;
+      `README.md`
+- [x] Tests: values, ordering, headings, exclusions, truncation, the non-numeric
+      error, the partial-numeric note, bucket anchoring in a half-hour zone, a
+      clock change inside the window, a window crossing midnight
+
+```
+PATH              COUNT()  P99(LATENCY_MS)
+/api/orders/2291  560      4961.2
+/api/cart         547      4963.44
+/healthz          544      4971.48
+
+6 groups over 2,700 of 3,524 matching records.
+824 records matched the filter but carry no path, so they are in no group (path:none finds them).
+```
+
+**`Session.Plan` refuses an aggregation; `Session.PlanAggregate` accepts one.**
+Every caller that lists records already went through `Plan` — the HTTP API, the
+TUI, follow mode, handoff, `loupe top`, `loupe histogram`, `loupe patterns`,
+`loupe trace` — so one edit gave all of them a clear refusal instead of the
+silent drop that would otherwise have shown a listing answering a different
+question from the one typed. Only `runDefault` opts in. The alternative was
+eight call sites that each had to remember, which is eight chances to forget.
+
+**Buckets are anchored to local midnight in the display timezone, not to the
+Unix epoch.** Epoch alignment is the free option and it is wrong here: it puts
+every `bin(1h)` boundary half an hour out in India and three quarters of an hour
+out in Nepal, which is precisely the offset arithmetic `docs/FILTER-DSL.md` §2.3
+exists to spare people. The anchor is found with `time.Date` in the location, so
+it comes from the tz database rather than from arithmetic, and it is printed in
+both zones under the table.
+
+A bucket is a fixed width of *real* time, so after a clock change the boundaries
+stop lining up with the local clock they were anchored to. That is what a bucket
+of elapsed time has to do; hiding it would make the column look shifted for no
+visible reason, so a window containing a transition says so, names both zones,
+and gives the offset the boundaries moved by.
+
+**Empty buckets are counted, not filled.** A bucket with nothing in it is not a
+group and has no row, so a rate table can put 14:04 directly above 14:06 and
+read as continuous. Generating the missing rows was the other option and it
+scales badly — `bin(1s)` over a week is 604,800 rows, most of them empty, and
+they would spend the whole `--limit`. Counting them costs three columns on a
+scan that was already happening and says the same thing: *"1 bucket between the
+first and the last holds no matching record — `loupe histogram` draws the gaps."*
+
+**A record with no value for a grouping field belongs to no group.** It is
+excluded and counted, with `path:none` offered — the same decision EC005 reached
+for `top`'s absent count, for the same reason. Collecting them into a nameless
+row was the alternative, and a blank cell in a table reads as a rendering fault
+rather than as the data.
+
+**Aggregating a field that holds no numbers is an error.** `avg(path)` over
+`TRY_CAST` produces a column of NULLs, which reads as "no data" rather than
+"wrong question" — the confident wrong answer this project exists to avoid. One
+probe query per aggregation counts the values, counts the ones that cast, and
+picks up a sample, so the error can say *"path does not hold numbers — none of
+its 26,115 values is one, e.g. "/api/checkout""* and then offer the two things
+that would have worked: `count(path)`, and `loupe top path`. A field that is
+numeric for *most* records is not an error but is never silent: the values that
+could not be read are counted, because an average over four fifths of the values
+is not an average over all of them.
+
+**Timestamps are deliberately not aggregable.** `min(ts)` would be useful and it
+is one branch away, but it drags `sum(ts)` and `p99(ts)` behind it as cases that
+have to be refused individually. The status line already prints the range and
+`loupe histogram` shows its shape.
+
+**Rows come back as a `store.Result`,** so they go through the renderer every
+other listing uses and `--format json`, `--format csv` and `--format ndjson`
+work without a line of new code. The one addition is a row noun: the truncation
+footer says "showing 5 of 6 groups", because calling a group a record would
+misstate the size of what the limit cut.
+
+**Ordering is by time when there is a bin, and by the first aggregate
+otherwise.** A rate read in any other order is not a rate; without a bin, the
+answer to "which is worst" belongs on the first line. Grouping columns break
+ties so the same data always lists in the same order — a summary that reordered
+itself between runs could not be compared against one taken a minute earlier.
+
+**Table output now trims floats to twelve significant digits.** An interpolated
+p99 of 4963.44 printed as `4963.4400000000005`, and a reader concludes the tool
+is broken rather than that binary floating point is. Only the table format
+changed; JSON, NDJSON and CSV still carry the exact double, because those are
+read by machines that want the value that round-trips. This also tidies
+`loupe sql` output, which had the same rough edge.
+
+**No UI stage, because the checklist has none.** CLAUDE.md requires the CLI
+first, not the UI eventually. A `stats` clause typed into the filter box comes
+back as a 400 naming the clause and saying where summaries are printed; a server
+test pins that, so the day the browser learns to render one it will be a
+deliberate change rather than a silent behaviour flip.
 
 **Watch:** this is where a filter language turns into a query language. Keep it
-to the shapes people actually type; `loupe sql` remains the escape hatch.
+to the shapes people actually type; `loupe sql` remains the escape hatch. The
+next thing someone will ask for is `sort` and `head`, and the answer should
+probably stay no — `--limit` plus the ordering rule covers the cases that
+matter, and a pipeline grammar is how this becomes a language nobody remembers.
 
 ---
 

@@ -26,9 +26,20 @@ const (
 // remember, and `loupe sql` is the escape hatch for anything this cannot say.
 type Query struct {
 	Terms []Term
+
+	// Stats is the aggregation clause, nil when the query only filters.
+	//
+	// It is not in Terms because it is not a predicate: it decides what is
+	// reported about the matching records, not which records match. A caller
+	// that lists records must refuse a query carrying one rather than ignore
+	// it — Session.Plan does exactly that.
+	Stats *Stats
 }
 
 // IsEmpty reports whether the query constrains anything.
+//
+// A stats clause does not count: it summarises whatever matched, so a query
+// that is nothing but `stats count()` still matches every record.
 func (q Query) IsEmpty() bool { return len(q.Terms) == 0 }
 
 // String renders the query back to DSL text.
@@ -37,10 +48,19 @@ func (q Query) IsEmpty() bool { return len(q.Terms) == 0 }
 // drag writes a rendered string into the filter box, so rendering is a user-
 // facing feature and not only a debugging aid.
 func (q Query) String() string {
-	parts := make([]string, 0, len(q.Terms))
+	parts := make([]string, 0, len(q.Terms)+1)
 	for _, t := range q.Terms {
 		parts = append(parts, t.String())
 	}
+
+	// The clause always renders last, whatever order it was typed in. Terms
+	// are order-independent, but a grouping list runs to the end of the clause,
+	// so a term written after `by level` would be swallowed by it on the way
+	// back in.
+	if s := q.Stats.String(); s != "" {
+		parts = append(parts, s)
+	}
+
 	return strings.Join(parts, " ")
 }
 
@@ -229,9 +249,22 @@ func (t *FreeTerm) negated() bool { return t.Negate }
 
 func (t *FreeTerm) String() string {
 	if t.Negate {
-		return "-" + t.Value.String()
+		return "-" + renderFreeValue(t.Value)
 	}
-	return t.Value.String()
+	return renderFreeValue(t.Value)
+}
+
+// renderFreeValue writes a bare word in the position that starts a term, where
+// the language has a vocabulary of its own.
+//
+// `stats` there introduces an aggregation, so a free-text search for the word
+// has to be quoted or it reads back as a clause with no aggregates. The parser
+// marks such a value Quoted when it reads it, so the two agree.
+func renderFreeValue(v Value) string {
+	if !v.Quoted && !v.Regex && isReservedFree(v.Text) {
+		return quote(v.Text)
+	}
+	return v.String()
 }
 
 // TimeTerm constrains the timestamp.

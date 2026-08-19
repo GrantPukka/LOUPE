@@ -70,6 +70,17 @@ type Writer struct {
 	opts Options
 	// headed records that a continuous listing has already printed its header.
 	headed bool
+	// rowOne and rowMany name what a row is, for the truncation footer.
+	rowOne, rowMany string
+}
+
+// SetRowNoun names what one row of the result is.
+//
+// It exists for the one caller whose rows are not records: an aggregation's
+// rows are groups, and a footer saying "showing 20 of 4,132 records" would
+// misstate the size of what the limit cut off.
+func (w *Writer) SetRowNoun(one, many string) {
+	w.rowOne, w.rowMany = one, many
 }
 
 // New builds a Writer, filling in defaults from the environment.
@@ -87,7 +98,7 @@ func New(w io.Writer, opts Options) *Writer {
 	if opts.Location == nil {
 		opts.Location = time.Local
 	}
-	return &Writer{w: w, opts: opts}
+	return &Writer{w: w, opts: opts, rowOne: "record", rowMany: "records"}
 }
 
 // Result renders a query result in the configured format.
