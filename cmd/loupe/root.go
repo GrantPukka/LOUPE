@@ -51,6 +51,11 @@ func newRootCommand() *cobra.Command {
 		Long: `loupe reads every log file in a directory, whatever formats they are in,
 normalises them onto one timeline, and lets you filter it.
 
+A filter that ends in a stats clause summarises instead of listing:
+
+    loupe ./logs 'level:>=error stats count() by path'
+    loupe ./logs 'last:1h stats count(), p99(latency_ms) by source, bin(1m)'
+
 Read-only, local-only, no daemon, no network.`,
 		Version:      version,
 		SilenceUsage: true,

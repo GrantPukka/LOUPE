@@ -242,11 +242,18 @@ message~"timeout"                → message ILIKE '%timeout%'
 user_id:abc123                   → fields->>'$.user_id' = 'abc123'
 -level:debug                     → NOT (level = 'debug')
 last:15m / since:2026-01-01      → ts >= ...
+stats count() by level           → SELECT level, count(*) … GROUP BY 1
+stats p99(latency_ms) by bin(1m) → time_bucket(…) with the aggregate over it
 ```
 
 Build it as a proper lexer + parser producing an AST, then compile the AST to parameterised
 SQL. It is tempting to do this with string concatenation and regex; that path ends in
 injection bugs and unfixable precedence problems around two weeks in.
+
+A filter says which records; an optional `stats` clause says what to report about them, so
+the same string can produce a listing or a summary. `Session.Plan` refuses a clause that
+reaches something which lists records rather than dropping it — see docs/FILTER-DSL.md
+section 10.
 
 ### 3.6 Render
 

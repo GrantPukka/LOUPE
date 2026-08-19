@@ -10,7 +10,7 @@ anything in the UI, because it is what people type, save, and paste to each othe
 ## 1. Grammar
 
 ```
-query   := term*
+query   := term* [stats]
 term    := ['-'] ( time | field | free )
 time    := ('after'|'before'|'between'|'last'|'on') ':' timeexpr
 field   := key ':' [op] value
@@ -18,6 +18,10 @@ key     := bare | '"' quoted '"'
 op      := '>=' | '<=' | '>' | '<' | '~'
 value   := bare | '"' quoted '"' | value ',' value
 free    := bare | '"' quoted '"'
+stats   := 'stats' agg (',' agg)* ['by' groupkey (',' groupkey)*]
+agg     := aggfunc '(' [key | '*'] ')'
+aggfunc := 'count'|'sum'|'avg'|'min'|'max'|'p50'|'p95'|'p99'
+groupkey:= key | 'bin' '(' duration ')'
 ```
 
 **Terms are joined by AND.** Commas within a value mean OR. There are no
@@ -29,6 +33,10 @@ Revisit only if issues actually ask for it.
 Whitespace separates terms. Order is irrelevant. Terms of the same kind intersect
 rather than override, so `after:14:00 before:15:00` and `between:14:00-15:00` are
 equivalent, and `after:14:00 after:14:30` means 14:30 onward.
+
+**A query has at most one `stats` clause**, and it always renders last however it
+was typed — a grouping list runs to the end of the clause, so a term written
+after `by level` would be swallowed by it on the way back in. See section 10.
 
 ---
 
@@ -358,6 +366,12 @@ on:2026-08-13 14:11-14:14 trace_id:a91c40f2
 
 ts:none
     records the parser could not extract a timestamp from
+
+level:>=error stats count() by path
+    which endpoints are failing, most first
+
+last:1h stats count(), p99(latency_ms) by source, bin(1m)
+    error rate and tail latency per source, minute by minute
 ```
 
 ---
@@ -379,7 +393,111 @@ ts:none
 
 ---
 
-## 10. Append to CLAUDE.md
+## 10. Aggregation
+
+A filter says which records. A `stats` clause says what to report about them.
+People drop to `loupe sql` mainly for counts, p99s and rates, and this is the
+thin layer that keeps them in the fast lane.
+
+```
+level:>=error stats count() by path
+last:1h stats count(), p99(latency_ms) by source, bin(1m)
+stats avg(bytes) by path
+```
+
+The clause is part of the filter, not a subcommand: the same string works on the
+command line, in a saved query, and in the UI's filter box.
+
+| Function | Reads | Meaning |
+|---|---|---|
+| `count()` | nothing | every matching record |
+| `count(field)` | any field | the records that carry it, whatever it holds |
+| `sum`, `avg`, `min`, `max` | numbers | as written |
+| `p50`, `p95`, `p99` | numbers | interpolated percentile |
+
+`count(*)` is accepted and means `count()`.
+
+### 10.1 Grouping
+
+`by` takes fields, time buckets, or both, comma separated. Grouping columns are
+printed first and aggregates after.
+
+- `by level` — one row per severity
+- `by path, level` — one row per pair
+- `by bin(1m)` — one row per minute
+- `by level, bin(1m)` — rate over time, per severity
+
+**A bucket is a whole number of seconds**: `bin(30s)`, `bin(5m)`, `bin(1h)`,
+`bin(1d)`. Anything finer is refused, because the duration grammar's smallest
+unit is the second and a bin that could not be written back down would change
+under the user the first time the UI rendered the filter into the box.
+
+**Buckets are anchored to local midnight in the display timezone**, so `bin(1h)`
+lands on the hour on the user's clock rather than on the hour in UTC. Anchoring
+to the Unix epoch instead would put every boundary half an hour out in India and
+three quarters of an hour out in Nepal, which is the offset arithmetic section
+2.3 exists to spare people. The anchor is printed in both zones with the results.
+
+A bucket is a fixed width of *real* time, so **after a clock change the
+boundaries no longer line up with the local clock** they were anchored to. That
+is what a bucket of elapsed time has to do, and it is stated rather than hidden:
+a window containing a DST transition says so, names both zones, and gives the
+offset the boundaries moved by.
+
+### 10.2 Ordering
+
+- With a `bin`, rows are ordered by time. A rate read in any other order is not
+  a rate.
+- Without one, rows are ordered by the first aggregate, largest first, so the
+  answer to "which is worst" is on the first line. Grouping columns break ties,
+  so the same data always lists in the same order.
+
+### 10.3 What an aggregation must never hide
+
+The whole point of a summary is that nobody reads the records behind it, so
+every record it could not place is counted and named.
+
+- **A record with no value for a grouping field belongs to no group.** It cannot
+  be shown, so it is counted and the term that finds it — `path:none` — is
+  offered. Folding it into a nameless row would be worse: a blank cell reads as
+  a rendering fault rather than as the data.
+- **A record with no timestamp falls in no bucket.** Reported the same way, with
+  `ts:none`.
+- **Empty buckets have no row**, because a bucket with nothing in it is not a
+  group. A rate table can therefore put 14:04 directly above 14:06 and read as
+  continuous, so the buckets between the first and the last that hold nothing are
+  counted in the footer. `loupe histogram` draws the gaps.
+- **A truncated table says so** and states the real number of groups.
+
+### 10.4 Aggregating something that is not a number
+
+`avg(path)` cannot mean anything. A field that holds no numbers at all is an
+**error** naming a sample value, not a column of NULLs — a summary that reports
+blanks where it should refuse teaches the reader that the data is empty. The
+error offers the two things that would have worked: `count(path)` to count the
+records that carry it, and `loupe top path` to break down its values.
+
+A field that holds numbers for *most* records is not an error, but it is never
+silent: the values that could not be read are counted and stated, because an
+average over four fifths of the values is not an average over all of them.
+
+Timestamps are not aggregable. `min(ts)` is an error; the status line already
+prints the range, and `loupe histogram` shows its shape.
+
+### 10.5 `stats` is a reserved word
+
+At the start of a term, `stats` always introduces a clause. To search for the
+word as free text, quote it: `"stats"`. A field called `stats` is unaffected —
+`stats:5` and `stats~high` are ordinary field terms, because the keyword only
+counts where the word is not being used as a name.
+
+That is the cost of putting aggregation in the filter language rather than behind
+a flag, and it is the same bargain the time keywords already make. The error for
+a bare `stats` says exactly this.
+
+---
+
+## 11. Append to CLAUDE.md
 
 ```md
 ## Filter DSL
@@ -400,4 +518,8 @@ ts:none
 - An unknown field name is an error with a suggestion, never an empty result set.
 - Timeline drag in the UI writes a real DSL string into the filter box.
 - Every term type needs a round-trip test: parse(render(ast)) == ast.
+- A `stats` clause compiles through the same AST to parameterised SQL. Time bins
+  are anchored to local midnight in the display timezone, never to the epoch.
+- An aggregation states every record it could not place: no value for a grouping
+  field, no timestamp, or a value a numeric aggregate could not read.
 ```

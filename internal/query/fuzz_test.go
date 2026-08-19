@@ -42,6 +42,21 @@ func seedFilters(f *testing.F) {
 		"source:nginx",
 		"file:access.log*",
 		"pattern:72537a34170e",
+		"stats count()",
+		"stats count(*)",
+		"stats count(), p99(latency_ms) by path",
+		"stats avg(latency_ms) by level, bin(1m)",
+		"level:>=error stats count() by bin(30s)",
+		`stats p99("odd key") by "a b"`,
+		"stats",
+		"stats by",
+		"stats count() by",
+		"stats count(",
+		"stats )(",
+		"stats:5",
+		`"stats"`,
+		"-stats",
+		"stats count() by bin(1m) stats count()",
 		`user:"a name with spaces"`,
 		`"weird\"key":y`,
 		`"key:with:colons":y`,
@@ -92,7 +107,9 @@ func FuzzParse(f *testing.F) {
 				filter, rendered, err)
 		}
 
-		if !reflect.DeepEqual(first.Terms, second.Terms) {
+		// The whole query, not only its terms: an aggregation clause that did
+		// not survive rendering would silently become a different summary.
+		if !reflect.DeepEqual(first, second) {
 			t.Fatalf("round trip changed the AST\n  input:    %q\n  rendered: %q",
 				filter, rendered)
 		}

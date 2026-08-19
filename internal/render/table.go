@@ -2,6 +2,8 @@ package render
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -48,7 +50,7 @@ func (w *Writer) table(res store.Result) error {
 		return nil
 	}
 	if len(res.Rows) == 0 {
-		_, err := fmt.Fprintln(w.w, "no records matched")
+		_, err := fmt.Fprintln(w.w, "no "+w.rowMany+" matched")
 		return err
 	}
 
@@ -56,7 +58,7 @@ func (w *Writer) table(res store.Result) error {
 	for i, row := range res.Rows {
 		cells[i] = make([]string, len(row))
 		for j, v := range row {
-			cells[i][j] = sanitise(w.value(v))
+			cells[i][j] = sanitise(w.tableValue(v))
 		}
 	}
 
@@ -117,8 +119,8 @@ func (w *Writer) footer(res store.Result) error {
 		return nil
 	}
 
-	msg := fmt.Sprintf("showing %d of %d records — use --limit to see more",
-		res.RowCount(), res.Total)
+	msg := fmt.Sprintf("showing %d of %d %s — use --limit to see more",
+		res.RowCount(), res.Total, plural(res.Total, w.rowOne, w.rowMany))
 	if w.opts.Colour {
 		msg = ansiDim + msg + ansiReset
 	}
@@ -245,4 +247,44 @@ func indexOf(cols []string, name string) int {
 		}
 	}
 	return -1
+}
+
+// plural picks the noun to agree with a count.
+func plural(n int64, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// tableValue renders a cell for a person to read rather than for a machine to
+// parse back.
+//
+// The difference is fractions. strconv's shortest form is the shortest string
+// that reads back as the same float64, which is exactly right for JSON and CSV
+// and wrong on screen: an interpolated p99 of 4963.44 prints as
+// 4963.4400000000005, and a reader concludes the tool is broken rather than
+// that binary floating point is. The machine formats are untouched, so nothing
+// downstream loses a digit.
+func (w *Writer) tableValue(v any) string {
+	if f, ok := v.(float64); ok {
+		return tableFloat(f)
+	}
+	return w.value(v)
+}
+
+// tableFloat trims a float to twelve significant digits, which is past anything
+// a log field measures and short of where float64 starts inventing decimals.
+func tableFloat(f float64) string {
+	exact := strconv.FormatFloat(f, 'f', -1, 64)
+
+	if math.IsNaN(f) || math.IsInf(f, 0) || f == math.Trunc(f) {
+		return exact
+	}
+
+	rounded, err := strconv.ParseFloat(strconv.FormatFloat(f, 'g', 12, 64), 64)
+	if err != nil {
+		return exact
+	}
+	return strconv.FormatFloat(rounded, 'f', -1, 64)
 }

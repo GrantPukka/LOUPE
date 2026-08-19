@@ -88,6 +88,9 @@ Full rules in `docs/FILTER-DSL.md` §2. The ones that are easy to get wrong:
 - The UI's timeline drag writes a real DSL string into the filter box, so the
   interaction teaches the syntax and stays shareable.
 - Every term type needs a round-trip test: `parse(render(ast)) == ast`.
+- A `stats` clause compiles through the same AST to parameterised SQL. Time bins
+  are anchored to local midnight in the display timezone, never to the epoch, and
+  an aggregation states every record it could not place.
 
 ---
 

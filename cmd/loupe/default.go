@@ -40,7 +40,14 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 		return err
 	}
 
-	sess, err := g.open(cmd.Context(), paths...)
+	// A summary cannot be true of records that have not arrived, so an
+	// aggregation reads a stream to the end first, exactly as `loupe top` does.
+	open := g.open
+	if session.IsAggregate(filter) {
+		open = g.openBatch
+	}
+
+	sess, err := open(cmd.Context(), paths...)
 	if err != nil {
 		return err
 	}
@@ -64,13 +71,23 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 		return runStream(cmd, g, sess, filter)
 	}
 
-	plan, err := sess.Plan(cmd.Context(), filter)
+	// PlanAggregate rather than Plan: this is the one command that can render
+	// a `stats` clause, and every other caller of Plan refuses one rather than
+	// dropping it silently.
+	plan, err := sess.PlanAggregate(cmd.Context(), filter)
 	if err != nil {
 		return err
 	}
 
 	if !g.quiet {
 		timeBanner(os.Stderr, sess, plan)
+	}
+
+	if plan.Query.Stats != nil {
+		return runStats(cmd, g, sess, plan)
+	}
+
+	if !g.quiet {
 		fmt.Fprintln(os.Stderr)
 	}
 

@@ -48,6 +48,22 @@ func (p *parser) parseQuery() (Query, error) {
 	var q Query
 
 	for !p.atEOF() {
+		if p.atStats() {
+			if q.Stats != nil {
+				return Query{}, &SyntaxError{
+					Pos:     p.peek().pos,
+					Message: "a query can only have one stats clause",
+					Hint:    "list the aggregates together, e.g. stats count(), p99(latency_ms) by path",
+				}
+			}
+			stats, err := p.parseStats()
+			if err != nil {
+				return Query{}, err
+			}
+			q.Stats = stats
+			continue
+		}
+
 		term, err := p.parseTerm()
 		if err != nil {
 			return Query{}, err
@@ -104,7 +120,13 @@ func (p *parser) parseTerm() (Term, error) {
 		case p.at(tokenOp):
 			return p.parseKeyed(head, negate, false)
 		default:
-			return &FreeTerm{Value: Value{Text: head.text}, Negate: negate}, nil
+			// Quoted is a rendering directive rather than a record of how the
+			// word was typed: `stats` starts a clause, so a free-text search
+			// for it has to come back out in quotes to stay free text.
+			return &FreeTerm{
+				Value:  Value{Text: head.text, Quoted: isReservedFree(head.text)},
+				Negate: negate,
+			}, nil
 		}
 
 	default:

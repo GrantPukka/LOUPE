@@ -314,7 +314,34 @@ type Plan struct {
 //
 // It resolves against the loaded data, so an unknown field names the fields
 // that actually exist and a bare 14:00 lands on a day the logs cover.
+//
+// An aggregation clause is refused here rather than ignored. Every caller that
+// lists records goes through this method, so the one that can render a summary
+// opts in with PlanAggregate and the rest cannot silently drop a `stats` the
+// user typed.
 func (s *Session) Plan(ctx context.Context, filter string) (Plan, error) {
+	plan, err := s.PlanAggregate(ctx, filter)
+	if err != nil {
+		return Plan{}, err
+	}
+	if plan.Query.Stats != nil {
+		return Plan{}, &StatsUnsupportedError{Clause: plan.Query.Stats.String()}
+	}
+	return plan, nil
+}
+
+// StatsUnsupportedError reports an aggregation given to something that lists
+// records.
+type StatsUnsupportedError struct{ Clause string }
+
+func (e *StatsUnsupportedError) Error() string {
+	return fmt.Sprintf("`%s` summarises records, and this view lists them\n"+
+		"`loupe <directory> '<filter>'` prints summaries; drop the clause here",
+		e.Clause)
+}
+
+// PlanAggregate is Plan for a caller that can render an aggregation.
+func (s *Session) PlanAggregate(ctx context.Context, filter string) (Plan, error) {
 	parsed, err := query.Parse(filter)
 	if err != nil {
 		return Plan{}, err
