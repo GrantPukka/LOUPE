@@ -291,6 +291,35 @@ Without this, a record carrying such a field is ingested and displayed but
 cannot be filtered on — a silent hole in the data, which is exactly what this
 project's first principle forbids.
 
+### 6.2 Values that need quoting
+
+The same rule applies to the right of the colon. A value is quoted when a bare
+one would read back as something other than itself:
+
+```
+A:"=<>"                   a value that begins with an operator character
+A:"~x"                    a value that begins with a tilde
+after:"14:00 x"           a time expression containing whitespace
+```
+
+Quoting is about surviving the round trip, not about being valid: the last one
+renders and parses back unchanged, then fails when it is resolved, because
+`14:00 x` is not a time. That is the right order — the error names the real
+problem instead of the filter quietly becoming `after:14:00`.
+
+The one worth knowing is the first. `A:=>` is an explicit equals against the
+literal `>`, so it renders as `A:">"` — bare, it would read as a comparison with
+no value.
+
+A bare time range is the exception: `14:00-15:00` has no keyword to sit outside
+the quotes, so it cannot be quoted at all. Anything that would need it is read
+as an ordinary field term instead, or rejected with a message saying so. Write
+`between:"..."` when the expression is unusual.
+
+**The rule, in one line: rendering must produce text that parses back to the
+same filter.** The UI writes rendered filters into the box, so a filter that
+changed under a round trip would change under the user without saying so.
+
 ---
 
 ## 7. Errors

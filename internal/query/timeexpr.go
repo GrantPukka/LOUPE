@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -76,11 +77,29 @@ func ParseDuration(s string) (time.Duration, error) {
 	if err != nil {
 		return 0, fmt.Errorf("bad number in duration %q", s)
 	}
+	// NaN slips past every comparison below: it is not less than zero and not
+	// greater than the maximum, so "nans" reached time.Duration(NaN) and came
+	// back as the most negative int64 there is. Infinity is caught by the
+	// range check, but naming both here is clearer than relying on that.
+	// Found by FuzzParseDuration.
+	if math.IsNaN(n) || math.IsInf(n, 0) {
+		return 0, fmt.Errorf("bad number in duration %q", s)
+	}
 	if n < 0 {
 		return 0, fmt.Errorf("negative duration %q", s)
 	}
 
-	return time.Duration(n * float64(unit)), nil
+	// Converting a float too large for an int64 wraps, and the wrap is usually
+	// negative: last:99999999999999999999d became a window ending before it
+	// started, which matches nothing and says nothing about why. Refusing is
+	// the only honest answer, since there is no window that long to give.
+	scaled := n * float64(unit)
+	if scaled > float64(math.MaxInt64) {
+		return 0, fmt.Errorf("duration %q is longer than this tool can represent "+
+			"(about 292 years)", s)
+	}
+
+	return time.Duration(scaled), nil
 }
 
 // parseWallTime reads one time expression.

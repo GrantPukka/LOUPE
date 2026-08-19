@@ -148,7 +148,7 @@ func startsTerm(input string, i int, tokens []token) bool {
 	}
 
 	prev, _ := utf8.DecodeLastRuneInString(input[:i])
-	if !unicode.IsSpace(prev) {
+	if !unicode.IsSpace(prev) && !closesTerm(tokens) {
 		return false
 	}
 
@@ -161,6 +161,24 @@ func startsTerm(input string, i int, tokens []token) bool {
 		}
 	}
 	return true
+}
+
+// closesTerm reports whether the token just lexed ended at its own delimiter,
+// so the next character begins a new term even without a space.
+//
+// A closing quote or slash is as much a boundary as whitespace, and treating it
+// as one keeps the language honest: `"" -` was an error while `""-` quietly
+// produced a term whose text was a single minus, which then rendered back with
+// the space and stopped parsing. Found by FuzzParse.
+func closesTerm(tokens []token) bool {
+	if len(tokens) == 0 {
+		return false
+	}
+	switch tokens[len(tokens)-1].kind {
+	case tokenQuoted, tokenRegex:
+		return true
+	}
+	return false
 }
 
 func afterColon(tokens []token) bool {

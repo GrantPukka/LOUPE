@@ -2,6 +2,7 @@ package query
 
 import (
 	"strings"
+	"unicode"
 )
 
 // Op is a comparison operator on a field term.
@@ -76,11 +77,19 @@ func (v Value) String() string {
 }
 
 // needsQuoting reports whether a bare value would not survive a round trip.
+//
+// The whitespace test asks unicode.IsSpace rather than listing characters,
+// because that is what lexWord asks when deciding where a bare word ends. A
+// hand-written list drifts: it omitted carriage return, so a term containing
+// one rendered unquoted and then no longer parsed. Found by FuzzParse.
 func needsQuoting(s string) bool {
 	if s == "" {
 		return true
 	}
-	return strings.ContainsAny(s, " \t\n\",:")
+	if strings.ContainsAny(s, `",:`) {
+		return true
+	}
+	return strings.IndexFunc(s, unicode.IsSpace) >= 0
 }
 
 // renderKey writes a field name so that parsing the result yields the same key.
@@ -112,19 +121,28 @@ func keyNeedsQuoting(key string) bool {
 func quote(s string) string {
 	var sb strings.Builder
 	sb.WriteByte('"')
-	for _, r := range s {
-		switch r {
+
+	// Byte by byte, not rune by rune. Ranging over a string decodes UTF-8, and
+	// an invalid byte decodes to the replacement character — so a filter
+	// searching for a raw byte was silently rewritten into a search for U+FFFD
+	// the moment the UI rendered it back into the box. Every character escaped
+	// here is ASCII, and a multi-byte sequence never contains a byte below
+	// 0x80, so copying bytes preserves valid text exactly and invalid bytes
+	// verbatim. Found by FuzzParse.
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; c {
 		case '"', '\\':
 			sb.WriteByte('\\')
-			sb.WriteRune(r)
+			sb.WriteByte(c)
 		case '\n':
 			sb.WriteString(`\n`)
 		case '\t':
 			sb.WriteString(`\t`)
 		default:
-			sb.WriteRune(r)
+			sb.WriteByte(c)
 		}
 	}
+
 	sb.WriteByte('"')
 	return sb.String()
 }
@@ -164,11 +182,40 @@ func (t *FieldTerm) String() string {
 
 	parts := make([]string, len(t.Values))
 	for i, v := range t.Values {
-		parts[i] = v.String()
+		parts[i] = renderFieldValue(v)
 	}
 	sb.WriteString(strings.Join(parts, ","))
 
 	return sb.String()
+}
+
+// renderFieldValue writes a value in the position after a colon, where a
+// leading operator character means something.
+//
+// `A:=>` asks for the literal `>` — the `=` is an explicit equals — but
+// rendering it bare gave `A:>`, which reads back as a comparison with no value.
+// Only this position is affected: a bare `>x` at the start of a filter is
+// ordinary text, and quoting it there would be noise. Found by FuzzParse.
+func renderFieldValue(v Value) string {
+	if !v.Quoted && !v.Regex && leadsWithOperator(v.Text) {
+		return quote(v.Text)
+	}
+	return v.String()
+}
+
+// leadsWithOperator reports a value whose first character the lexer would read
+// as an operator when it follows a colon. The tilde counts: `A:~foo` is the
+// match operator written with a colon, so a value of `~foo` has to be quoted or
+// it renders as a match against `foo`.
+func leadsWithOperator(s string) bool {
+	if s == "" {
+		return false
+	}
+	switch s[0] {
+	case '>', '<', '=', '~':
+		return true
+	}
+	return false
 }
 
 // FreeTerm is a bare word or quoted phrase, matched against the message and
@@ -213,9 +260,51 @@ func (t *TimeTerm) String() string {
 		sb.WriteString(t.Keyword)
 		sb.WriteByte(':')
 	}
-	sb.WriteString(t.Expr)
+	sb.WriteString(renderTimeExpr(t.Expr))
 	return sb.String()
 }
+
+// renderTimeExpr writes a time expression so it lexes back as one token.
+//
+// Colons stay bare — they are what a time is made of, and `after:"14:00"` would
+// be a strange thing to show someone. Anything that would not lex back as one
+// token cannot: `after:"14:00 x"` rendered bare as `after:14:00 x`, and reading
+// that back kept only the first half. Found by FuzzParse.
+func renderTimeExpr(expr string) string {
+	// The lexer splits a bare time on its colons and the parser reassembles it,
+	// which it can only do when every piece is a word. An empty piece is what
+	// `on:":"` renders to — `on::` — and that no longer parses.
+	for _, part := range strings.Split(expr, ":") {
+		if !isBareTimeWord(part) {
+			return quote(expr)
+		}
+	}
+	return expr
+}
+
+// isBareTimeWord reports whether one colon-separated piece of a time expression
+// would lex back as a single word.
+//
+// Times are digits, the letters of a unit or an RFC3339 marker, and the few
+// marks that join them. Anything else — a space, a quote, a tilde — either ends
+// the word or starts an operator, so a piece containing one has to be quoted.
+func isBareTimeWord(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case isDigit(c), isLetter(c):
+		case c == '-', c == '+', c == '.', c == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func isDigit(c byte) bool  { return c >= '0' && c <= '9' }
+func isLetter(c byte) bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') }
 
 // ResolvedTimeTerm is every time term in a query, intersected into one window.
 //
