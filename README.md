@@ -35,6 +35,7 @@ loupe top path ./logs 'status:>=500'    # which endpoints are 500ing
 kubectl logs -f api | loupe  # read a pipe, live
 loupe ./logs -               # a directory and a pipe, on one timeline
 
+loupe serve ./logs           # the same data over a local HTTP API
 loupe subscribe /var/log     # remember it
 loupe                        # read everything subscribed
 ```
@@ -86,7 +87,8 @@ level:error                     one level
 level:>=warn                    warn and above
 14:00-15:00                     a time window, in your local timezone
 last:15m                        relative to the newest record, not to now
-                                (in --follow, relative to the wall clock)
+                                (--relative-to now counts from the wall clock;
+                                 --follow does that by default)
 source:nginx                    one source
 -source:nginx                   everything else
 status:>=500 latency_ms:>1000   any field, promoted or nested
@@ -110,9 +112,7 @@ loupe serve ./logs                       # the browser — click ● live
 ```
 
 New records go through the same compiled filter as everything else, so a live
-view and the same query run afterwards can never disagree. In the browser, the
-pattern rail and the live stream are both off until you switch them on: opening
-a page should not start polling your log directory.
+view and the same query run afterwards can never disagree.
 
 In follow mode `last:15m` counts back from the wall clock rather than from the
 newest record, because the newest record is a moving target while records are
@@ -205,6 +205,7 @@ The most common triage question, without dropping to SQL:
 ```bash
 loupe top path ./logs 'status:>=500'     # which endpoints are 500ing
 loupe top status ./logs 'level:>=error'  # what statuses come with errors
+loupe top path ./logs --limit 5          # just the head (20 by default)
 loupe top source ./logs --all            # the whole tail
 ```
 
@@ -243,6 +244,7 @@ differently. `loupe patterns` collapses them and counts each shape:
 loupe patterns ./logs                      # every template, most frequent first
 loupe patterns ./logs 'level:>=error'      # templates within a filter
 loupe patterns ./logs --new-since 15m      # only shapes with nothing older
+loupe patterns ./logs --limit 5            # just the head (30 by default)
 loupe patterns ./logs --all                # the whole long tail
 ```
 
@@ -294,6 +296,66 @@ lines. See [docs/HANDOFF.md](docs/HANDOFF.md).
 
 A handoff describes a finished read, so it is refused on a live pipe: redirect
 the stream to a file first, then hand off from that.
+
+## In the browser
+
+`loupe ./logs --ui` opens it; `loupe serve ./logs` starts the same server without
+opening anything. Everything in it is a filter you could have typed, so the
+interaction teaches the syntax rather than hiding it — dragging the timeline
+writes a real time term into the box, and so does clicking a value.
+
+```
+/          focus the filter box          p    the pattern rail
+?          the filter cheatsheet         ●    live, when you switch it on
+Escape     close the panel, or clear the filter
+```
+
+Every example in the cheatsheet is clickable, for the same reason: the fastest
+way to learn a syntax you use twice a month is to run it.
+
+In an expanded record, every field has a **% top** button for its breakdown, and
+any correlation id has a **→ trace** button that puts the request on a timeline.
+
+The live stream and the pattern rail are both off until you switch them on:
+opening a page should not start polling your log directory.
+
+## The HTTP API
+
+The browser UI is a client of an API you can use directly. `loupe serve` binds
+loopback only and there is no authentication, because there is nothing to
+authenticate to — it is your machine reading your files, and it makes no
+outbound connection.
+
+```bash
+loupe serve ./logs --addr 127.0.0.1:7717   # --open launches a browser too
+
+curl -s localhost:7717/api/schema | jq '.columns[].name'
+curl -s -X POST localhost:7717/api/query -d '{"filter":"level:error","limit":1}'
+curl -s 'localhost:7717/api/top?field=path&limit=3'
+curl -sN 'localhost:7717/api/tail?filter=level:error'    # server-sent events
+```
+
+| Endpoint | What it answers |
+| --- | --- |
+| `GET /api/schema` | columns, types, which are promoted |
+| `POST /api/query` | records matching a filter or raw SQL |
+| `POST /api/histogram` | counts per bucket, broken down by level |
+| `GET /api/sources` | the files read, their formats, their timezone provenance |
+| `GET /api/tail` | live records as SSE, through the same compiled filter |
+| `GET /api/patterns` | message templates and their counts |
+| `GET /api/trace` | one request across every source, with the waits |
+| `GET /api/trace-field` | which correlation field was detected, and its coverage |
+| `GET /api/top` | a value breakdown of one field |
+| `GET /api/health` | liveness and the record count |
+
+Every one of them calls the same `internal/session` code the CLI calls, so the
+API cannot answer differently from the command line. `/api/tail` holds the
+connection open and emits a `records` event as matching records are written:
+
+```
+event: records
+data: {"columns":["seq","ts","level","source","message"],"rows":[[33972, …]]}
+```
 
 ## Formats
 
