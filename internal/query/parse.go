@@ -138,12 +138,32 @@ func (p *parser) parseKeyed(key token, negate, literal bool) (Term, error) {
 	// A bare range with no keyword: 14:00-15:00. The lexer split it on the
 	// colon, so the "key" here is the hour. No field is named by a number, so
 	// this is unambiguous.
-	if !literal && isClockHour(key.text) {
+	//
+	// The continuation has to be a bare word. A bare range has nothing in it to
+	// quote, and a quoted one could not be rendered back: there is no keyword
+	// to sit outside the quotes, so `0:" 0"` came out as `"0: 0"` — a phrase
+	// search rather than a time. `between:"..."` says it with a keyword and
+	// renders. Found by FuzzParse.
+	if !literal && isClockHour(key.text) && p.at(tokenWord) && isBareTimeWord(p.peek().text) {
 		expr, err := p.parseTimeExpr("", key.pos)
 		if err != nil {
 			return nil, err
 		}
-		return &TimeTerm{Expr: key.text + ":" + expr, Negate: negate}, nil
+
+		full := key.text + ":" + expr
+
+		// A bare range must render bare, so anything that would need quoting is
+		// not one. Saying so is better than building a term that cannot be
+		// written back down.
+		if renderTimeExpr(full) != full {
+			return nil, &SyntaxError{
+				Pos:     key.pos,
+				Message: "not a time range: " + full,
+				Hint:    "e.g. 14:00-15:00, or between:14:00-15:00",
+			}
+		}
+
+		return &TimeTerm{Expr: full, Negate: negate}, nil
 	}
 
 	op := OpEq
@@ -185,7 +205,11 @@ func (p *parser) parseValue(key token, op Op) (Value, error) {
 
 	switch tok.kind {
 	case tokenWord:
-		return Value{Text: tok.text}, nil
+		// Quoted is a rendering directive — "must be written in quotes" —
+		// rather than a record of how the user typed it. Setting it here for a
+		// value that only renders unambiguously in quotes is what keeps
+		// parsing and rendering agreeing about the same filter.
+		return Value{Text: tok.text, Quoted: leadsWithOperator(tok.text)}, nil
 	case tokenQuoted:
 		return Value{Text: tok.text, Quoted: true}, nil
 	case tokenRegex:
@@ -231,6 +255,19 @@ func (p *parser) parseTimeExpr(keyword string, pos int) (string, error) {
 	}
 
 	expr := tok.text
+
+	// A blank expression is not a time. `last:""` parsed into a term holding
+	// nothing, which rendered as `last:` and then read back as `last:` plus
+	// whatever word happened to follow — a different query from the one the
+	// user wrote. Leaving the time blank is leaving it off, and it gets the
+	// same message. Found by FuzzParse.
+	if strings.TrimSpace(expr) == "" {
+		return "", &SyntaxError{
+			Pos:     tok.pos,
+			Message: "missing time after " + keyword + ":",
+			Hint:    timeHint(keyword),
+		}
+	}
 
 	// A bare time contains colons, which the lexer split. Reassemble them:
 	// after:14:00:00 arrives as "14", ":", "00", ":", "00".

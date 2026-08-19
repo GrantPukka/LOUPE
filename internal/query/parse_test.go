@@ -468,3 +468,184 @@ func TestNegationAfterAnotherTerm(t *testing.T) {
 		})
 	}
 }
+
+// A closing quote ends a term, so a minus after one negates the next term
+// rather than becoming a term of its own.
+//
+// `"" -` was an error while `""-` produced a free term whose text was a single
+// minus — which rendered back with a space and then no longer parsed. The two
+// spellings have to agree.
+func TestMinusAfterAClosingQuoteStartsATerm(t *testing.T) {
+	for _, in := range []string{`""-`, `"a"-b`, `"a" -b`} {
+		spaced := strings.ReplaceAll(in, `"-`, `" -`)
+
+		got, gotErr := Parse(in)
+		want, wantErr := Parse(spaced)
+
+		if (gotErr == nil) != (wantErr == nil) {
+			t.Errorf("Parse(%q) and Parse(%q) disagreed: %v vs %v", in, spaced, gotErr, wantErr)
+			continue
+		}
+		if gotErr != nil {
+			continue
+		}
+		if got.String() != want.String() {
+			t.Errorf("Parse(%q) rendered %q, want %q like Parse(%q)",
+				in, got.String(), want.String(), spaced)
+		}
+	}
+}
+
+// Rendering must not rewrite the bytes of a search term.
+//
+// Ranging over a string decodes UTF-8, so an invalid byte became the
+// replacement character the moment the UI rendered a filter back into the box —
+// silently turning a search for one thing into a search for another. Log lines
+// are not guaranteed to be valid UTF-8, so neither are the terms that match
+// them. Found by FuzzParse.
+func TestRenderPreservesInvalidUTF8(t *testing.T) {
+	for _, raw := range []string{"\xff", "a\xc3(b", "\xed\xa0\x80"} {
+		filter, err := Parse(`"` + raw + `"`)
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", raw, err)
+		}
+
+		rendered := filter.String()
+		again, err := Parse(rendered)
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", rendered, err)
+		}
+
+		free, ok := again.Terms[0].(*FreeTerm)
+		if !ok {
+			t.Fatalf("term is %T, want *FreeTerm", again.Terms[0])
+		}
+		if free.Value.Text != raw {
+			t.Errorf("round trip changed the term: %q became %q", raw, free.Value.Text)
+		}
+	}
+}
+
+// Whitespace is whatever the lexer thinks it is.
+//
+// needsQuoting used to carry its own list of space characters, which omitted
+// carriage return: `"\r":0` rendered as `\r:0`, and the CR then lexed as a
+// space, leaving a colon with nothing in front of it. Any character the lexer
+// treats as a boundary has to force quoting. Found by FuzzParse.
+func TestRenderQuotesEveryKindOfWhitespace(t *testing.T) {
+	for _, ws := range []string{"\r", "\v", "\f", " ", " ", "　"} {
+		in := `"` + ws + `":0`
+
+		filter, err := Parse(in)
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", in, err)
+		}
+
+		rendered := filter.String()
+		again, err := Parse(rendered)
+		if err != nil {
+			t.Fatalf("Parse(%q) rendered %q, which does not parse: %v", in, rendered, err)
+		}
+		if again.String() != rendered {
+			t.Errorf("%q rendered %q then %q", in, rendered, again.String())
+		}
+	}
+}
+
+// A value that begins with an operator character is still a value.
+//
+// `A:=>` is an explicit equals against the literal `>`. Rendered bare it became
+// `A:>`, which reads back as a comparison missing its value. Found by
+// FuzzParse.
+func TestRenderQuotesAValueLeadingWithAnOperator(t *testing.T) {
+	for _, in := range []string{`A:=>`, `A:=<`, `A:=>=`, `A:=<foo`, `A:=~`, `A:=~foo`} {
+		filter, err := Parse(in)
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", in, err)
+		}
+
+		rendered := filter.String()
+		again, err := Parse(rendered)
+		if err != nil {
+			t.Fatalf("Parse(%q) rendered %q, which does not parse: %v", in, rendered, err)
+		}
+		if !reflect.DeepEqual(filter.Terms, again.Terms) {
+			t.Errorf("%q rendered %q, which parses to a different filter", in, rendered)
+		}
+	}
+}
+
+// A blank time expression is a missing one, and says so.
+//
+// `last:""` parsed into a term with no expression, rendered as `last:`, and
+// then read back as `last:` followed by whatever word came next — quietly
+// becoming a different query. Found by FuzzParse.
+func TestBlankTimeExpressionIsRejected(t *testing.T) {
+	for _, in := range []string{`last:""`, `after:""`, `on:""`, `between:""`} {
+		if _, err := Parse(in); err == nil {
+			t.Errorf("Parse(%q) accepted a blank time", in)
+		}
+	}
+}
+
+// A time expression has to render as one token.
+//
+// `0:" "` produced a term whose expression was whitespace, which rendered as
+// `0: ` and no longer parsed; `after:"14:00 x"` rendered bare and read back as
+// only its first half. Found by FuzzParse.
+func TestTimeExpressionSurvivesRendering(t *testing.T) {
+	for _, in := range []string{`after:" "`, `last:"  "`, `on:" "`} {
+		if _, err := Parse(in); err == nil {
+			t.Errorf("Parse(%q) accepted a blank time", in)
+		}
+	}
+
+	for _, in := range []string{`after:"14:00 x"`, `on:"2026-08-13 x"`, `on:":"`, `after:"14:"`, `last:":15m"`, `on:"~"`, `after:"~x"`} {
+		filter, err := Parse(in)
+		if err != nil {
+			continue // Rejecting it outright is also a correct answer.
+		}
+
+		rendered := filter.String()
+		again, err := Parse(rendered)
+		if err != nil {
+			t.Fatalf("Parse(%q) rendered %q, which does not parse: %v", in, rendered, err)
+		}
+		if !reflect.DeepEqual(filter.Terms, again.Terms) {
+			t.Errorf("%q rendered %q, which parses to a different filter", in, rendered)
+		}
+	}
+}
+
+// A bare clock range is made of bare words.
+//
+// There is no keyword to sit outside the quotes, so a quoted continuation could
+// not be rendered back as a time: `0:" 0"` came out as the phrase `"0: 0"`.
+// Such a term is read as an ordinary field instead, which renders and parses
+// back unchanged. Found by FuzzParse.
+func TestBareClockRangeTakesOnlyWords(t *testing.T) {
+	filter, err := Parse(`14:00-15:00`)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if _, ok := filter.Terms[0].(*TimeTerm); !ok {
+		t.Fatalf("14:00-15:00 parsed as %T, want *TimeTerm", filter.Terms[0])
+	}
+
+	quoted, err := Parse(`0:" 0"`)
+	if err != nil {
+		t.Fatalf(`Parse("0:\" 0\""): %v`, err)
+	}
+	if _, ok := quoted.Terms[0].(*TimeTerm); ok {
+		t.Error("a quoted continuation was read as a bare clock range")
+	}
+
+	rendered := quoted.String()
+	again, err := Parse(rendered)
+	if err != nil {
+		t.Fatalf("rendered %q, which does not parse: %v", rendered, err)
+	}
+	if !reflect.DeepEqual(quoted.Terms, again.Terms) {
+		t.Errorf("rendered %q, which parses to a different filter", rendered)
+	}
+}

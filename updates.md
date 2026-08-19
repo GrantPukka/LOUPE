@@ -23,7 +23,7 @@ built without breaking one of those is not on this list.
 | [EC009](#ec009--ad-hoc-regex-field-extraction) | Ad-hoc regex field extraction | 3 | not started |
 | [EC010](#ec010--self-contained-html-report-export) | Self-contained HTML report export | 3 | not started |
 | [EC011](#ec011--query-history-recall) | Query history recall | 3 | not started |
-| [EC012](#ec012--fuzz-the-parsers-and-the-dsl-lexer) | Fuzz the parsers and the DSL lexer | 1 | not started |
+| [EC012](#ec012--fuzz-the-parsers-and-the-dsl-lexer) | Fuzz the parsers and the DSL lexer | 1 | done |
 | [EC013](#ec013--benchmarks-for-the-unmeasured-performance-commitments) | Benchmarks for unmeasured perf commitments | 1 | not started |
 | [EC014](#ec014--rotation-by-rename-test-coverage) | Rotation-by-rename test coverage | 1 | not started |
 | [EC015](#ec015--exit-codes-as-a-scripting-contract) | Exit codes as a scripting contract | 2 | not started |
@@ -748,6 +748,88 @@ accounts and sync, which the project does not have.
 - [ ] Up-arrow recall in the TUI; a `loupe history` listing for the CLI
 - [ ] Per-directory rather than global, since filters are data-specific
 - [ ] Bounded size, no unbounded growth in a dotfile
+
+---
+
+## EC012 — Fuzz the parsers and the DSL lexer
+
+**Status: done.** Tier 1. Work is on branch `EC012`, cut from `main`
+after EC005 merged.
+
+The roadmap carried a row for this and no body, so the checklist below is
+written from the contracts the code already states rather than from a spec.
+
+Every parser is fed bytes chosen by somebody else. `CLAUDE.md` promises that a
+malformed line never aborts a file and that no key is ever dropped, and the
+`Parser` interface is the contribution surface — a parser arriving by PR from a
+stranger is exactly the code most worth fuzzing. Go has native fuzzing in the
+standard library, so this adds no dependency.
+
+- [x] Every registered parser: no panic on any input, on any byte sequence
+- [x] `Parse` must not mutate the line it was given — the reader keeps its own
+      copy as `raw`, and a parser writing into that buffer would corrupt it
+- [x] `Detect` returns a confidence inside 0.0–1.0, as its doc comment promises
+- [x] A returned timestamp always carries a location, or every later time
+      comparison panics
+- [x] `parse.ReadAll`: no panic, and the stats reconcile against the lines read
+- [x] The DSL: `query.Parse` never panics, and `parse(render(ast)) == ast` for
+      anything that parsed
+- [x] `pattern.Of`: no panic, never emits a control character, and the same
+      input always yields the same id
+- [x] Seed corpora drawn from the checked-in fixtures, so the corpus starts on
+      real formats rather than random noise
+- [x] Findings, if any, fixed rather than papered over with a seed exclusion
+
+**Ten targets**, in three files:
+
+| File | Targets |
+| --- | --- |
+| `internal/parse/fuzz_test.go` | `FuzzParsers`, `FuzzParseIsDeterministic`, `FuzzDetect`, `FuzzReadAll` |
+| `internal/query/fuzz_test.go` | `FuzzParse`, `FuzzCompile`, `FuzzParseDuration` |
+| `internal/pattern/fuzz_test.go` | `FuzzOf`, `FuzzOfIsStable`, `FuzzTemplateLeavesProseAlone` |
+
+`FuzzCompile` checks the thing `CLAUDE.md` forbids getting wrong: one bound
+argument per `?`, over every shape of input rather than the handful a table test
+can list.
+
+### What it found
+
+**The parsers came through clean.** Nothing panicked, nothing mutated its input,
+no confidence escaped 0.0–1.0, and `ReadAll`'s stats reconciled on every input.
+Every finding was in the filter DSL, and all but two were in the same place: the
+renderer disagreeing with the lexer about what a token is. That matters more
+than it sounds, because the UI writes rendered ASTs back into the filter box —
+a filter that does not survive render-and-reparse is one the user cannot re-run
+or share, and it changes under them without saying so.
+
+| Finding | Fix |
+| --- | --- |
+| `last:99999999999999999999d` overflowed `int64` and wrapped to a window ending before it started | refuse anything past ~292 years, and say why |
+| `last:nans` passed both guards — NaN is neither `< 0` nor `> MaxInt64` — and returned the most negative duration there is | reject NaN and infinity by name |
+| A search term containing invalid UTF-8 rendered as U+FFFD, silently becoming a search for something else | `quote` copies bytes instead of ranging over runes |
+| `"" -` was an error but `""-` produced a term whose text was a lone minus, which then would not parse | a closing quote ends a term, as whitespace does |
+| `"\r":0` rendered as `\r:0` — `needsQuoting` carried its own list of space characters and had missed carriage return | ask `unicode.IsSpace`, which is what the lexer asks |
+| `A:=>` means equals the literal `>`, but rendered as `A:>` — a comparison with no value. Same for `A:=~foo` | quote a value that leads with an operator character |
+| `last:""` parsed into a term holding nothing, rendered as `last:`, and read back as `last:` plus whatever word followed | a blank time is a missing time, with the same message |
+| `after:"14:00 x"` rendered bare and read back as only its first half; `on:":"` rendered as `on::` | quote a time expression that would not lex back as one token |
+| `0:" 0"` rendered as the phrase `"0: 0"` — a bare range has no keyword to sit outside the quotes | a bare clock range takes only bare words; anything else is a field |
+
+Each has a named regression test alongside the fuzz corpus entry, so the reason
+survives even if the corpus is regenerated.
+
+Two of the properties turned out to be wrong rather than the code. A tab is not
+damage — it is a legitimate separator, which is why `isControl` excludes it. And
+an idempotency target on `Template` was removed: it found a real asymmetry, but
+`Template` has one call site and is fed raw message text, never its own output,
+so satisfying it would have meant changing what masks — which changes every
+template id, and template ids are what `--new-since` compares against an earlier
+run. The reasoning is recorded where the target used to be.
+
+**Cost note.** A Go fuzz target runs its seed corpus as an ordinary unit test
+under `go test`, so CI gains the regression value with no workflow change and
+no added runtime. Long fuzzing runs stay a manual, local activity: each target
+was run for 45s here, and `FuzzParse` for a further five minutes (17.7M execs)
+after the last fix.
 
 ---
 

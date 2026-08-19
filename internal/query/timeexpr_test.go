@@ -248,3 +248,43 @@ func TestIntervalIsHalfOpen(t *testing.T) {
 		t.Error("the instant just before the end should be inside")
 	}
 }
+
+// A duration too large for an int64 used to wrap, usually to a negative value,
+// so last:99999999999999999999d produced a window that ended before it began —
+// matching nothing and explaining nothing. Found by FuzzParseDuration.
+func TestParseDurationRefusesOverflow(t *testing.T) {
+	for _, in := range []string{
+		"99999999999999999999d",
+		"1e18h",
+		"1e308d",
+		// NaN is not less than zero and not greater than the maximum, so it
+		// passed both guards and became the most negative int64 there is.
+		"nans",
+		"NANw",
+		"infd",
+	} {
+		got, err := ParseDuration(in)
+		if err == nil {
+			t.Errorf("ParseDuration(%q) = %s, want an error", in, got)
+			continue
+		}
+		if got != 0 {
+			t.Errorf("ParseDuration(%q) returned %s alongside its error", in, got)
+		}
+	}
+}
+
+// Everything inside the representable range still works, including the largest
+// unit at a realistic size.
+func TestParseDurationAcceptsLargeButUsableWindows(t *testing.T) {
+	for _, in := range []string{"52w", "3650d", "100000h"} {
+		got, err := ParseDuration(in)
+		if err != nil {
+			t.Errorf("ParseDuration(%q): %v", in, err)
+			continue
+		}
+		if got <= 0 {
+			t.Errorf("ParseDuration(%q) = %s, want a positive duration", in, got)
+		}
+	}
+}
