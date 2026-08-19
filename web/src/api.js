@@ -154,6 +154,27 @@ export const getPatterns = ({ filter, limit, newSince } = {}) => {
 };
 
 /**
+ * Fetch one request's path across every source.
+ *
+ * The server returns session.Trace unchanged, including which sources could
+ * not have answered — the browser must not re-derive that differently from the
+ * terminal.
+ */
+export const getTrace = ({ id, field } = {}) => {
+  const params = new URLSearchParams({ id: id ?? '' });
+  if (field) params.set('field', field);
+  return request(`/api/trace?${params}`);
+};
+
+/**
+ * Which field a trace would follow, or an empty name when this data has none.
+ *
+ * Asked once, so the trace affordance appears only on the field that actually
+ * correlates and only where a trace view would work at all.
+ */
+export const getTraceField = () => request('/api/trace-field');
+
+/**
  * Fetch the value breakdown of one field.
  *
  * The server returns session.TopSet unchanged, including the share of each

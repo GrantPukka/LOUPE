@@ -29,6 +29,7 @@ loupe tui ./logs --follow    # the same, in the full-screen terminal view
 loupe patterns ./logs        # 34,000 lines as a dozen message templates
 loupe patterns ./logs --new-since 15m   # which shapes just started happening
 
+loupe trace a91c40f2 ./logs  # one request across every service, with the waits
 loupe top path ./logs 'status:>=500'    # which endpoints are 500ing
 
 kubectl logs -f api | loupe  # read a pipe, live
@@ -90,6 +91,7 @@ source:nginx                    one source
 -source:nginx                   everything else
 status:>=500 latency_ms:>1000   any field, promoted or nested
 trace_id:a91c40f2               one request across every service
+                                (`loupe trace` puts it on a timeline)
 pattern:9acf7d11271f            every record sharing a message template
 "read timed out"                exact phrase
 ```
@@ -160,6 +162,42 @@ Four things worth knowing:
   to the end first.** None of them can say anything true about records that have
   not arrived. They print a line saying they are waiting for the pipe to close.
 
+## Following one request
+
+```bash
+loupe trace a91c40f2 ./logs
+```
+
+```
+  00:16:00.000          auth-svc       info  token validated
+▸ 00:16:00.632  +632ms  checkout-api   info  request completed
+  00:16:00.700   +68ms  payment-worker error PaymentGatewayException: read timed out after 3000ms …
+
+Span 700ms, of which 632ms waiting before checkout-api.
+access, postgresql, syslog never record trace_id, so this trace cannot say
+whether the request reached them.
+```
+
+The wait between hops is usually the finding — five lines that all look fine
+and one long pause between two of them — so it is measured, and the longest one
+is marked.
+
+The correlation field is detected (`trace_id`, `traceId`, `request_id`,
+`req_id`, `x-request-id`, `correlation_id`) by which one covers the most
+records, and the choice is printed. `--field` names it yourself.
+
+**Two kinds of silence, kept apart.** A service that records correlation ids
+and has none for this trace probably did not handle the request. A service that
+records none at all — Nginx combined has nowhere to put one — may have handled
+it and simply cannot say. Reported as one category, you would conclude a request
+skipped services it went straight through, so they are reported separately.
+
+Records with no timestamp still belong to the trace: they are listed last, in
+ingest order, and counted. A worker that died mid-write is exactly the record
+you need.
+
+`--handoff` exports the timeline and its disclosures as a pasteable extract, and
+in the browser any trace value in a record's detail has a **→ trace** button.
 ## Breaking a field down by value
 
 The most common triage question, without dropping to SQL:

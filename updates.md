@@ -14,7 +14,7 @@ built without breaking one of those is not on this list.
 |---|---|---|---|
 | [EC001](#ec001--live-tail---follow--incremental-ingest) | Live tail + incremental ingest | 1 | **done** — EC001.4 optional, not started |
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
-| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
+| [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | **done** |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **done** |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
@@ -354,25 +354,121 @@ text shows exactly what was collapsed. `TestWordsAreNeverMasked` pins it.
 
 ## EC003 — First-class trace / request correlation
 
-**Status: not started.** Tier 1. The demo already brags that one `trace_id` runs
-through all six sources; that is currently the pitch, not a feature.
+**Status: done.** All three stages complete and tested. Work is on branch
+`EC003`, cut from `main` after EC004 merged.
+
+The demo already brags that one `trace_id` runs through all six sources; that is
+currently the pitch, not a feature.
 
 Delivers the README's exact promise: watch the pool exhaust, then the app error,
 then Nginx 502, in the order it happened.
 
-- [ ] `loupe trace <id> ./logs` — one request's timeline across every source
-- [ ] Show the latency gap between consecutive hops; the gap is the finding
-- [ ] Auto-detect the correlation field: `trace_id`, `traceId`, `request_id`,
-      `req_id`, `x-request-id`, `correlation_id` — configurable, detected by
-      default, because a flag here is an admission of failure per invariant 5
-- [ ] Handle a trace present in some sources and absent from others without
-      implying the request skipped a service
-- [ ] Records with no timestamp still belong to the trace — order them last and
-      say so, never drop them
-- [ ] UI: click any trace value to open the trace view
-- [ ] Handoff export of a single trace, which is what gets pasted into an incident
-      channel
-- [ ] Tests over the demo directory, whose shared trace id is the fixture
+**What the data actually looks like**, measured on the demo corpus: `trace_id`
+reaches three of the six sources. Nginx, Postgres and syslog carry no
+correlation id at all in their formats. That is not a gap in the fixture, it is
+the normal state of a real system, and it is why the third checklist item
+matters more than it first reads: a trace view that lists three sources must not
+let anyone conclude the request never reached the other three.
+
+### EC003.1 — Detection and `loupe trace` — **done**
+
+- [x] `loupe trace <id> ./logs` — one request's timeline across every source
+- [x] The gap between consecutive hops, with the largest one marked
+- [x] The correlation field is detected and the choice is stated; `--field`
+      overrides it
+- [x] A trace present in some sources and absent from others does not imply the
+      request skipped a service
+- [x] Records with no timestamp are ordered last, counted, and never dropped
+- [x] Tests: ordering, gaps, undated hops, silent vs blind sources, detection
+      by coverage, no correlation field at all, awkward ids
+
+```
+  00:16:00.000          auth-svc       info  token validated
+▸ 00:16:00.632  +632ms  checkout-api   info  request completed
+  00:16:00.700   +68ms  payment-worker error PaymentGatewayException: read timed out after 3000ms …
+
+Span 700ms, of which 632ms waiting before checkout-api.
+access, postgresql, syslog never record trace_id, so this trace cannot say
+whether the request reached them.
+```
+
+**Silent and blind sources are different facts, and conflating them is the trap
+this stage exists to avoid.** A source that records correlation ids and has none
+for this trace probably did not handle the request. A source that never records
+them — Nginx combined has nowhere to put one — may have handled it and simply
+cannot say. Reported as one category, the reader concludes a request skipped
+services it went straight through.
+
+**Detection is by coverage, not by list order.** The candidate order only breaks
+ties, so a `request_id` on three records cannot outrank a `trace_id` on three
+hundred. Other candidates present are named, so a wrong guess is visible.
+
+The correlation field is resolved through the ordinary filter path rather than
+by reading the schema directly, so a promoted column and a key still in the JSON
+bag are found the same way. The filter term is built from the AST rather than
+pasted together, so an id containing a quote or a space still produces a term
+that parses back to what was meant.
+
+`loupe trace` reads the whole dataset before answering, including a piped one:
+it cannot know which sources stayed silent until every source has been read.
+
+### EC003.2 — Handoff export of one trace — **done**
+
+- [x] `loupe trace <id> ./logs --handoff incident.md`
+- [x] The timeline sits above the record table, in both zones, with the longest
+      wait marked
+- [x] Carries the same disclosures as the terminal view, plus everything an
+      ordinary extract carries: assumed zones, unparsed counts, truncation
+- [x] Tests at both levels — the extract's shape, and the markdown it renders to
+
+A trace extract is the ordinary handoff for the records the trace matched, with
+the timeline attached, so it cannot show records the same filter would not. That
+is the property `docs/HANDOFF.md` asks for, and building a second record path
+for traces would have quietly broken it.
+
+**Which sources could not answer travels with the extract.** The receiver is
+reading a claim about where a request went, in a channel, without the data in
+front of them — they cannot see that Nginx was never able to be asked. An
+extract naming three services and staying quiet about the other three misleads
+by omission, which is the one thing a handoff must not do.
+
+`runHandoff` was split so the extract-building and the write-and-rename are
+separate: a trace extract reuses the atomic write rather than copying it, and
+both paths share one `handoffOptions`, so a trace extract and a filter extract
+cannot be built to different rules.
+
+`humanGap` in the CLI and the same logic needed by the extract became one
+exported `session.HumanDuration` rather than a second copy.
+
+### EC003.3 — The trace view in the browser — **done**
+
+- [x] `GET /api/trace` and `GET /api/trace-field`, after the CLI existed
+- [x] A **→ trace** button on the correlation field in a record's detail
+- [x] The gap between hops is drawn as a bar scaled to the longest wait in the
+      trace, and the longest row is highlighted
+- [x] The footer says which sources could not answer, which stayed quiet, and
+      how many hops carry no timestamp
+- [x] Playwright coverage — six specs against the real binary
+
+The endpoint returns `session.Trace` unchanged, with silent and blind computed
+on the Go side, so the browser cannot re-derive the distinction differently from
+the terminal.
+
+`/api/trace-field` exists so the affordance appears only where it would work.
+Data with nothing correlation-shaped in it gets no trace button rather than a
+button that opens an empty panel, and that is an ordinary answer rather than an
+error.
+
+**The bar is scaled to the longest wait in the trace, not to an absolute
+duration.** A four-millisecond trace and a four-second one would otherwise look
+identical, which is the opposite of the point.
+
+**Regression caught by the existing suite:** the trace panel registered a
+capture-phase Escape listener that stayed attached while the panel was closed,
+so it swallowed Escape before the rest of the app saw it — and Escape is also
+how the filter is cleared and the help panel dismissed. Two `ui.spec.js` tests
+that had nothing to do with traces went red, which is exactly what they are for.
+The listener is now scoped to an open trace.
 
 ---
 
