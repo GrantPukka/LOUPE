@@ -78,6 +78,15 @@ func (s Schema) Known() []string {
 	return out
 }
 
+// Column returns the SQL expression that reads a field, whether it is a real
+// column, a promoted one, or still a key in the JSON bag.
+//
+// Exported for the callers that need to group by a field rather than filter on
+// one — `loupe top` most of all. Sharing the resolver means a facet and a
+// filter cannot disagree about which column a name refers to, and an unknown
+// name produces the same error with the same spelling suggestion in both.
+func (s Schema) Column(key string) (string, error) { return s.resolve(key) }
+
 // resolve maps a key to the SQL expression that reads it.
 //
 // A key that is neither a column nor a present JSON field is an error, never a

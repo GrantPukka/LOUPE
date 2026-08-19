@@ -16,7 +16,7 @@ built without breaking one of those is not on this list.
 | [EC002](#ec002--pattern-clustering--message-grouping) | Pattern clustering / message grouping | 1 | **done** |
 | [EC003](#ec003--first-class-tracerequest-correlation) | Trace / request correlation | 1 | not started |
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
-| [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | not started |
+| [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **in progress** — 1 of 2 stages done |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | not started |
 | [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | not started |
 | [EC008](#ec008--broaden-intake) | Broaden intake | 2 | not started |
@@ -472,18 +472,64 @@ silently covering "whatever had arrived" would be the wrong kind of honest.
 
 ## EC005 — Faceted breakdowns / top-N
 
-**Status: not started.** Answers the most common triage question — *"which
-endpoints are 500ing?"* — without dropping to SQL. A `GROUP BY` DuckDB does for
-free.
+**Status: in progress.** Stage 1 complete and tested. Work is on branch `EC005`,
+cut from `main` — note that EC003 was not merged when this branched, so the two
+both add a command to `root.go` and will conflict trivially there on merge.
 
-- [ ] `loupe top <field> ./logs [filter]` — value counts, descending
-- [ ] `--limit` and a long tail summarised as "and N more", never truncated
-      silently
-- [ ] Works on promoted columns and JSON-bag fields alike
-- [ ] Unknown field errors with a suggestion, like every other field reference
-- [ ] UI: click-to-facet on any field value
-- [ ] Percentages alongside counts, since "412 of 33,000" reads differently
-      from "412 of 500"
+Answers the most common triage question — *"which endpoints are 500ing?"* —
+without dropping to SQL. A `GROUP BY` DuckDB does for free.
+
+### EC005.1 — `loupe top` — **done**
+
+- [x] `loupe top <field> ./logs [filter]` — value counts, descending
+- [x] `--limit`, `--all`, and a tail summarised as "N values more not shown,
+      covering N records", never truncated silently
+- [x] Works on promoted columns, built-in columns, and JSON-bag fields alike
+- [x] An unknown field errors with a spelling suggestion, like every other field
+      reference
+- [x] Percentages alongside counts, with the denominator stated
+- [x] Tests: ordering, stability, shares summing to one, absent records,
+      truncation arithmetic, empty values, unknown fields, empty results
+
+```
+2,936   20.3%  ████████████████████████  /healthz
+2,905   20.1%  ███████████████████████   /api/orders/<num>
+    2    0.0%  █                         <ctl><ctl>/api/cart
+
+10 values of path across 14,480 records.
+43,630 records matched the filter but carry no path, so they are outside the
+percentages above (path:none finds them).
+```
+
+**The denominator is the records that carry the field, and it is stated.** A
+share is meaningless without one, and the two obvious choices differ: 300 of 412
+records with a path is 72.8%, while 300 of 500 matched records is 60%. Values
+sum to one so the list reads as a distribution, and the records missing the
+field are reported separately rather than folded into the denominator where they
+would silently shrink every percentage.
+
+**A field present but empty is a value, not an absence.** It renders as
+`(empty)`, because a blank cell reads as a rendering fault rather than as the
+data.
+
+`query.Schema.Column` was exported so the breakdown resolves a field through the
+same code the filter compiler uses. That is what makes the third and fourth
+checklist items free: a promoted column, a built-in one and a bag key are all
+found the same way, and an unknown name produces the identical error with the
+identical spelling suggestion. Building a second resolver here would have been
+the obvious way to let a facet and a filter disagree about what a name means.
+
+Control characters in a value are masked as `<ctl>`, the same decision EC002
+reached for template text and for the same reason: a NUL renders as nothing in a
+terminal, so a corrupted path looked like a spacing bug in loupe rather than
+damage in the log.
+
+### EC005.2 — Click-to-facet in the browser — **not started**
+
+- [ ] `GET /api/top`, after the CLI exists
+- [ ] Click any field value in a record's detail to see its breakdown
+- [ ] Percentages and the absent count travel with it
+- [ ] Playwright coverage
 
 ---
 
