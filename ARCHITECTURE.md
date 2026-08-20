@@ -255,6 +255,11 @@ the same string can produce a listing or a summary. `Session.Plan` refuses a cla
 reaches something which lists records rather than dropping it — see docs/FILTER-DSL.md
 section 10.
 
+`loupe diff` resolves two windows through that same path and compares them. It ranks by a
+log-likelihood ratio over each item's share of its window rather than by raw delta, which
+is what keeps a change in traffic volume from filling the list with itself; rates are what
+is *displayed*, because windows of unequal length are a legitimate comparison.
+
 ### 3.6 Render
 
 - `table` — aligned, colourised, truncated to terminal width (default for TTY)
