@@ -18,7 +18,7 @@ built without breaking one of those is not on this list.
 | [EC004](#ec004--wire-up-stdin-streaming) | Wire up stdin streaming | 1 | **done** |
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **done** |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | **done** |
-| [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | not started |
+| [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | **done** |
 | [EC008](#ec008--broaden-intake) | Broaden intake | 2 | not started |
 | [EC009](#ec009--ad-hoc-regex-field-extraction) | Ad-hoc regex field extraction | 3 | not started |
 | [EC010](#ec010--self-contained-html-report-export) | Self-contained HTML report export | 3 | not started |
@@ -33,6 +33,8 @@ built without breaking one of those is not on this list.
 | [EC019](#ec019--cmdloupe-test-coverage) | `cmd/loupe` test coverage | 2 | not started |
 | [EC020](#ec020--decide-about-windows) | Decide about Windows | 3 | not started |
 | [EC021](#ec021--fix-duplicate-24-in-docsfilter-dslmd) | Fix duplicate §2.4 in FILTER-DSL.md | 3 | not started |
+| [EC022](#ec022--a-control-character-in-a-field-name-breaks-the-query) | Control character in a field name breaks the query | 1 | not started |
+| [EC023](#ec023--a-negated-filter-is-unusable-without---) | Negated filter unusable without `--` | 2 | not started |
 
 ---
 
@@ -830,18 +832,156 @@ matter, and a pipeline grammar is how this becomes a language nobody remembers.
 
 ## EC007 — Window compare / diff
 
-**Status: not started.** *"What is different between the healthy window and the
-incident window?"* Pairs naturally with EC002 and is a genuine root-cause
-accelerator no grep workflow offers.
+**Status: done.** Both stages complete and tested. Work is on branch `EC007`,
+cut from `main`.
 
-- [ ] `loupe diff ./logs --before <window> --after <window>`
-- [ ] Fields, values, and message patterns present in one window and not the
-      other, plus rate changes for those in both
-- [ ] Rank by "most surprising", not raw delta — a field that doubled from 2 to 4
-      is noise next to one that went 0 → 300
-- [ ] Reuse EC002's templates for the pattern half
-- [ ] State both windows in local *and* UTC, like every other time output
-- [ ] Handle windows of unequal length — compare rates, not counts, and say so
+*"What is different between the healthy window and the incident window?"* Pairs
+naturally with EC002 and is a genuine root-cause accelerator no grep workflow
+offers.
+
+### EC007.1 — The comparison engine and the pattern half — **done**
+
+- [x] `loupe diff ./logs --before <window> --after <window>`
+- [x] Message patterns present in one window and not the other, plus rate
+      changes for those in both
+- [x] Rank by "most surprising", not raw delta
+- [x] Reuse EC002's templates for the pattern half
+- [x] State both windows in local *and* UTC, with their lengths
+- [x] Handle windows of unequal length — compare rates, not counts, and say so
+- [x] `--limit`, `--all`, and a stated count of what was cut
+
+```
+before  13:00:00–14:00:00 BST  =  12:00:00–13:00:00 UTC  ·  Thu 2026-08-13
+        1h · 12,043 records
+after   14:00:00–15:00:00 BST  =  13:00:00–14:00:00 UTC  ·  Thu 2026-08-13
+        1h · 14,201 records
+
+Volume went from 12,043 to 14,201 records (+18%). Everything below is ranked on what changed beyond that.
+
+BEFORE   AFTER  CHANGE  WHAT
+     0     312     new  pattern 9acf7d11  connection to <host> refused
+   140   1,316    ×9.4  status=503
+ 1,204       0    gone  pattern 3ab1f0aa  cache warm complete
+```
+
+**A window is a filter expression, not a new syntax.** `--before 13:00-14:00`
+goes through `Session.Plan` exactly as `13:00-14:00` does in a filter, so a bare
+time lands on a day the data covers, a clock change inside the window is noted,
+and both windows print in local and UTC through the same `Interval.Describe`
+every other command uses. A filter given alongside intersects with each window
+the way two written terms do, which is why `loupe diff ./logs 'source:nginx'
+--before … --after …` needs no special handling. Inventing a window grammar here
+would have been a second thing to learn and a second thing to get wrong about
+timezones.
+
+**Each side's counts are what the tool would print for that window alone.** Both
+halves come from `Session.Patterns` over that window's plan, so the templates
+are EC002's — computed once at ingest — and a comparison cannot disagree with
+`loupe patterns ./logs '<window>'`. A second masking implementation here would
+have been the obvious way to let the two drift.
+
+**The ranking is a log-likelihood ratio, the G² statistic.** A raw delta cannot
+tell 2 → 4 from 0 → 300; here the first scores 0.68 and the second 416, because
+a doubling of two is exactly what noise looks like and an appearance out of
+nothing is not. A large drop scores highest of all — 9,800 → 480 is 10,366 —
+which is right, because a service that stopped saying what it always said is the
+most informative thing in either window.
+
+**Rates for display, shares for ranking.** These answer different questions and
+the table answers both. Rates come from the windows' durations, because an hour
+of healthy traffic against five minutes of an incident is a legitimate question
+and 100 records means nothing without the span. The ranking apportions expected
+counts by each window's *record count* instead — see EC007.2, where that
+decision was forced.
+
+**Counts when the windows are the same length, rates when they are not.** The
+common case is two one-hour windows, where a count is what people think in and
+the two are directly comparable. The moment the lengths differ the columns
+switch to a rate, the unit is chosen so the largest number on screen is at least
+one, and the footer states both lengths and the unit.
+
+**An open-ended window is bounded by the data's own range, and says so.**
+`--before before:14:00` has no length, and a rate needs one. Clamping to the span
+the data covers is the only bound that means anything, and it changes no counts:
+no record exists outside that span, so the clamped window selects exactly what
+the unclamped predicate did. The resolved window is printed either way.
+
+**Overlapping windows are reported, not refused.** A record in the overlap is
+counted on both sides, which is what keeps each column equal to what that window
+alone would report. Comparing a window with itself finds nothing, which is a
+useful thing for the tool to be able to say.
+
+### EC007.2 — Fields and values — **done**
+
+- [x] Fields present in one window and not the other
+- [x] Values of each field, compared and ranked on the same scale as templates
+- [x] Identifier-like fields named rather than silently left out
+- [x] Tests: classification, ranking, per-kind tallies, unequal windows,
+      overlap, empty windows, clamping, determinism, suppression rules
+
+**Apportioning surprise by duration was wrong, and the field half is what proved
+it.** With rate-based ranking, a sixtyfold rise in traffic put `field level ×61`,
+`field path ×61`, `field status ×61`, `field source ×61` at the top of the list —
+one fact restated once per field, burying the single template that had actually
+appeared. Expected counts are now apportioned by each window's record count, so
+the score answers *"what is different about this window beyond there simply
+being more of it"*. The change in volume is a single fact and is printed once,
+above the table, as the thing everything below is measured against.
+
+That change also removed a special case rather than adding one. A field every
+record carries has a share of one in both windows, so it scores zero and drops
+out under the same rule as everything else; an earlier version detected and
+suppressed those explicitly, with its own footer line to explain the omission.
+One rule applied to templates, fields and values alike is both smaller and
+easier to state.
+
+**A field with one value is dropped; its presence row survives.** The two rows
+would carry identical counts and identical scores, sitting next to each other
+saying the same thing twice. The field row is the one kept, because its absence
+is the finding.
+
+**Values are compared for fields with at most 500 distinct values.** Above that
+a field is an identifier rather than a category, and *"trace_id=a91c40f2
+appeared"* is true of every trace in the window — it is not a finding. The
+ranking would sink them anyway, since a value seen once scores 1.4, but holding
+several million of them in a map to find that out would break the bounded-memory
+commitment. Presence is still compared, and the footer names every field left
+out with its distinct count.
+
+**One statement per window for the values, not one per field.** The window is
+read into a CTE and each field unpivoted off it, so the cost is a single scan
+however many fields there are. Field names reach SQL as bound parameters rather
+than as text; the JSON path inside each expression is escaped by
+`internal/query`, which is the same resolver a filter uses, so a facet, a filter
+and a comparison cannot disagree about what a name means.
+
+**A field whose name holds a control character is left out and named.** This is
+not a comparison bug — see EC022 — but a comparison is the only thing that
+references every field at once, so it is the only thing that meets it on
+ordinary data. Failing the whole run because one field in a corrupted log has a
+NUL in its name would be the wrong trade.
+
+**Per-kind tallies, because the denominators are nothing alike.** *"37 of 37
+templates, 26 of 30 fields, and 68 of 76 field values differ"* says something
+that a single "131 of 143" does not, and the reader needs to know which
+denominator the answer at the top of the list came from.
+
+**Comparing against an empty window is answered in words.** With nothing on one
+side there is no share to compare against and every item scores zero, so the
+report says *"everything in the after window is new"* and offers the filter that
+lists it, rather than printing a thousand rows all equally unsurprising.
+
+**Two defects found on the way**, both pre-existing and both filed rather than
+fixed here: EC022, a control character in a field name breaking any query that
+references it, and EC023, a negated filter being unread as a flag before the
+command sees it. Neither is a comparison bug; a comparison is just the first
+thing that references every field at once, and writing its examples is the first
+thing that tried to type a negation on a command line.
+
+**Watch:** the next request will be a `--only patterns` flag, and it should
+probably stay no. The ranking is what makes one list better than three, and a
+flag that narrows it is a flag that hides the finding when it turns out to be a
+field value.
 
 ---
 
@@ -990,6 +1130,86 @@ under `go test`, so CI gains the regression value with no workflow change and
 no added runtime. Long fuzzing runs stay a manual, local activity: each target
 was run for 45s here, and `FuzzParse` for a further five minutes (17.7M execs)
 after the last fix.
+
+---
+
+## EC022 — A control character in a field name breaks the query
+
+**Status: not started.** Found while building EC007, which is the first thing
+that references every field in one statement and so the first thing to meet it
+on ordinary data — `cmd/blaster` generates a field called `iss\x00\x00uer`, and
+`demo/` contains one.
+
+`internal/query.jsonPath` builds `fields->>'$."<key>"'`, and
+`escapeJSONPathKey` escapes backslash, double quote and single quote. It does
+not escape control characters, and a NUL terminates the statement at the
+database's C boundary, so DuckDB sees a string that never closes:
+
+```
+Parser Error: unterminated quoted string at or near "'$."iss
+```
+
+- [ ] Any query referencing such a field fails — a filter on it, `loupe top` on
+      it, and `loupe diff`, which references all of them
+- [ ] **Ingest fails outright** when the field is common enough for
+      `internal/schema` to promote it to a column: `Open: promote fields: exec:
+      Parser Error`. A two-record fixture with the field on both records
+      reproduces it, which means a real log carrying one on most lines cannot be
+      opened at all
+- [ ] Decide the fix: escape the key into the path as `\uXXXX` if DuckDB's path
+      parser accepts it, build the path by concatenation (`'$."' || chr(0) || …`)
+      so no NUL appears in the statement text, or refuse to promote such a field
+      and resolve it another way
+- [ ] Whatever the fix, the field must stay *queryable*, not merely
+      non-fatal — CLAUDE.md's rule is that a record is never silently dropped,
+      and a field nothing can reference is the same failure one level down
+- [ ] Fuzz the key path: `FuzzParse` covers the DSL text, nothing covers a field
+      name arriving from a log file into a JSON path literal
+- [ ] EC007 works around it by leaving such fields out of a comparison and
+      naming them; remove the workaround in `internal/session/diff.go`
+      (`referenceable`) once the underlying escape is fixed
+
+---
+
+## EC023 — A negated filter is unusable without `--`
+
+**Status: not started.** Found while writing the EC007 examples in `README.md`.
+Affects every command that takes a filter positionally, not just `loupe diff`.
+
+Negation is a headline feature of the filter language — `README.md` advertises
+`-source:nginx` in the syntax list — but cobra reads a leading `-` as a flag
+before the command ever sees it:
+
+```
+$ loupe ./logs '-source:nginx'
+loupe: unknown shorthand flag: 's' in -source:nginx
+
+$ loupe top level ./logs '-source:nginx'
+loupe: unknown shorthand flag: 's' in -source:nginx
+```
+
+The escape hatch works and nothing says so:
+
+```
+$ loupe ./logs -- '-source:nginx'
+$ loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 -- '-source:nginx'
+```
+
+- [ ] Decide the fix. `Flags().SetInterspersed(false)` stops flag parsing at the
+      first positional, which fixes negation but breaks `loupe ./logs
+      'level:error' --limit 5` — flags after the filter are the common shape, so
+      that trade is probably wrong
+- [ ] More likely: catch the error and rewrite it. cobra's message names the
+      offending argument, and turning *unknown shorthand flag: 's' in
+      -source:nginx* into *`-source:nginx` looks like a flag; write it after `--`*
+      costs nothing and is the only thing the user needs
+- [ ] Whichever way, `README.md`'s filter syntax list should show the `--` form
+      beside the negation examples, since that list is where people copy from
+- [ ] Applies to the default command, `top`, `patterns`, `histogram`, `trace`
+      and `diff` — anything routed through `resolveArgs`
+- [ ] EC019 (`cmd/loupe` test coverage) is where a regression test for this
+      belongs; there is currently no test that runs a negated filter through
+      argument parsing
 
 ---
 

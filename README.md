@@ -308,6 +308,90 @@ field` offered as the two things that would have worked.
 the language cannot express is still one `loupe sql "SELECT ..."` away. Full
 syntax: [docs/FILTER-DSL.md §10](docs/FILTER-DSL.md).
 
+## Comparing two windows
+
+*"What is different between the healthy window and the incident window?"*
+
+```bash
+# The question
+loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00   # an hour either side
+loupe diff ./logs --before on:2026-08-12 --after on:2026-08-13  # yesterday vs today
+loupe diff ./logs --before last:2h --after last:15m          # earlier vs right now
+
+# Naming a window
+loupe diff ./logs --before between:13:00-14:00 --after between:14:00-15:00
+loupe diff ./logs --before 'between:2026-08-13T12:00:00Z-2026-08-13T13:00:00Z' \
+                  --after  'between:2026-08-13T13:00:00Z-2026-08-13T14:00:00Z'
+loupe diff ./logs --before before:14:00 --after after:14:00   # open ends, bounded by the data
+
+# Narrowing both sides
+loupe diff ./logs 'source:checkout-api' --before 13:00-14:00 --after 14:00-15:00
+loupe diff ./logs 'level:>=error' --before 13:00-14:00 --after 14:00-15:00
+loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 -- '-source:nginx'
+
+# Unequal windows — compared as rates, and it says so
+loupe diff ./logs --before last:1h --after last:5m
+
+# How much to show
+loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 --limit 40
+loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 --all
+loupe compare ./logs --before 13:00-14:00 --after 14:00-15:00   # same command
+
+# The list is on stdout; the windows and caveats are on stderr
+loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 2>/dev/null
+```
+
+```
+before  13:00:00–14:00:00 BST  =  12:00:00–13:00:00 UTC  ·  Thu 2026-08-13
+        1h · 12,043 records
+after   14:00:00–15:00:00 BST  =  13:00:00–14:00:00 UTC  ·  Thu 2026-08-13
+        1h · 14,201 records
+
+Volume went from 12,043 to 14,201 records (+18%). Everything below is ranked on what changed beyond that.
+
+BEFORE   AFTER  CHANGE  WHAT
+     0     312     new  pattern 9acf7d11  connection to <host> refused
+   140   1,316    ×9.4  status=503
+ 1,204       0    gone  pattern 3ab1f0aa  cache warm complete
+     0     287     new  field retry_after
+```
+
+Windows are written in the filter language's own time grammar, so `--before
+13:00-14:00` means exactly what `13:00-14:00` means in a filter — resolved
+against the same data, reported in the same two timezones. `between:`, `last:`,
+`on:`, `before:` and `after:` all work. A filter given alongside applies to both
+windows — put it after `--` if it starts with a negating `-`, or the shell hands
+it to the flag parser.
+
+| Compared | Reads |
+|---|---|
+| `pattern <id>  <template>` | a message shape, as `loupe patterns` computes them |
+| `field <name>` | how many records carry the field at all |
+| `<field>=<value>` | one value of one field |
+
+All three are ranked together, so the top of the list is the answer whatever
+kind it turns out to be. `CHANGE` reads `new`, `gone`, a percentage, or a
+multiplier once something more than doubled.
+
+**Ranked by how surprising a change is, not by raw delta.** Something that
+doubled from 2 to 4 is noise; something that went from nothing to 300 is the
+incident. The score is a log-likelihood ratio over each item's *share* of its
+window, which means a thing that merely grew with the traffic is not a finding —
+the change in volume is one fact, printed once above the table rather than
+restated once per field.
+
+**Unequal windows are compared as rates**, and the columns say so. An hour of
+healthy traffic against five minutes of an incident is a valid question.
+
+**Overlapping windows are allowed** — `--before last:2h --after last:15m` is a
+reasonable thing to type — and the report says they overlap, because a record
+inside the overlap is counted on both sides. That is what keeps each column
+equal to what `loupe ./logs '<that window>'` would report on its own.
+
+Every omission is stated: records with no timestamp are in neither window,
+identifier-like fields have too many values to compare one by one, and a limit
+that cut the list says by how much.
+
 ## Grouping messages into patterns
 
 Thirty-four thousand lines are usually a dozen shapes with the values filled in
