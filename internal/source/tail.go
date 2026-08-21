@@ -43,14 +43,15 @@ type Tailable interface {
 //
 // A compressed file cannot be resumed partway through, since the offset refers
 // to decompressed bytes that only exist by decompressing everything before
-// them. That is not a limitation worth engineering around: rotated .gz files do
-// not grow, so the incremental path never asks.
+// them. That is not a limitation worth engineering around: a rotated archive
+// does not grow, whatever it is compressed with, so the incremental path never
+// asks.
 func (f *File) OpenAt(ctx context.Context, offset int64) (io.ReadCloser, error) {
 	if offset == 0 {
 		return f.Open(ctx)
 	}
-	if f.gzipped {
-		return nil, fmt.Errorf("open %s at %d: compressed files cannot be resumed", f.path, offset)
+	if f.codec != codecNone {
+		return nil, fmt.Errorf("open %s at %d: %s files cannot be resumed", f.path, offset, f.codec)
 	}
 
 	file, err := os.Open(f.path)

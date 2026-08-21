@@ -1,0 +1,24 @@
+{"log": "listening on :8080\n", "stream": "stdout", "time": "2026-08-13T14:02:00.113456789Z"}
+{"log": "INFO  request completed path=/api/cart status=200\n", "stream": "stdout", "time": "2026-08-13T14:02:00.914112233Z"}
+{"log": "INFO  request completed path=/api/checkout status=200\n", "stream": "stdout", "time": "2026-08-13T14:02:01.203344556Z"}
+{"log": "DEBUG cache hit for user u_1208\n", "stream": "stdout", "time": "2026-08-13T14:02:01.703344556Z"}
+{"log": "WARN  retrying upstream in 200ms\n", "stream": "stderr", "time": "2026-08-13T14:02:02.100000000Z"}
+
+{"attrs": {"com.docker.compose.service": "checkout", "tag": "checkout-api"}, "log": "ERROR read timed out after 5000ms\n", "stream": "stderr", "time": "2026-08-13T14:02:02.500000000Z"}
+{"log": "\n", "stream": "stdout", "time": "2026-08-13T14:02:03.000000000Z"}
+{"log": "progress 50%", "stream": "stdout", "time": "2026-08-13T14:02:03.250000000Z"}
+{"log": "INFO  request completed path=/healthz status=200\n", "stream": "stdout", "time": "2026-08-13T14:02:03.750000000Z"}
+{"log": "FATAL giving up after 3 attempts\n", "stream": "stderr", "time": "2026-08-13T14:02:04.100000000Z"}
+{"log": "INFO  request completed path=/api/session status=200\n", "stream": "stdout", "time": "2026-08-13T14:02:04.600000000Z"}
+{"log": "WARN  connection pool at 90% capacity\n", "stream": "stderr", "time": "2026-08-13T14:02:05.000000000Z"}
+{"log": "INFO  request completed path=/api/orders/2291 status=200\n", "stream": "stdout", "time": "2026-08-13T14:02:05.400000000Z"}
+{"log": "TRACE span 4f2c closed\n", "stream": "stdout", "time": "2026-08-13T14:02:06.000000000Z"}
+{"log": "ERROR PaymentGatewayException: read timed out\n", "stream": "stderr", "time": "2026-08-13T14:02:06.500000000Z"}
+{"log": "clock went backwards\n", "stream": "stdout", "time": "not-a-timestamp"}
+{"log": "orphaned\n", "time": "2026-08-13T14:02:04Z"}
+plain text that leaked into the container log file
+{"log": "INFO  request completed path=/api/cart status=200\n", "stream": "stdout", "time": "2026-08-13T14:02:07.000000000Z"}
+{"log": "shutting down\n", "stream": "stdout", "time": "2026-08-13T14:02:07.500000000Z"}
+{"log": "INFO  drained 4 connections\n", "stream": "stdout", "time": "2026-08-13T14:02:08.000000000Z"}
+{"log": "exit status 0\n", "stream": "stdout", "time": "2026-08-13T14:02:08.500000000Z"}
+{"log": "panic: runtime error: index out of range", "stream": "stderr"

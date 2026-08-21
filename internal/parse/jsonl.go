@@ -47,8 +47,26 @@ func (p *jsonlParser) Detect(sample [][]byte) float64 {
 	if considered == 0 {
 		return 0
 	}
-	return float64(matched) / float64(considered)
+
+	// Capped below certainty on purpose. This is the *generic* JSON parser, and
+	// a JSON log that is also a journald export or a Docker json-file is better
+	// read by the parser that knows what its keys mean. Those return up to 1.0
+	// for a format they recognise specifically, so they win cleanly instead of
+	// tying and being separated by alphabetical order.
+	//
+	// The same reasoning the fallback parser uses at the other end of the
+	// scale: a parser's confidence says how specifically it claims the format,
+	// not how sure it is that the bytes parse.
+	return genericJSONCeiling * float64(matched) / float64(considered)
 }
+
+// genericJSONCeiling is the most confidence the generic JSON parser will claim.
+//
+// The margin has to clear Detection.Ambiguous, which is a tenth: at exactly 0.9
+// a specific parser wins by 0.1 and is reported as a coin flip anyway, which is
+// the opposite of the point. Far enough below 1.0 to win outright, far enough
+// above everything else that JSON is never mistaken for text.
+const genericJSONCeiling = 0.85
 
 func (p *jsonlParser) Parse(line []byte) (Record, error) {
 	line = bytes.TrimSpace(line)

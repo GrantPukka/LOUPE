@@ -406,6 +406,9 @@ func TestParsersDoNotClaimEachOther(t *testing.T) {
 		"syslog":   `<14>1 2026-08-13T14:02:00Z host-01 sshd 3344 - - session opened`,
 		"postgres": `2026-08-13 14:02:00.100 UTC [20353] LOG:  duration: 178.328 ms`,
 		"log4j":    `2026-08-13 14:12:48.146 [worker-1] ERROR c.a.p.Handler - read timed out`,
+		"cri":      `2026-08-13T14:02:00.113456789Z stdout F listening on :8080`,
+		"docker":   `{"log":"listening on :8080\n","stream":"stdout","time":"2026-08-13T14:02:00.113456789Z"}`,
+		"journald": `{"__REALTIME_TIMESTAMP":"1786629720000000","PRIORITY":"6","MESSAGE":"Started Checkout API.","_HOSTNAME":"node-01"}`,
 	}
 
 	for owner, line := range samples {

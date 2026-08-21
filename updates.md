@@ -19,7 +19,7 @@ built without breaking one of those is not on this list.
 | [EC005](#ec005--faceted-breakdowns--top-n) | Faceted breakdowns / top-N | 2 | **done** |
 | [EC006](#ec006--aggregations-in-the-dsl) | Aggregations in the DSL | 2 | **done** |
 | [EC007](#ec007--window-compare--diff) | Window compare / diff | 2 | **done** |
-| [EC008](#ec008--broaden-intake) | Broaden intake | 2 | not started |
+| [EC008](#ec008--broaden-intake) | Broaden intake | 2 | **done** |
 | [EC009](#ec009--ad-hoc-regex-field-extraction) | Ad-hoc regex field extraction | 3 | not started |
 | [EC010](#ec010--self-contained-html-report-export) | Self-contained HTML report export | 3 | not started |
 | [EC011](#ec011--query-history-recall) | Query history recall | 3 | not started |
@@ -35,6 +35,7 @@ built without breaking one of those is not on this list.
 | [EC021](#ec021--fix-duplicate-24-in-docsfilter-dslmd) | Fix duplicate §2.4 in FILTER-DSL.md | 3 | not started |
 | [EC022](#ec022--a-control-character-in-a-field-name-breaks-the-query) | Control character in a field name breaks the query | 1 | not started |
 | [EC023](#ec023--a-negated-filter-is-unusable-without---) | Negated filter unusable without `--` | 2 | not started |
+| [EC024](#ec024--symlinked-log-files-are-skipped) | Symlinked log files are skipped | 2 | not started |
 
 ---
 
@@ -987,25 +988,133 @@ field value.
 
 ## EC008 — Broaden intake
 
-**Status: not started.** Parsers are the contribution surface, so this doubles as
-community fuel. Each parser is ~100 lines and a fixture.
+**Status: done.** Both halves complete and tested. Work is on branch `EC008`,
+cut from `main`. Parsers are the contribution surface, so this doubles as
+community fuel.
 
-**Compression.** `walk.go:42` currently skips `.zst`, `.bz2`, `.xz` outright;
-only gzip is handled. zstd is everywhere in modern log rotation.
+### EC008.1 — Compression — **done**
 
-- [ ] zstd — check the licence and binary-size cost before adding a dependency;
-      `CLAUDE.md` requires asking first
-- [ ] bzip2 and xz (stdlib has bzip2; xz does not)
-- [ ] Remove each from the skip list only once it actually reads
-- [ ] Compressed files are not `Tailable` — EC001 already assumes this, keep it true
+- [x] zstd — licence and binary-size cost checked before asking; approved
+- [x] bzip2 and xz (stdlib has bzip2; xz does not)
+- [x] Each removed from the skip list only once it actually reads
+- [x] Compressed files are not `Tailable` — EC001 already assumes this, and it
+      is now asserted per codec
+- [x] Detection from magic bytes, for files and for pipes alike
 
-**Formats.**
+**The dependency numbers the item asked for.** Both are BSD-3-Clause, neither
+has a transitive dependency, and together they cost **+0.51MB on a 54MB binary
+(+0.9%)**. Measured in isolation the pair looked like +1.07MB; on the real
+binary it is half that, because `klauspost/compress` was *already in the build
+graph* — go-duckdb pulls it in through arrow, and the shipped binary already
+linked nine of its zstd symbols. Only the decoder itself is new code.
 
-- [ ] journald JSON export
-- [ ] Docker `json-file`
-- [ ] CRI / Kubernetes container log format
-- [ ] Golden fixture each, messy per `CLAUDE.md`: blank lines, a truncated final
-      line, mixed timestamp formats, at least one malformed record
+It was pinned rather than upgraded. `go get` wanted to move the shared module
+from v1.17.11 to v1.19.2, which would have changed a dependency go-duckdb and
+arrow both rely on, to gain nothing: zstd decoding has been stable for years.
+`go mod tidy` keeps it where arrow put it.
+
+**Magic bytes, never the extension.** A `.log` that is really gzip is common,
+logrotate's `.1.gz` and `.1.zst` sit in the same directory as files with no
+suffix at all, and the walker already refused to trust names for gzip. The four
+signatures are checked against the first six bytes — xz's is the longest — and
+a pipe is peeked for the same six, so `zstdcat old.log.zst | loupe` needs no
+flag.
+
+**bzip2 needs its level digit.** The signature is `BZh` followed by `1`-`9`.
+Without the digit check, a text file beginning "BZh" — a hostname, a hash —
+would be handed to a decompressor that then fails the whole file over three
+bytes.
+
+**zstd is pinned to one decoder goroutine per file.** The ingest already reads
+sources in parallel; a decoder that spawns a worker per core per file turns a
+directory of two hundred rotated archives into a thread explosion.
+
+**The compression extensions came off the skip list; the container formats
+stayed on.** `.zip`, `.tar` and `.7z` hold many files, and reading one as a byte
+stream produces nonsense. `.gz`, `.zst`, `.bz2` and `.xz` hold exactly one, which
+is the distinction that matters. Leaving them skipped meant a directory of
+rotated logs read only the live file — silently, which is the failure this
+project refuses.
+
+**One suffix list, shared — which is what caught a real bug.** `internal/store`
+had its own copy of "reduce a path to a source name", and it knew only `.gz`.
+The moment the walker started returning `access.log.2.zst`, that archive became
+a source of its own and `source:access` stopped matching it. Both now call
+`source.TrimCompressionSuffix`, and a test pins every codec. The bug predates
+this item — it was simply unreachable while the files were skipped.
+
+### EC008.2 — Formats — **done**
+
+- [x] journald JSON export (`journalctl -o json`)
+- [x] Docker `json-file`
+- [x] CRI / Kubernetes container log format
+- [x] Golden fixture each, messy per `CLAUDE.md`: blank lines, a truncated final
+      line, mixed timestamp forms, at least one malformed record
+- [x] None of the nine formats claims another's lines
+
+**journald is its own parser, not extra key names in jsonl.** Almost nothing
+about a journal entry follows the conventions the generic JSON parser assumes:
+the timestamp is microseconds since the epoch *in a string* — quoted because the
+value needs 51 bits and a JSON double cannot hold it exactly — the level is a
+syslog priority digit, and `MESSAGE` arrives as an array of byte values whenever
+it holds text JSON cannot carry. Teaching jsonl those three exceptions would
+make every other JSON log pay for them.
+
+The priority goes through `severityLevel`, the function the syslog parser
+already uses, because it is the same scale. A second mapping here could disagree
+with that one. The digit is kept as a field beside the word: it is what a
+systemd user filters on, and translating it away would lose the form they know.
+
+**Docker's driver appends the newline the process wrote.** jsonl would half-read
+a json-file line — `time` and `log` are both in its key lists — and leave that
+newline on every message, putting a blank line under every record in the table
+and a stray `\n` in every handoff. The half it gets wrong is the half that
+matters.
+
+The trio `log`, `stream`, `time` is the signature, and all three are required.
+Two of them are ordinary names any application log might use.
+
+**Neither container format carries a severity, so it is read out of the message
+text.** Guessing from the stream would be worse than not guessing: plenty of
+programs write ordinary progress to stderr, and marking all of it error-level
+would poison `level:>=error` for the whole source. Reading the word the program
+actually wrote is the same rule the fallback parser has always used, now shared
+as `levelFromMessage`.
+
+**CRI partial lines are marked, not stitched.** A `P`-tagged line is a fragment
+the runtime split at its buffer. Rejoining them needs to know that the
+*previous* line was tagged `P`, and `Continuer.IsContinuation` asks the opposite
+question — whether this line continues the last one — so making it fit would
+mean widening the contribution surface for one format, which `CLAUDE.md`
+forbids. Nothing is lost: `partial:true` finds every fragment and they sit
+adjacent on the timeline. Worth revisiting only if someone asks.
+
+**The generic JSON parser now claims at most 0.85.** Three JSON formats
+competing was new: jsonl returned 1.0 for anything that parses, so a journald
+export and a Docker line both tied with it and were separated by alphabetical
+order — an accident waiting to be renamed. A parser's confidence says how
+*specifically* it claims the format, which is the reasoning `fallbackParser`
+already uses at the other end of the scale at 0.01. The ceiling is 0.85 rather
+than 0.9 because `Detection.Ambiguous` is a tenth: at 0.9 the specific parser
+wins by exactly 0.1 and is reported as a coin flip anyway, which is the opposite
+of the point.
+
+**The existing suite caught both of the mistakes in this half.**
+`TestFixturesAreMessy` refused fixtures under twenty records, and
+`TestSpecificJSONParsersBeatGenericJSON` — written for this item — is what
+surfaced the 0.9 boundary. Neither would have been noticed by reading the code.
+
+**A gap found writing the examples, filed as EC024.** `/var/log/containers` is
+the directory Kubernetes documentation points a log tool at, and every entry in
+it is a symlink into `/var/log/pods`. The walk reads regular files only, so it
+skips the lot — with a reason per file, which is the one thing it gets right.
+CRI works against `/var/log/pods`, which holds the real files, and `README.md`
+says so; the symlink case needs deduplication by resolved path before it can be
+turned on, or pointing at `/var/log` would read every pod log twice.
+
+**Watch:** three formats is where a `--parser` list stops being readable.
+`loupe sources` already reports what was detected per file, and that is the
+place to look when a format is guessed wrong, not a longer help string.
 
 ---
 
@@ -1210,6 +1319,43 @@ $ loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 -- '-source:nginx'
 - [ ] EC019 (`cmd/loupe` test coverage) is where a regression test for this
       belongs; there is currently no test that runs a negated filter through
       argument parsing
+
+---
+
+## EC024 — Symlinked log files are skipped
+
+**Status: not started.** Found while writing the EC008 examples in `README.md`.
+
+`/var/log/containers` is the directory people are told to point a log tool at on
+a Kubernetes node — it is what most shipper documentation names — and every
+entry in it is a symlink into `/var/log/pods`. The walk reads regular files only,
+so the whole directory is skipped:
+
+```
+$ loupe /var/log/containers
+loupe: no readable log files in /var/log/containers, but 42 file(s) were skipped:
+  /var/log/containers/checkout-abc123.log: not a regular file
+```
+
+The skip is reported rather than silent, which is the one thing this gets right.
+EC008 shipped a CRI parser that cannot be pointed at the canonical CRI
+directory, so the format is only half delivered.
+
+- [ ] Follow a symlink that resolves to a regular file. `filepath.WalkDir` does
+      not descend into symlinked *directories*, so only file symlinks are in
+      play and there is no loop to guard against
+- [ ] **Deduplicate by resolved path**, which is the part that needs care:
+      `loupe /var/log` would otherwise read every pod log twice, once under
+      `pods/` and once under `containers/`, and silently double every count.
+      `Fingerprint` is path-based, so it will not catch this on its own
+- [ ] Decide what a broken symlink is — a skip with a reason, almost certainly,
+      not an error
+- [ ] Keep skipping sockets, devices and FIFOs: a symlink to a regular file is a
+      regular file for reading, and nothing else is
+- [ ] Test that pointing at a tree containing both a file and a symlink to it
+      produces each record once, and that the count is stated
+- [ ] `README.md` currently steers people to `/var/log/pods` and explains why;
+      remove that note once this lands
 
 ---
 

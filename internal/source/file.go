@@ -2,7 +2,6 @@ package source
 
 import (
 	"bufio"
-	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -12,16 +11,16 @@ import (
 	"sync"
 )
 
-// File is a log file on local disk. Gzip content is decompressed
+// File is a log file on local disk. Compressed content is decompressed
 // transparently, so callers never see compressed bytes.
 type File struct {
 	path string
 	size int64
 	// mtime is nanoseconds since the epoch, part of the fingerprint.
 	mtime int64
-	// gzipped is detected from the magic bytes rather than the extension, since
+	// codec is detected from the magic bytes rather than the extension, since
 	// rotated logs are not reliably named.
-	gzipped bool
+	codec codec
 }
 
 // NewFile stats the path and detects compression.
@@ -34,25 +33,33 @@ func NewFile(path string) (*File, error) {
 		return nil, fmt.Errorf("stat %s: is a directory", path)
 	}
 
-	gzipped, err := isGzip(path)
+	c, err := codecOf(path)
 	if err != nil {
 		return nil, err
 	}
 
 	return &File{
-		path:    path,
-		size:    info.Size(),
-		mtime:   info.ModTime().UnixNano(),
-		gzipped: gzipped,
+		path:  path,
+		size:  info.Size(),
+		mtime: info.ModTime().UnixNano(),
+		codec: c,
 	}, nil
 }
 
 func (f *File) Name() string { return f.path }
 func (f *File) Size() int64  { return f.size }
 
-// Compressed reports whether the file is gzipped, which the walker uses to
+// Compressed reports whether the file is compressed, which the walker uses to
 // exempt it from the size ceiling.
-func (f *File) Compressed() bool { return f.gzipped }
+func (f *File) Compressed() bool { return f.codec != codecNone }
+
+// Codec names the compression, for reporting. Empty when there is none.
+func (f *File) Codec() string {
+	if f.codec == codecNone {
+		return ""
+	}
+	return f.codec.String()
+}
 
 func (f *File) Open(ctx context.Context) (io.ReadCloser, error) {
 	file, err := os.Open(f.path)
@@ -60,16 +67,10 @@ func (f *File) Open(ctx context.Context) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("open %s: %w", f.path, err)
 	}
 
-	if !f.gzipped {
+	if f.codec == codecNone {
 		return file, nil
 	}
-
-	zr, err := gzip.NewReader(file)
-	if err != nil {
-		file.Close()
-		return nil, fmt.Errorf("open gzip %s: %w", f.path, err)
-	}
-	return &gzipReadCloser{Reader: zr, underlying: file}, nil
+	return decompress(f.codec, file, file, f.path)
 }
 
 // Fingerprint covers path, size, and mtime. A file rewritten in place with
@@ -77,40 +78,6 @@ func (f *File) Open(ctx context.Context) (io.ReadCloser, error) {
 // build system makes.
 func (f *File) Fingerprint() string {
 	return f.path + ":" + strconv.FormatInt(f.size, 10) + ":" + strconv.FormatInt(f.mtime, 10)
-}
-
-// gzipReadCloser closes the gzip reader and the file beneath it. The stdlib
-// gzip reader does not own its source, so closing only the outer reader leaks
-// the descriptor.
-type gzipReadCloser struct {
-	*gzip.Reader
-	underlying io.Closer
-}
-
-func (g *gzipReadCloser) Close() error {
-	err := g.Reader.Close()
-	if cerr := g.underlying.Close(); err == nil {
-		err = cerr
-	}
-	return err
-}
-
-// isGzip checks the magic bytes rather than trusting the extension. Rotated
-// logs get named inconsistently and a .log that is really gzip is common.
-func isGzip(path string) (bool, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return false, fmt.Errorf("open %s: %w", path, err)
-	}
-	defer f.Close()
-
-	var magic [2]byte
-	n, err := io.ReadFull(f, magic[:])
-	if err != nil && n < 2 {
-		// Shorter than two bytes, so empty or nearly so, and certainly not gzip.
-		return false, nil
-	}
-	return magic[0] == 0x1f && magic[1] == 0x8b, nil
 }
 
 // PeekBytes is how much of a stream can be inspected without consuming it.
@@ -169,34 +136,39 @@ func (s *Stdin) Size() int64 { return -1 }
 // not be there to re-read.
 func (s *Stdin) Fingerprint() string { return "" }
 
-// reader wraps the stream once, decompressing piped gzip transparently.
+// reader wraps the stream once, decompressing a piped archive transparently.
 //
 // Detection by content is the only option a pipe offers: there is no name to
-// infer from, and `zcat old.log.gz | loupe` should not need a flag to say what
+// infer from, and `cat old.log.zst | loupe` should not need a flag to say what
 // is already obvious. The magic bytes are peeked rather than read, so nothing
 // is taken from a stream that cannot give it back.
 func (s *Stdin) reader() (*bufio.Reader, error) {
 	s.once.Do(func() {
 		raw := bufio.NewReaderSize(s.src, PeekBytes)
 
-		magic, err := raw.Peek(2)
+		magic, err := raw.Peek(magicBytes)
 		if err != nil && !errors.Is(err, io.EOF) {
 			s.err = fmt.Errorf("read stdin: %w", err)
 			return
 		}
-		// Fewer than two bytes is an empty or nearly empty stream. Not gzip,
-		// and not an error: reading nothing is a legitimate outcome.
-		if len(magic) < 2 || magic[0] != 0x1f || magic[1] != 0x8b {
+
+		// A stream shorter than a signature is empty or nearly so. Not
+		// compressed, and not an error: reading nothing is a legitimate
+		// outcome.
+		c := detectCodec(magic)
+		if c == codecNone {
 			s.buf = raw
 			return
 		}
 
-		zr, err := gzip.NewReader(raw)
+		// Nothing underneath to close: the process's standard input is not
+		// ours to close, and NewStream's reader belongs to its caller.
+		rc, err := decompress(c, raw, nil, "stream")
 		if err != nil {
-			s.err = fmt.Errorf("open gzip stream: %w", err)
+			s.err = err
 			return
 		}
-		s.buf, s.closer = bufio.NewReaderSize(zr, PeekBytes), zr
+		s.buf, s.closer = bufio.NewReaderSize(rc, PeekBytes), rc
 	})
 
 	return s.buf, s.err

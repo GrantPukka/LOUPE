@@ -1,0 +1,24 @@
+2026-08-13T14:02:00.113456789Z stdout F listening on :8080
+2026-08-13T14:02:00.914112233Z stdout F INFO  request completed path=/api/cart status=200
+2026-08-13T14:02:01.203344556Z stdout F INFO  request completed path=/api/checkout status=200
+2026-08-13T14:02:01.703344556Z stdout F DEBUG cache hit for user u_1208
+2026-08-13T14:02:02.100000000Z stderr F WARN  retrying upstream in 200ms
+
+2026-08-13T14:02:02.500000000Z stdout P java.lang.IllegalStateException: could not acquire a connection 
+2026-08-13T14:02:02.500000001Z stdout P from the pool after 30000ms, pool exhausted with 50 active 
+2026-08-13T14:02:02.500000002Z stdout F leases and 0 idle
+2026-08-13T14:02:03.000000000Z stderr F ERROR read timed out after 5000ms
+2026-08-13T14:02:03.250000000Z stdout F INFO  request completed path=/healthz status=200
+2026-08-13T14:02:03.500000000Z stdout F
+2026-08-13T14:02:04Z stderr F FATAL giving up
+2026-08-13T14:02:04.500000000Z stdout F INFO  request completed path=/api/session status=200
+2026-08-13T14:02:05.000000000Z stderr F WARN  connection pool at 90% capacity
+2026-08-13T14:02:05.400000000Z stdout F:reserved TRACE span 4f2c closed
+2026-08-13T14:02:06.000000000Z stdout F INFO  request completed path=/api/orders/2291 status=200
+2026-08-13T14:02:06.500000000Z stderr F ERROR PaymentGatewayException: read timed out
+2026-08-13T14:02:07.000000000Z stdxxx F what stream is this
+plain text that leaked into the pod log file
+2026-08-13T14:02:07.500000000Z stdout F INFO  drained 4 connections
+2026-08-13T14:02:08.000000000Z stdout F shutting down
+2026-08-13T14:02:08.500000000Z stdout F exit status 0
+2026-08-13T14:02:09.000000000Z stderr F panic: runtime error: index out

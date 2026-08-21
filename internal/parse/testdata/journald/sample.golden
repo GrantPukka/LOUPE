@@ -1,0 +1,477 @@
+{
+  "parser": "journald",
+  "stats": {
+    "lines": 27,
+    "records": 26,
+    "unparsed": 2,
+    "no_timestamp": 4,
+    "continuation": 0,
+    "truncated": 0,
+    "blank": 1,
+    "zone_assumed": 0
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:02:00Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "Started Checkout API.",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "systemd",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3344",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=0;b=3c9d;m=0;t=658ee25ce4600",
+        "__MONOTONIC_TIMESTAMP": "4210000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"Started Checkout API.\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"systemd\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3344\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=0;b=3c9d;m=0;t=658ee25ce4600\", \"__MONOTONIC_TIMESTAMP\": \"4210000\", \"__REALTIME_TIMESTAMP\": \"1786629720000000\"}"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:02:00.4Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "Accepted publickey for deploy from 10.0.4.7 port 51234 ssh2",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "sshd",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3348",
+        "_SYSTEMD_UNIT": "ssh.service",
+        "__CURSOR": "s=8a1f;i=61a80;b=3c9d;m=400000000;t=658ee25d46080",
+        "__MONOTONIC_TIMESTAMP": "4610000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"Accepted publickey for deploy from 10.0.4.7 port 51234 ssh2\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"sshd\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3348\", \"_SYSTEMD_UNIT\": \"ssh.service\", \"__CURSOR\": \"s=8a1f;i=61a80;b=3c9d;m=400000000;t=658ee25d46080\", \"__MONOTONIC_TIMESTAMP\": \"4610000\", \"__REALTIME_TIMESTAMP\": \"1786629720400000\"}"
+    },
+    {
+      "line_no": 3,
+      "ts": "2026-08-13T14:02:00.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "listening on :8080",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3346",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=dbba0;b=3c9d;m=900000000;t=658ee25dc01a0",
+        "__MONOTONIC_TIMESTAMP": "5110000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"listening on :8080\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3346\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=dbba0;b=3c9d;m=900000000;t=658ee25dc01a0\", \"__MONOTONIC_TIMESTAMP\": \"5110000\", \"__REALTIME_TIMESTAMP\": \"1786629720900000\"}"
+    },
+    {
+      "line_no": 4,
+      "ts": "2026-08-13T14:02:01.4Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "cache warm complete in 41ms",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3344",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=155cc0;b=3c9d;m=1400000000;t=658ee25e3a2c0",
+        "__MONOTONIC_TIMESTAMP": "5610000",
+        "priority": 7
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"cache warm complete in 41ms\", \"PRIORITY\": \"7\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3344\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=155cc0;b=3c9d;m=1400000000;t=658ee25e3a2c0\", \"__MONOTONIC_TIMESTAMP\": \"5610000\", \"__REALTIME_TIMESTAMP\": \"1786629721400000\"}"
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:02:01.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed path=/api/cart status=200",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3349",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=1cfde0;b=3c9d;m=1900000000;t=658ee25eb43e0",
+        "__MONOTONIC_TIMESTAMP": "6110000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"request completed path=/api/cart status=200\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3349\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=1cfde0;b=3c9d;m=1900000000;t=658ee25eb43e0\", \"__MONOTONIC_TIMESTAMP\": \"6110000\", \"__REALTIME_TIMESTAMP\": \"1786629721900000\"}"
+    },
+    {
+      "line_no": 6,
+      "ts": "2026-08-13T14:02:02.4Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "kernel: TCP: request_sock_TCP: Possible SYN flooding on port 443.",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "kernel",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3347",
+        "_TRANSPORT": "kernel",
+        "__CURSOR": "s=8a1f;i=249f00;b=3c9d;m=2400000000;t=658ee25f2e500",
+        "__MONOTONIC_TIMESTAMP": "6610000",
+        "priority": 4
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"kernel: TCP: request_sock_TCP: Possible SYN flooding on port 443.\", \"PRIORITY\": \"4\", \"SYSLOG_IDENTIFIER\": \"kernel\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3347\", \"_TRANSPORT\": \"kernel\", \"__CURSOR\": \"s=8a1f;i=249f00;b=3c9d;m=2400000000;t=658ee25f2e500\", \"__MONOTONIC_TIMESTAMP\": \"6610000\", \"__REALTIME_TIMESTAMP\": \"1786629722400000\"}"
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:02:02.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed path=/api/checkout status=200",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3345",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=2c4020;b=3c9d;m=2900000000;t=658ee25fa8620",
+        "__MONOTONIC_TIMESTAMP": "7110000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"request completed path=/api/checkout status=200\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3345\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=2c4020;b=3c9d;m=2900000000;t=658ee25fa8620\", \"__MONOTONIC_TIMESTAMP\": \"7110000\", \"__REALTIME_TIMESTAMP\": \"1786629722900000\"}"
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:02:03.4Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "Reloading nginx configuration",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "systemd",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3350",
+        "_SYSTEMD_UNIT": "nginx.service",
+        "__CURSOR": "s=8a1f;i=33e140;b=3c9d;m=3400000000;t=658ee26022740",
+        "__MONOTONIC_TIMESTAMP": "7610000",
+        "priority": 5
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"Reloading nginx configuration\", \"PRIORITY\": \"5\", \"SYSLOG_IDENTIFIER\": \"systemd\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3350\", \"_SYSTEMD_UNIT\": \"nginx.service\", \"__CURSOR\": \"s=8a1f;i=33e140;b=3c9d;m=3400000000;t=658ee26022740\", \"__MONOTONIC_TIMESTAMP\": \"7610000\", \"__REALTIME_TIMESTAMP\": \"1786629723400000\"}"
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:02:03.9Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "upstream timeout contacting payments after 5000ms",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3348",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=3b8260;b=3c9d;m=3900000000;t=658ee2609c860",
+        "__MONOTONIC_TIMESTAMP": "8110000",
+        "priority": 3
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"upstream timeout contacting payments after 5000ms\", \"PRIORITY\": \"3\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3348\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=3b8260;b=3c9d;m=3900000000;t=658ee2609c860\", \"__MONOTONIC_TIMESTAMP\": \"8110000\", \"__REALTIME_TIMESTAMP\": \"1786629723900000\"}"
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:02:04.4Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "PaymentGatewayException: read timed out after 5000ms",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3346",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=432380;b=3c9d;m=4400000000;t=658ee26116980",
+        "__MONOTONIC_TIMESTAMP": "8610000",
+        "priority": 3
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"PaymentGatewayException: read timed out after 5000ms\", \"PRIORITY\": \"3\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3346\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=432380;b=3c9d;m=4400000000;t=658ee26116980\", \"__MONOTONIC_TIMESTAMP\": \"8610000\", \"__REALTIME_TIMESTAMP\": \"1786629724400000\"}"
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:02:04.9Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "retrying upstream in 200ms",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3344",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=4ac4a0;b=3c9d;m=4900000000;t=658ee26190aa0",
+        "__MONOTONIC_TIMESTAMP": "9110000",
+        "priority": 4
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"retrying upstream in 200ms\", \"PRIORITY\": \"4\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3344\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=4ac4a0;b=3c9d;m=4900000000;t=658ee26190aa0\", \"__MONOTONIC_TIMESTAMP\": \"9110000\", \"__REALTIME_TIMESTAMP\": \"1786629724900000\"}"
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:02:05.4Z",
+      "ts_zoned": true,
+      "level": "fatal",
+      "message": "failed to reserve stock for order 8812",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3349",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=5265c0;b=3c9d;m=5400000000;t=658ee2620abc0",
+        "__MONOTONIC_TIMESTAMP": "9610000",
+        "priority": 2
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"failed to reserve stock for order 8812\", \"PRIORITY\": \"2\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3349\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=5265c0;b=3c9d;m=5400000000;t=658ee2620abc0\", \"__MONOTONIC_TIMESTAMP\": \"9610000\", \"__REALTIME_TIMESTAMP\": \"1786629725400000\"}"
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:02:05.9Z",
+      "ts_zoned": true,
+      "level": "fatal",
+      "message": "watchdog: BUG: soft lockup - CPU#3 stuck for 22s!",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "kernel",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3347",
+        "_TRANSPORT": "kernel",
+        "__CURSOR": "s=8a1f;i=5a06e0;b=3c9d;m=5900000000;t=658ee26284ce0",
+        "__MONOTONIC_TIMESTAMP": "10110000",
+        "priority": 1
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"watchdog: BUG: soft lockup - CPU#3 stuck for 22s!\", \"PRIORITY\": \"1\", \"SYSLOG_IDENTIFIER\": \"kernel\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3347\", \"_TRANSPORT\": \"kernel\", \"__CURSOR\": \"s=8a1f;i=5a06e0;b=3c9d;m=5900000000;t=658ee26284ce0\", \"__MONOTONIC_TIMESTAMP\": \"10110000\", \"__REALTIME_TIMESTAMP\": \"1786629725900000\"}"
+    },
+    {
+      "line_no": 15,
+      "ts": "2026-08-13T14:02:06.4Z",
+      "ts_zoned": true,
+      "level": "fatal",
+      "message": "Kernel panic - not syncing: Attempted to kill init!",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "kernel",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3345",
+        "_TRANSPORT": "kernel",
+        "__CURSOR": "s=8a1f;i=61a800;b=3c9d;m=6400000000;t=658ee262fee00",
+        "__MONOTONIC_TIMESTAMP": "10610000",
+        "priority": 0
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"Kernel panic - not syncing: Attempted to kill init!\", \"PRIORITY\": \"0\", \"SYSLOG_IDENTIFIER\": \"kernel\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3345\", \"_TRANSPORT\": \"kernel\", \"__CURSOR\": \"s=8a1f;i=61a800;b=3c9d;m=6400000000;t=658ee262fee00\", \"__MONOTONIC_TIMESTAMP\": \"10610000\", \"__REALTIME_TIMESTAMP\": \"1786629726400000\"}"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:02:06.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "session opened for user deploy by (uid=0)",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "sudo",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3350",
+        "_SYSTEMD_UNIT": "session-42.scope",
+        "__CURSOR": "s=8a1f;i=694920;b=3c9d;m=6900000000;t=658ee26378f20",
+        "__MONOTONIC_TIMESTAMP": "11110000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"session opened for user deploy by (uid=0)\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"sudo\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3350\", \"_SYSTEMD_UNIT\": \"session-42.scope\", \"__CURSOR\": \"s=8a1f;i=694920;b=3c9d;m=6900000000;t=658ee26378f20\", \"__MONOTONIC_TIMESTAMP\": \"11110000\", \"__REALTIME_TIMESTAMP\": \"1786629726900000\"}"
+    },
+    {
+      "line_no": 17,
+      "ts": "2026-08-13T14:02:07.4Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "evaluating feature flag new_checkout_flow enabled=false",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3348",
+        "__CURSOR": "s=8a1f;i=70ea40;b=3c9d;m=7400000000;t=658ee263f3040",
+        "__MONOTONIC_TIMESTAMP": "11610000",
+        "priority": 7
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"evaluating feature flag new_checkout_flow enabled=false\", \"PRIORITY\": \"7\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3348\", \"__CURSOR\": \"s=8a1f;i=70ea40;b=3c9d;m=7400000000;t=658ee263f3040\", \"__MONOTONIC_TIMESTAMP\": \"11610000\", \"__REALTIME_TIMESTAMP\": \"1786629727400000\"}"
+    },
+    {
+      "line_no": 18,
+      "ts": "2026-08-13T14:02:07.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "hi\u0000there",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "audit",
+        "_HOSTNAME": "node-01",
+        "__CURSOR": "s=8a1f;i=b;b=3c9d",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": [104, 105, 0, 116, 104, 101, 114, 101], \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"audit\", \"_HOSTNAME\": \"node-01\", \"__CURSOR\": \"s=8a1f;i=b;b=3c9d\", \"__REALTIME_TIMESTAMP\": \"1786629727900000\"}"
+    },
+    {
+      "line_no": 19,
+      "ts": "2026-08-13T14:02:08.4Z",
+      "ts_zoned": true,
+      "message": "priority that is not a number",
+      "fields": {
+        "PRIORITY": "notice",
+        "_HOSTNAME": "node-01"
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"priority that is not a number\", \"PRIORITY\": \"notice\", \"_HOSTNAME\": \"node-01\", \"__REALTIME_TIMESTAMP\": \"1786629728400000\"}"
+    },
+    {
+      "line_no": 20,
+      "level": "info",
+      "message": "no realtime timestamp on this entry",
+      "fields": {
+        "_HOSTNAME": "node-01",
+        "__CURSOR": "s=8a1f;i=d",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"no realtime timestamp on this entry\", \"PRIORITY\": \"6\", \"_HOSTNAME\": \"node-01\", \"__CURSOR\": \"s=8a1f;i=d\"}"
+    },
+    {
+      "line_no": 21,
+      "level": "info",
+      "message": "zero realtime timestamp",
+      "fields": {
+        "_HOSTNAME": "node-01",
+        "__REALTIME_TIMESTAMP": "0",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"zero realtime timestamp\", \"PRIORITY\": \"6\", \"_HOSTNAME\": \"node-01\", \"__REALTIME_TIMESTAMP\": \"0\"}"
+    },
+    {
+      "line_no": 22,
+      "message": "not json at all, a line something else wrote into the file",
+      "parsed": false,
+      "raw": "not json at all, a line something else wrote into the file"
+    },
+    {
+      "line_no": 23,
+      "ts": "2026-08-13T14:02:09.4Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "Stopped Checkout API.",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "systemd",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3347",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=8f6ec0;b=3c9d;m=9400000000;t=658ee265db4c0",
+        "__MONOTONIC_TIMESTAMP": "13610000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"Stopped Checkout API.\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"systemd\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3347\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=8f6ec0;b=3c9d;m=9400000000;t=658ee265db4c0\", \"__MONOTONIC_TIMESTAMP\": \"13610000\", \"__REALTIME_TIMESTAMP\": \"1786629729400000\"}"
+    },
+    {
+      "line_no": 24,
+      "ts": "2026-08-13T14:02:09.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "Started Checkout API.",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "systemd",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3345",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=970fe0;b=3c9d;m=9900000000;t=658ee266555e0",
+        "__MONOTONIC_TIMESTAMP": "14110000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"Started Checkout API.\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"systemd\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3345\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=970fe0;b=3c9d;m=9900000000;t=658ee266555e0\", \"__MONOTONIC_TIMESTAMP\": \"14110000\", \"__REALTIME_TIMESTAMP\": \"1786629729900000\"}"
+    },
+    {
+      "line_no": 25,
+      "ts": "2026-08-13T14:02:10.4Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "listening on :8080",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3350",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=9eb100;b=3c9d;m=10400000000;t=658ee266cf700",
+        "__MONOTONIC_TIMESTAMP": "14610000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"listening on :8080\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3350\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=9eb100;b=3c9d;m=10400000000;t=658ee266cf700\", \"__MONOTONIC_TIMESTAMP\": \"14610000\", \"__REALTIME_TIMESTAMP\": \"1786629730400000\"}"
+    },
+    {
+      "line_no": 26,
+      "ts": "2026-08-13T14:02:10.9Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "request completed path=/healthz status=200",
+      "fields": {
+        "SYSLOG_IDENTIFIER": "checkout-api",
+        "_BOOT_ID": "3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f",
+        "_HOSTNAME": "node-01",
+        "_MACHINE_ID": "1a2b3c4d5e6f7081920a1b2c3d4e5f60",
+        "_PID": "3348",
+        "_SYSTEMD_UNIT": "checkout-api.service",
+        "__CURSOR": "s=8a1f;i=a65220;b=3c9d;m=10900000000;t=658ee26749820",
+        "__MONOTONIC_TIMESTAMP": "15110000",
+        "priority": 6
+      },
+      "parsed": true,
+      "raw": "{\"MESSAGE\": \"request completed path=/healthz status=200\", \"PRIORITY\": \"6\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_BOOT_ID\": \"3c9d7f1e2a4b4c8d9e0f1a2b3c4d5e6f\", \"_HOSTNAME\": \"node-01\", \"_MACHINE_ID\": \"1a2b3c4d5e6f7081920a1b2c3d4e5f60\", \"_PID\": \"3348\", \"_SYSTEMD_UNIT\": \"checkout-api.service\", \"__CURSOR\": \"s=8a1f;i=a65220;b=3c9d;m=10900000000;t=658ee26749820\", \"__MONOTONIC_TIMESTAMP\": \"15110000\", \"__REALTIME_TIMESTAMP\": \"1786629730900000\"}"
+    },
+    {
+      "line_no": 27,
+      "message": "{\"MESSAGE\": \"connection reset by peer\", \"PRIORITY\": \"3\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_",
+      "parsed": false,
+      "raw": "{\"MESSAGE\": \"connection reset by peer\", \"PRIORITY\": \"3\", \"SYSLOG_IDENTIFIER\": \"checkout-api\", \"_"
+    }
+  ]
+}

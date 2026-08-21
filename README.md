@@ -128,7 +128,7 @@ they arrive rather than after the pipe closes:
 kubectl logs -f api | loupe 'level:>=error'
 docker logs -f web | loupe
 journalctl -f | loupe
-zcat old.log.gz | loupe          # gzip is detected from the content
+zstdcat old.log.zst | loupe      # compression is detected from the content
 loupe ./logs -                   # a pipe and a directory on one timeline
 ```
 
@@ -518,16 +518,68 @@ data: {"columns":["seq","ts","level","source","message"],"rows":[[33972, …]]}
 
 Full fidelity — every field promoted and filterable:
 
-- JSON lines · logfmt
+- JSON lines · logfmt · journald (`journalctl -o json`)
 
 Known structure — fixed fields extracted:
 
-- Nginx / Apache combined and common · syslog RFC5424 · Postgres · Log4j
+- Nginx / Apache combined and common · syslog RFC5424 · Postgres · Log4j ·
+  Docker `json-file` · CRI (containerd / CRI-O, what `/var/log/pods` holds)
 
 Best effort — timestamp, level where present, message as text:
 
 - Anything else. The line is kept whole and stays searchable, and any timestamp
   in it still lands on the timeline.
+
+Every format is detected from the content, so a directory of mixed formats needs
+no flags:
+
+```bash
+# Containers
+loupe /var/log/pods                       # CRI: containerd and CRI-O
+loupe /var/lib/docker/containers          # Docker json-file
+loupe /var/log/pods 'level:>=error'       # the usual filters, unchanged
+loupe /var/log/pods/checkout_0.log        # or one container
+
+# systemd
+journalctl -o json | loupe                # straight off the pipe
+journalctl -o json -u checkout-api | loupe 'level:>=warn'
+loupe ./journal-export.json               # or an export on disk
+
+# What was detected, and what was skipped
+loupe sources ./logs
+loupe ./logs --parser cri                 # force it when detection guesses wrong
+```
+
+Fields the container and journal formats carry, filterable like any other:
+
+```bash
+loupe /var/log/pods 'stream:stderr'       # CRI and Docker both record it
+loupe /var/log/pods 'partial:true'        # CRI fragments of a split long line
+loupe ./journal-export.json 'PRIORITY:3'          # journald, as systemd writes it
+loupe ./journal-export.json 'priority:<=3'        # or as a number, err and worse
+loupe ./journal-export.json '_SYSTEMD_UNIT:ssh.service'
+loupe ./logs 'format:cri'                 # narrow a mixed directory to one format
+```
+
+Point CRI at `/var/log/pods`, which holds the real files. `/var/log/containers`
+is a directory of symlinks into it, and the walk reads regular files only — it
+says so per file rather than returning an empty result.
+
+**Compression is transparent**, and detected from magic bytes rather than the
+file name — a rotated `.log` that is really gzip is common:
+
+```bash
+loupe /var/log                            # .gz, .zst, .bz2 and .xz all read
+zstdcat old.log.zst | loupe               # decompressed by the shell
+cat old.log.zst | loupe                   # or not: loupe recognises it either way
+loupe ./logs 'level:error' --limit 50     # archives are just more records
+```
+
+`access.log`, `access.log.1` and `access.log.2.zst` are one source, so
+`source:access` matches the whole rotation group and `loupe top source` counts
+them together. An archive is exempt from `--max-file-size`, because its on-disk
+size says nothing about how much log it holds — and it is never tailed, since an
+offset into decompressed bytes cannot be seeked to.
 
 **Your format missing?** It is about a hundred lines and a fixture to add one —
 see [CONTRIBUTING.md](CONTRIBUTING.md). This is the most useful contribution to

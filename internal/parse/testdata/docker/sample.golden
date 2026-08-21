@@ -1,0 +1,266 @@
+{
+  "parser": "docker",
+  "stats": {
+    "lines": 24,
+    "records": 23,
+    "unparsed": 3,
+    "no_timestamp": 4,
+    "continuation": 0,
+    "truncated": 0,
+    "blank": 1,
+    "zone_assumed": 0
+  },
+  "records": [
+    {
+      "line_no": 1,
+      "ts": "2026-08-13T14:02:00.113456789Z",
+      "ts_zoned": true,
+      "message": "listening on :8080",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"listening on :8080\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:00.113456789Z\"}"
+    },
+    {
+      "line_no": 2,
+      "ts": "2026-08-13T14:02:00.914112233Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  request completed path=/api/cart status=200",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  request completed path=/api/cart status=200\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:00.914112233Z\"}"
+    },
+    {
+      "line_no": 3,
+      "ts": "2026-08-13T14:02:01.203344556Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  request completed path=/api/checkout status=200",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  request completed path=/api/checkout status=200\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:01.203344556Z\"}"
+    },
+    {
+      "line_no": 4,
+      "ts": "2026-08-13T14:02:01.703344556Z",
+      "ts_zoned": true,
+      "level": "debug",
+      "message": "DEBUG cache hit for user u_1208",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"DEBUG cache hit for user u_1208\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:01.703344556Z\"}"
+    },
+    {
+      "line_no": 5,
+      "ts": "2026-08-13T14:02:02.1Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "WARN  retrying upstream in 200ms",
+      "fields": {
+        "stream": "stderr"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"WARN  retrying upstream in 200ms\\n\", \"stream\": \"stderr\", \"time\": \"2026-08-13T14:02:02.100000000Z\"}"
+    },
+    {
+      "line_no": 7,
+      "ts": "2026-08-13T14:02:02.5Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "ERROR read timed out after 5000ms",
+      "fields": {
+        "com.docker.compose.service": "checkout",
+        "stream": "stderr",
+        "tag": "checkout-api"
+      },
+      "parsed": true,
+      "raw": "{\"attrs\": {\"com.docker.compose.service\": \"checkout\", \"tag\": \"checkout-api\"}, \"log\": \"ERROR read timed out after 5000ms\\n\", \"stream\": \"stderr\", \"time\": \"2026-08-13T14:02:02.500000000Z\"}"
+    },
+    {
+      "line_no": 8,
+      "ts": "2026-08-13T14:02:03Z",
+      "ts_zoned": true,
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:03.000000000Z\"}"
+    },
+    {
+      "line_no": 9,
+      "ts": "2026-08-13T14:02:03.25Z",
+      "ts_zoned": true,
+      "message": "progress 50%",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"progress 50%\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:03.250000000Z\"}"
+    },
+    {
+      "line_no": 10,
+      "ts": "2026-08-13T14:02:03.75Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  request completed path=/healthz status=200",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  request completed path=/healthz status=200\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:03.750000000Z\"}"
+    },
+    {
+      "line_no": 11,
+      "ts": "2026-08-13T14:02:04.1Z",
+      "ts_zoned": true,
+      "level": "fatal",
+      "message": "FATAL giving up after 3 attempts",
+      "fields": {
+        "stream": "stderr"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"FATAL giving up after 3 attempts\\n\", \"stream\": \"stderr\", \"time\": \"2026-08-13T14:02:04.100000000Z\"}"
+    },
+    {
+      "line_no": 12,
+      "ts": "2026-08-13T14:02:04.6Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  request completed path=/api/session status=200",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  request completed path=/api/session status=200\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:04.600000000Z\"}"
+    },
+    {
+      "line_no": 13,
+      "ts": "2026-08-13T14:02:05Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "WARN  connection pool at 90% capacity",
+      "fields": {
+        "stream": "stderr"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"WARN  connection pool at 90% capacity\\n\", \"stream\": \"stderr\", \"time\": \"2026-08-13T14:02:05.000000000Z\"}"
+    },
+    {
+      "line_no": 14,
+      "ts": "2026-08-13T14:02:05.4Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  request completed path=/api/orders/2291 status=200",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  request completed path=/api/orders/2291 status=200\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:05.400000000Z\"}"
+    },
+    {
+      "line_no": 15,
+      "ts": "2026-08-13T14:02:06Z",
+      "ts_zoned": true,
+      "level": "trace",
+      "message": "TRACE span 4f2c closed",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"TRACE span 4f2c closed\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:06.000000000Z\"}"
+    },
+    {
+      "line_no": 16,
+      "ts": "2026-08-13T14:02:06.5Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "ERROR PaymentGatewayException: read timed out",
+      "fields": {
+        "stream": "stderr"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"ERROR PaymentGatewayException: read timed out\\n\", \"stream\": \"stderr\", \"time\": \"2026-08-13T14:02:06.500000000Z\"}"
+    },
+    {
+      "line_no": 17,
+      "message": "clock went backwards",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"clock went backwards\\n\", \"stream\": \"stdout\", \"time\": \"not-a-timestamp\"}"
+    },
+    {
+      "line_no": 18,
+      "message": "{\"log\": \"orphaned\\n\", \"time\": \"2026-08-13T14:02:04Z\"}",
+      "parsed": false,
+      "raw": "{\"log\": \"orphaned\\n\", \"time\": \"2026-08-13T14:02:04Z\"}"
+    },
+    {
+      "line_no": 19,
+      "message": "plain text that leaked into the container log file",
+      "parsed": false,
+      "raw": "plain text that leaked into the container log file"
+    },
+    {
+      "line_no": 20,
+      "ts": "2026-08-13T14:02:07Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  request completed path=/api/cart status=200",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  request completed path=/api/cart status=200\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:07.000000000Z\"}"
+    },
+    {
+      "line_no": 21,
+      "ts": "2026-08-13T14:02:07.5Z",
+      "ts_zoned": true,
+      "message": "shutting down",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"shutting down\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:07.500000000Z\"}"
+    },
+    {
+      "line_no": 22,
+      "ts": "2026-08-13T14:02:08Z",
+      "ts_zoned": true,
+      "level": "info",
+      "message": "INFO  drained 4 connections",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"INFO  drained 4 connections\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:08.000000000Z\"}"
+    },
+    {
+      "line_no": 23,
+      "ts": "2026-08-13T14:02:08.5Z",
+      "ts_zoned": true,
+      "message": "exit status 0",
+      "fields": {
+        "stream": "stdout"
+      },
+      "parsed": true,
+      "raw": "{\"log\": \"exit status 0\\n\", \"stream\": \"stdout\", \"time\": \"2026-08-13T14:02:08.500000000Z\"}"
+    },
+    {
+      "line_no": 24,
+      "message": "{\"log\": \"panic: runtime error: index out of range\", \"stream\": \"stderr\"",
+      "parsed": false,
+      "raw": "{\"log\": \"panic: runtime error: index out of range\", \"stream\": \"stderr\""
+    }
+  ]
+}
