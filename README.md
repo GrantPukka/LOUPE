@@ -199,6 +199,70 @@ you need.
 
 `--handoff` exports the timeline and its disclosures as a pasteable extract, and
 in the browser any trace value in a record's detail has a **→ trace** button.
+## Finding out what is there
+
+Before writing a filter, rather than after getting one wrong:
+
+```bash
+# The question
+loupe fields ./logs                       # every name a filter can use
+loupe schema ./logs                       # same command
+
+# Narrow it — usually a shorter and more interesting list
+loupe fields ./logs 'level:>=error'       # what do the failing records carry?
+loupe fields ./logs 'source:checkout-api' # what does one service log?
+loupe fields ./logs 'status:>=500'        # what comes with a 5xx?
+loupe fields ./logs 'between:14:00-15:00' # what was there during the incident?
+
+# How much to show
+loupe fields ./logs --limit 10            # just the best covered (50 by default)
+loupe fields ./logs --all                 # the whole tail
+
+# One file, or a pipe
+loupe fields ./logs/checkout-api.log
+kubectl logs api | loupe fields -
+
+# The table is on stdout; the counts and warnings are on stderr
+loupe fields ./logs 2>/dev/null
+```
+
+```
+FIELD       RECORDS  COVERAGE  DISTINCT  TYPE       STORED  EXAMPLES
+level        33,671     99.2%  5         string     column  info, error, debug
+path         26,115     76.9%  12        string     column  /healthz, /api/checkout, /api/cart
+status       26,115     76.9%  4         integer    column  200, 502, 500
+trace_id     18,742     55.2%  12,912    string     column  f77a05eb, b7217303, ceb5650f
+latency_ms   12,812     37.8%  1,460     integer    column  201, 42, 182
+region       12,812     37.8%  3         string     column  eu-west-1, ap-south-1, us-east-1
+enabled         424      1.2%  2         boolean    bag     false, true
+
+36 fields across 33,939 matching records.
+```
+
+**DISTINCT is the number that decides your next command.** Three values is a
+breakdown worth running `loupe top` on; twelve thousand is an identifier, and
+you want `trace_id:f77a05eb` instead:
+
+```bash
+loupe top region ./logs                   # 3 values: a distribution
+loupe ./logs 'trace_id:f77a05eb'          # 12,912 values: pick one
+loupe ./logs 'stats p99(latency_ms) by path'   # numeric: aggregate it
+```
+
+**STORED says why one filter is faster than another** — a promoted field is a
+real column, everything else is read out of the JSON bag on every row.
+
+**A field that is a number on most records and text on the rest is called out**,
+because an ordering comparison casts and skips what will not cast:
+
+```
+4 of 5 values are numbers, so latency_ms:>N skips the other 1.
+```
+
+Filtering narrows the question, and fields no matching record carries are
+counted rather than listed — "missing from my results" and "missing from the
+data" are different things to be looking at.
+
 ## Breaking a field down by value
 
 The most common triage question, without dropping to SQL:
