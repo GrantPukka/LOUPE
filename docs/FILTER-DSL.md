@@ -345,6 +345,11 @@ Same for unparseable times: name the value and show two working examples. An
 error message that includes a copyable correct example is worth more than any
 amount of documentation.
 
+**`loupe fields` answers the same question before the mistake**, which is the
+right way round: every name a filter can use, how many records carry it, how
+many values it takes, its type, and a few examples. The error above stays — it is
+what catches the typo — but discovering a field should not require making one.
+
 ---
 
 ## 8. Worked examples

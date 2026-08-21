@@ -27,7 +27,7 @@ built without breaking one of those is not on this list.
 | [EC013](#ec013--benchmarks-for-the-unmeasured-performance-commitments) | Benchmarks for unmeasured perf commitments | 1 | not started |
 | [EC014](#ec014--rotation-by-rename-test-coverage) | Rotation-by-rename test coverage | 1 | not started |
 | [EC015](#ec015--exit-codes-as-a-scripting-contract) | Exit codes as a scripting contract | 2 | not started |
-| [EC016](#ec016--loupe-fields-field-discovery) | `loupe fields` field discovery | 2 | not started |
+| [EC016](#ec016--loupe-fields-field-discovery) | `loupe fields` field discovery | 2 | **done** |
 | [EC017](#ec017--column-projection-on-output) | Column projection on output | 2 | not started |
 | [EC018](#ec018--flag-subtraction-pass-before-v1) | Flag subtraction pass before v1 | 2 | not started |
 | [EC019](#ec019--cmdloupe-test-coverage) | `cmd/loupe` test coverage | 2 | not started |
@@ -1239,6 +1239,101 @@ under `go test`, so CI gains the regression value with no workflow change and
 no added runtime. Long fuzzing runs stay a manual, local activity: each target
 was run for 45s here, and `FuzzParse` for a further five minutes (17.7M execs)
 after the last fix.
+
+---
+
+## EC016 — `loupe fields` field discovery
+
+**Status: done.** Work is on branch `EC016`, cut from `main`. This item was a
+table row with no checklist, so the scope below was derived from the gap it
+names; the shape is `loupe top`'s and `loupe sources`'.
+
+Today a field is discovered by getting one wrong. Typo a name and the error
+comes back with the list attached — which works, and is the wrong way round.
+`loupe fields` answers the question directly, before the mistake.
+
+- [x] `loupe fields [directory] [filter]`, aliased `schema`
+- [x] Every name a filter can use: built-in columns, promoted fields, and keys
+      still in the JSON bag
+- [x] Coverage, distinct count, type, and example values per field
+- [x] A filter narrows the question — what do the *failing* records carry?
+- [x] `--limit`, `--all`, and a stated count of what was cut
+- [x] Fields no matching record carries are counted, not listed
+- [x] The partly-numeric warning
+- [x] `README.md` and `docs/FILTER-DSL.md` §7
+
+```
+FIELD       RECORDS  COVERAGE  DISTINCT  TYPE       STORED  EXAMPLES
+level        33,671     99.2%  5         string     column  info, error, debug
+path         26,115     76.9%  12        string     column  /healthz, /api/checkout, /api/cart
+trace_id     18,742     55.2%  12,912    string     column  f77a05eb, b7217303, ceb5650f
+latency_ms   12,812     37.8%  1,460     integer    column  201, 42, 182
+enabled         424      1.2%  2         boolean    bag     false, true
+```
+
+**The columns were chosen by what changes the next command.** DISTINCT is the
+one that earns its place hardest: three values is a distribution worth running
+`loupe top` on, twelve thousand is an identifier and the answer is
+`trace_id:f77a05eb`. Without it a reader has to run `top` to find out that
+running `top` was the wrong idea.
+
+**STORED is in the table rather than the footer** because it is the answer to
+"why is this filter slower than that one", and somebody asking that is already
+looking at this table. Two values, not three: a built-in column and a promoted
+one behave identically, and the only distinction that changes anything is
+column against bag.
+
+**The warning this command exists to give.** A field that is a number on most
+records and text on the rest — `latency_ms` holding `9000` and `"timed out"` —
+loses the text ones to `latency_ms:>1000` without a word, because an ordering
+comparison casts and a value that will not cast is skipped. The listing counts
+both and says so:
+
+```
+4 of 5 values are numbers, so latency_ms:>N skips the other 1.
+```
+
+It fires on a *majority* rather than on any, which is the difference between a
+warning and noise: three log messages that happen to be bare numbers do not make
+`message` a numeric field, and a note on every text column would bury the real
+one. The count comes from the same `TRY_CAST` the comparison itself makes, so it
+is not an estimate of the behaviour — it is the behaviour.
+
+**A field holding more than one JSON type is named too**, with the list. That is
+the same hazard one level down, and it only arises for bag fields: a promoted
+field has one type by construction, because promotion already resolved the
+mixture by choosing `VARCHAR` — which is exactly when the numeric warning above
+takes over. The two cover the same problem on either side of the promotion
+threshold.
+
+**A field no matching record carries is counted, not listed.** Its row would be
+a line of zeroes, and thirty of those bury the fields the question was about.
+The count is the thing that separates *"missing from my results"* from
+*"missing from the data"*, which is the confusion a filtered listing invites.
+
+**One statement for the whole listing.** Every field's count, distinct count,
+numeric count and examples are aggregates in a single pass, because this is the
+command someone runs on a directory nobody has looked at yet and thirty separate
+scans of a 10M-row table would make the answer not worth waiting for. Examples
+come from `approx_top_k`, which is approximate on purpose: these are examples of
+what a value looks like, not a ranking, and an exact top-k would mean a `GROUP
+BY` per field. The one thing that gets a second query is the type list for a
+mixed field, and only when the first pass found one.
+
+**Aliases are not listed twice.** `Schema.Known` — the list the unknown-field
+error prints — includes `msg`, `line` and `pattern` beside `message`, `line_no`
+and `pattern_id`. A table with both `message` and `msg` in it answers a question
+nobody asked, so the built-in set is written out and the footer says the aliases
+still work.
+
+**Ordered by coverage, best covered first**, which is the order `loupe top` and
+`loupe patterns` both use. Alphabetical would be better for looking one name up
+and worse for the question actually being asked, which is "what is here".
+
+**Watch:** the next request will be `--json` for scripting. `FieldSet` is
+already tagged for it and the shape is stable, but the flag should wait for
+someone who wants it — `loupe sql` can already produce anything a script needs,
+and this command's value is that a person reads it.
 
 ---
 
