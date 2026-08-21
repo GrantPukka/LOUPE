@@ -94,6 +94,11 @@ inconsistently, and a `.log` that is really gzip is common. A compressed source 
 `Tailable` — an offset into decompressed bytes cannot be seeked to — which is what EC001's
 incremental path already assumes.
 
+A symlink to a regular file is followed; a symlink to a directory is not, because it can
+point at its own ancestor. Files reachable under two names are read once — deduplicated by
+resolved path, since `Fingerprint` is built from the path and would not catch it — and the
+duplicates are counted rather than dropped quietly.
+
 Directory walking should skip binaries and anything over a configurable size ceiling, and
 should recognise rotated-log naming (`app.log`, `app.log.1`, `app.log.2.gz`) so it can order
 them chronologically. The archive suffix is stripped by one shared function, so a rotation
