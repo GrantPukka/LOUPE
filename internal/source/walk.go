@@ -111,7 +111,7 @@ func Walk(root string, opts *WalkOptions) ([]Source, error) {
 	}
 
 	var files []*File
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(resolveRoot(root), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			// An unreadable directory is worth reporting but must not abort the
 			// walk: one permission-denied subdirectory should not hide the rest.
@@ -129,16 +129,18 @@ func Walk(root string, opts *WalkOptions) ([]Source, error) {
 			return nil
 		}
 
-		if !d.Type().IsRegular() {
-			opts.skip(path, "not a regular file")
+		info, reason := entryInfo(path, d)
+		if info == nil {
+			opts.skip(path, reason)
 			return nil
 		}
 
-		f, reason := consider(path, d, opts)
+		f, reason := consider(path, d, info, opts)
 		if f == nil {
 			opts.skip(path, reason)
 			return nil
 		}
+		f.linked = d.Type()&fs.ModeSymlink != 0
 		files = append(files, f)
 		return nil
 	})
@@ -146,6 +148,7 @@ func Walk(root string, opts *WalkOptions) ([]Source, error) {
 		return nil, fmt.Errorf("walk %s: %w", root, err)
 	}
 
+	files = dedupe(files, opts)
 	sortRotation(files)
 
 	out := make([]Source, len(files))
@@ -157,7 +160,7 @@ func Walk(root string, opts *WalkOptions) ([]Source, error) {
 
 // consider decides whether one file should be read, returning the reason when
 // it should not.
-func consider(path string, d fs.DirEntry, opts *WalkOptions) (*File, string) {
+func consider(path string, d fs.DirEntry, info fs.FileInfo, opts *WalkOptions) (*File, string) {
 	name := d.Name()
 
 	if strings.HasPrefix(name, ".") {
@@ -173,10 +176,6 @@ func consider(path string, d fs.DirEntry, opts *WalkOptions) (*File, string) {
 		return nil, "matched --exclude"
 	}
 
-	info, err := d.Info()
-	if err != nil {
-		return nil, err.Error()
-	}
 	if info.Size() == 0 {
 		return nil, "empty file"
 	}
@@ -366,4 +365,126 @@ func humanSize(n int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.0f%ciB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
+// resolveRoot returns the path to walk from.
+//
+// filepath.WalkDir lstats its root, so a directory reached through a symlink is
+// reported to the callback as a symlink, skipped as "not a regular file", and
+// never descended into — `loupe /var/log/mylogs` finds nothing when mylogs is a
+// link. Resolving first fixes that.
+//
+// Only when the root actually is a symlink. filepath.EvalSymlinks also cleans
+// and absolutises, so resolving unconditionally would turn every displayed path
+// from demo/app.log into /home/…/demo/app.log for no reason at all.
+func resolveRoot(root string) string {
+	info, err := os.Lstat(root)
+	if err != nil || info.Mode()&fs.ModeSymlink == 0 {
+		return root
+	}
+
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return root
+	}
+	return resolved
+}
+
+// entryInfo reports what a walked entry actually is, following a symlink to see
+// what is on the other end.
+//
+// A symlink to a regular file is a regular file for reading, which is the whole
+// point: /var/log/containers is a directory of links into /var/log/pods and is
+// what Kubernetes documentation tells people to point a log tool at. A symlink
+// to anything else is not, and neither is a socket, a device or a FIFO.
+func entryInfo(path string, d fs.DirEntry) (fs.FileInfo, string) {
+	if d.Type().IsRegular() {
+		info, err := d.Info()
+		if err != nil {
+			return nil, err.Error()
+		}
+		return info, ""
+	}
+
+	if d.Type()&fs.ModeSymlink == 0 {
+		return nil, "not a regular file"
+	}
+
+	// os.Stat follows the link. A broken one is a note, not a failure: a
+	// container that exited between the directory listing and this call leaves
+	// exactly that behind, and it must not stop the walk.
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, "broken symlink"
+	}
+
+	switch {
+	case info.IsDir():
+		// Not followed, because a directory link can point at its own ancestor
+		// and there is no cheap way to know it does not. Naming it directly
+		// works, which is what resolveRoot is for.
+		return nil, "a symlink to a directory — name it directly to read it"
+	case !info.Mode().IsRegular():
+		return nil, "a symlink to something that is not a regular file"
+	}
+	return info, ""
+}
+
+// dedupe drops files that are the same bytes reached under another name.
+//
+// This is the part of following symlinks that needs care rather than the
+// following itself. `loupe /var/log` walks both pods/ and containers/, and
+// every pod log is in both — so without this every count doubles, silently,
+// which is the exact failure this project refuses. Fingerprint cannot catch it:
+// it is built from the path, and the two paths differ.
+//
+// The real file wins over a link to it, so the name that appears in the source
+// column is the one the bytes actually live at, whatever order the walk found
+// them in.
+func dedupe(files []*File, opts *WalkOptions) []*File {
+	kept := make(map[string]int, len(files))
+	out := make([]*File, 0, len(files))
+
+	for _, f := range files {
+		real := realPath(f.path)
+
+		at, seen := kept[real]
+		if !seen {
+			kept[real] = len(out)
+			out = append(out, f)
+			continue
+		}
+
+		// Same bytes twice. Keep the one that is not a link, and report the
+		// other rather than dropping it quietly.
+		loser := f
+		if f.linked == out[at].linked {
+			// Two links to one file, or — impossible — two real paths. Keep
+			// the first, which the lexical walk order makes deterministic.
+		} else if !f.linked {
+			loser = out[at]
+			out[at] = f
+		}
+		opts.skip(loser.path, duplicateReason)
+	}
+
+	return out
+}
+
+// duplicateReason is fixed text rather than a sentence naming the other path,
+// so that a directory where hundreds of files are reachable twice collapses to
+// one line instead of hundreds. What was read is in `loupe sources`.
+const duplicateReason = "already read under another name"
+
+// realPath resolves a path for comparison, falling back to the path itself.
+//
+// A file that cannot be resolved is treated as its own identity rather than
+// merged with anything, which errs toward reading a record twice over dropping
+// one — and reading twice is at least visible.
+func realPath(path string) string {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return path
+	}
+	return resolved
 }

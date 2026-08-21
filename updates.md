@@ -35,7 +35,8 @@ built without breaking one of those is not on this list.
 | [EC021](#ec021--fix-duplicate-24-in-docsfilter-dslmd) | Fix duplicate §2.4 in FILTER-DSL.md | 3 | not started |
 | [EC022](#ec022--a-control-character-in-a-field-name-breaks-the-query) | Control character in a field name breaks the query | 1 | not started |
 | [EC023](#ec023--a-negated-filter-is-unusable-without---) | Negated filter unusable without `--` | 2 | not started |
-| [EC024](#ec024--symlinked-log-files-are-skipped) | Symlinked log files are skipped | 2 | not started |
+| [EC024](#ec024--symlinked-log-files-are-skipped) | Symlinked log files are skipped | 2 | **done** |
+| [EC025](#ec025--a-pods-source-name-is-its-rotation-index) | A pod's source name is its rotation index | 2 | not started |
 
 ---
 
@@ -1104,13 +1105,12 @@ of the point.
 `TestSpecificJSONParsersBeatGenericJSON` — written for this item — is what
 surfaced the 0.9 boundary. Neither would have been noticed by reading the code.
 
-**A gap found writing the examples, filed as EC024.** `/var/log/containers` is
-the directory Kubernetes documentation points a log tool at, and every entry in
-it is a symlink into `/var/log/pods`. The walk reads regular files only, so it
-skips the lot — with a reason per file, which is the one thing it gets right.
-CRI works against `/var/log/pods`, which holds the real files, and `README.md`
-says so; the symlink case needs deduplication by resolved path before it can be
-turned on, or pointing at `/var/log` would read every pod log twice.
+**A gap found writing the examples, filed as EC024 and since fixed.**
+`/var/log/containers` is the directory Kubernetes documentation points a log
+tool at, and every entry in it is a symlink into `/var/log/pods`. The walk read
+regular files only, so it skipped the lot — with a reason per file, which is the
+one thing it got right. EC024 follows symlinks and deduplicates by resolved
+path, so both directories now read and `/var/log` reads each log once.
 
 **Watch:** three formats is where a `--parser` list stops being readable.
 `loupe sources` already reports what was detected per file, and that is the
@@ -1419,38 +1419,104 @@ $ loupe diff ./logs --before 13:00-14:00 --after 14:00-15:00 -- '-source:nginx'
 
 ## EC024 — Symlinked log files are skipped
 
-**Status: not started.** Found while writing the EC008 examples in `README.md`.
+**Status: done.** Work is on branch `EC024`, cut from `main`. Found while
+writing the EC008 examples in `README.md`, and filed there.
 
 `/var/log/containers` is the directory people are told to point a log tool at on
 a Kubernetes node — it is what most shipper documentation names — and every
-entry in it is a symlink into `/var/log/pods`. The walk reads regular files only,
-so the whole directory is skipped:
+entry in it is a symlink into `/var/log/pods`. The walk read regular files only,
+so the whole directory was skipped, which left EC008 shipping a CRI parser that
+could not be pointed at the canonical CRI directory.
+
+- [x] Follow a symlink that resolves to a regular file
+- [x] Deduplicate by resolved path
+- [x] A broken symlink is a skip with a reason, not an error
+- [x] Sockets, devices and FIFOs are still skipped, and so are symlinks to them
+- [x] A tree holding both a file and a symlink to it produces each record once,
+      and the count is stated
+- [x] `README.md`'s note steering people to `/var/log/pods` is gone
+- [x] A symlinked *root* is resolved, which turned out to be broken too
+
+**Deduplication is the whole item; the following was four lines.** Walking
+`/var/log` reaches every pod log twice, once under `pods/` and once under
+`containers/`, and `Fingerprint` cannot catch it — it is built from the path,
+and the two paths differ. Without this every count on a Kubernetes node would
+have silently doubled, which is a worse failure than the one being fixed.
+
+**The real file wins over a link to it**, so the name in the source column is
+where the bytes actually live and does not vanish when a container is cleaned up
+while the file remains. That rule cost something, and it is worth writing down:
+on a Kubernetes node the *link* carries the better name — `app-1-abc.log` against
+`pods/app-1/0.log` — so preferring the real file gives worse source names when
+both directories are walked. That is not this item's bug to fix; see EC025.
+
+**`filepath.WalkDir` lstats its own root**, so a directory reached through a
+symlink was reported to the callback as a symlink, skipped as "not a regular
+file", and never descended into. `loupe /var/log/mylogs` found nothing when
+mylogs was a link — which also means the escape hatch this item was filed with
+("name it directly") did not work either. The root is now resolved before the
+walk, but only when it actually is a symlink: `filepath.EvalSymlinks` also
+cleans and absolutises, so resolving unconditionally would turn every displayed
+path from `demo/app.log` into `/home/…/demo/app.log` for no reason.
+
+**A symlink to a directory inside a walk is still not followed.** It can point
+at its own ancestor and there is no cheap way to know it does not, so the
+alternative is loop detection for a case nobody has asked for. The skip names
+the thing that works, and now genuinely does: name it directly.
+
+**Skips are collapsed when they repeat.** This is the change following symlinks
+forced: a node walking `/var/log` produces one duplicate skip per pod, and three
+hundred lines of them bury the status line the counts live in. Reasons shared by
+three or more files are counted on one line, in walk order; fewer than three are
+still named individually, because a path says more than a count when there are
+two of them. It improves the pre-existing case too — a directory of two hundred
+images used to print two hundred lines.
 
 ```
-$ loupe /var/log/containers
-loupe: no readable log files in /var/log/containers, but 42 file(s) were skipped:
-  /var/log/containers/checkout-abc123.log: not a regular file
+Skipped 42 file(s): already read under another name
 ```
 
-The skip is reported rather than silent, which is the one thing this gets right.
-EC008 shipped a CRI parser that cannot be pointed at the canonical CRI
-directory, so the format is only half delivered.
+Naming the other path in each duplicate's reason was the first draft, and it is
+why the reason is fixed text instead: a sentence naming a different file per
+line cannot be collapsed, and the detail is a `loupe sources` away.
 
-- [ ] Follow a symlink that resolves to a regular file. `filepath.WalkDir` does
-      not descend into symlinked *directories*, so only file symlinks are in
-      play and there is no loop to guard against
-- [ ] **Deduplicate by resolved path**, which is the part that needs care:
-      `loupe /var/log` would otherwise read every pod log twice, once under
-      `pods/` and once under `containers/`, and silently double every count.
-      `Fingerprint` is path-based, so it will not catch this on its own
-- [ ] Decide what a broken symlink is — a skip with a reason, almost certainly,
-      not an error
-- [ ] Keep skipping sockets, devices and FIFOs: a symlink to a regular file is a
-      regular file for reading, and nothing else is
-- [ ] Test that pointing at a tree containing both a file and a symlink to it
-      produces each record once, and that the count is stated
-- [ ] `README.md` currently steers people to `/var/log/pods` and explains why;
-      remove that note once this lands
+---
+
+## EC025 — A pod's source name is its rotation index
+
+**Status: not started.** Found while checking EC024's deduplication against a
+realistic Kubernetes layout. Pre-existing, and unrelated to symlinks — it
+reproduces on `main`.
+
+CRI writes to `/var/log/pods/<namespace>_<pod>_<uid>/<container>/0.log`. The
+meaningful name is in the directory; the basename is a rotation index. But
+`store.logicalName` reduces a path to its basename, so every pod on the node
+collapses into one source called `0`:
+
+```
+$ loupe top source /var/log/pods
+138  100.0%  ████████████████████████  0
+
+1 value of source across 138 records.
+```
+
+`source:` is therefore useless on the directory EC008 added a parser for, and
+`loupe diff --before … --after …` cannot tell two pods apart.
+
+- [ ] Use enough of the path to be distinctive when the basename is not. The
+      parent directory is the container and the grandparent is the pod, so
+      `checkout/0.log` or `orders_checkout-7f4_a91c/checkout` are both candidates
+- [ ] Decide how much of the pod directory to keep: the full
+      `<namespace>_<pod>_<uid>` is precise and unreadable, and the uid changes
+      every restart, which would split one pod's history across two sources
+- [ ] Do not regress the ordinary case: `checkout-api.log`, `.log.1` and
+      `.log.2.zst` must stay one source called `checkout-api`
+- [ ] `/var/log/containers` already produces good names, because the kubelet
+      encodes pod, container and uid into the link name. Whatever this does
+      should agree with those, or walking `/var/log` names the same logs two
+      ways depending on which copy won deduplication
+- [ ] EC024 records the interaction in its own entry; update it if the
+      preference rule has to change
 
 ---
 

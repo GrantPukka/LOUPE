@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GrantPukka/loupe/internal/session"
+	"github.com/GrantPukka/loupe/internal/source"
 	"github.com/GrantPukka/loupe/internal/store"
 )
 
@@ -55,9 +56,7 @@ func statusLine(w io.Writer, s *session.Session) {
 
 	cacheLine(w, s)
 
-	for _, skip := range s.Walk.Skipped {
-		fmt.Fprintf(w, "Skipped %s: %s\n", skip.Path, skip.Reason)
-	}
+	writeSkips(w, s.Walk.Skipped)
 
 	for _, err := range s.Load.Errors {
 		fmt.Fprintf(w, "Warning: %v\n", err)
@@ -134,6 +133,40 @@ func timeBanner(w io.Writer, s *session.Session, plan session.Plan) {
 		if n := s.NoTimestamp(context.Background()); n > 0 {
 			fmt.Fprintf(w, "%d record(s) excluded for having no timestamp — use ts:none to inspect them\n", n)
 		}
+	}
+}
+
+// repeatedSkip is how many files must share a reason before they are counted
+// rather than listed.
+//
+// Below it, naming each file is what the reader wants. Above it, the list is
+// the problem: a node walking /var/log finds every pod log twice, and three
+// hundred lines saying so bury the status line the counts live in.
+const repeatedSkip = 3
+
+// writeSkips reports what the walk passed over, collapsing repetition.
+//
+// Never a bare silence and never a wall: every skipped file is counted, and the
+// ones that share a reason are counted together.
+func writeSkips(w io.Writer, skipped []source.Skip) {
+	byReason := map[string]int{}
+	for _, skip := range skipped {
+		byReason[skip.Reason]++
+	}
+
+	// Reported in walk order, so the first file with each reason is where its
+	// group appears and the output does not reorder itself between runs.
+	done := map[string]bool{}
+	for _, skip := range skipped {
+		if done[skip.Reason] {
+			continue
+		}
+		if n := byReason[skip.Reason]; n >= repeatedSkip {
+			done[skip.Reason] = true
+			fmt.Fprintf(w, "Skipped %d file(s): %s\n", n, skip.Reason)
+			continue
+		}
+		fmt.Fprintf(w, "Skipped %s: %s\n", skip.Path, skip.Reason)
 	}
 }
 

@@ -21,6 +21,9 @@ type File struct {
 	// codec is detected from the magic bytes rather than the extension, since
 	// rotated logs are not reliably named.
 	codec codec
+	// linked records that this path is a symlink, which is what decides who
+	// wins when the same bytes are reachable under two names.
+	linked bool
 }
 
 // NewFile stats the path and detects compression.

@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/GrantPukka/loupe/internal/source"
 )
 
 // A path-shaped argument that is not on disk must stop the run. The failure it
@@ -113,5 +118,83 @@ func TestResolveArgsRejectsAMissingPath(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// The walk reports every file it passed over. Following symlinks made that a
+// problem: a node walking /var/log finds every pod log twice, and three hundred
+// lines saying so bury the counts the status line exists for.
+func TestWriteSkipsCollapsesRepetition(t *testing.T) {
+	many := make([]source.Skip, 0, 12)
+	for i := 0; i < 12; i++ {
+		many = append(many, source.Skip{
+			Path:   fmt.Sprintf("/var/log/containers/app-%d.log", i),
+			Reason: "already read under another name",
+		})
+	}
+	many = append(many,
+		source.Skip{Path: "/var/log/socket", Reason: "not a regular file"},
+		source.Skip{Path: "/var/log/gone.log", Reason: "broken symlink"},
+	)
+
+	var buf bytes.Buffer
+	writeSkips(&buf, many)
+	got := buf.String()
+
+	// The repeated reason is counted, once.
+	if !strings.Contains(got, "Skipped 12 file(s): already read under another name") {
+		t.Errorf("the repeated reason was not collapsed:\n%s", got)
+	}
+	if strings.Contains(got, "app-3.log") {
+		t.Errorf("a collapsed group still listed its files:\n%s", got)
+	}
+
+	// The one-offs are still named, because that is what a reader wants when
+	// there are only a few.
+	for _, want := range []string{"/var/log/socket: not a regular file", "/var/log/gone.log: broken symlink"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a one-off skip was lost:\n%s", got)
+		}
+	}
+
+	if lines := strings.Count(strings.TrimSpace(got), "\n") + 1; lines != 3 {
+		t.Errorf("wrote %d line(s), want 3:\n%s", lines, got)
+	}
+}
+
+// Below the threshold every file is named: a count says less than a path when
+// there are two of them.
+func TestWriteSkipsNamesTheFewByName(t *testing.T) {
+	var buf bytes.Buffer
+	writeSkips(&buf, []source.Skip{
+		{Path: "a.png", Reason: "extension is not a log format"},
+		{Path: "b.png", Reason: "extension is not a log format"},
+	})
+
+	got := buf.String()
+	for _, want := range []string{"a.png", "b.png"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%s was collapsed away:\n%s", want, got)
+		}
+	}
+}
+
+// Reported in walk order, so the output does not reorder itself between runs.
+func TestWriteSkipsIsDeterministic(t *testing.T) {
+	skips := []source.Skip{
+		{Path: "z.log", Reason: "one"},
+		{Path: "a.log", Reason: "two"},
+		{Path: "m.log", Reason: "three"},
+	}
+
+	var first bytes.Buffer
+	writeSkips(&first, skips)
+
+	for i := 0; i < 5; i++ {
+		var again bytes.Buffer
+		writeSkips(&again, skips)
+		if again.String() != first.String() {
+			t.Fatalf("run %d differed:\n%s\n%s", i, first.String(), again.String())
+		}
 	}
 }

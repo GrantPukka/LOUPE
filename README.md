@@ -600,6 +600,7 @@ no flags:
 ```bash
 # Containers
 loupe /var/log/pods                       # CRI: containerd and CRI-O
+loupe /var/log/containers                 # the same logs, via the kubelet symlinks
 loupe /var/lib/docker/containers          # Docker json-file
 loupe /var/log/pods 'level:>=error'       # the usual filters, unchanged
 loupe /var/log/pods/checkout_0.log        # or one container
@@ -625,9 +626,44 @@ loupe ./journal-export.json '_SYSTEMD_UNIT:ssh.service'
 loupe ./logs 'format:cri'                 # narrow a mixed directory to one format
 ```
 
-Point CRI at `/var/log/pods`, which holds the real files. `/var/log/containers`
-is a directory of symlinks into it, and the walk reads regular files only — it
-says so per file rather than returning an empty result.
+**Symlinks are followed**, so `/var/log/containers` — a directory of links into
+`/var/log/pods` — reads like any other directory:
+
+```bash
+# Either directory, or both
+loupe /var/log/containers                 # the kubelet's symlinks
+loupe /var/log/pods                       # the files they point at
+loupe /var/log                            # both walked, each log read once
+
+# A symlink anywhere a path is taken
+loupe /var/log/mylogs                     # a link to a directory
+loupe /var/log/containers/api-abc123.log  # a link to one file
+
+# Which name won, and what was passed over
+loupe sources /var/log
+```
+
+Point at `/var/log` and both directories are walked, but each log is read
+**once** — deduplicated by where the bytes actually are, not by path, so the
+counts do not double:
+
+```
+1 source(s) across 3 file(s) · 69 records
+Skipped 3 file(s): already read under another name
+```
+
+The real file wins over a link to it, so `loupe sources` names where the bytes
+live. Read `/var/log/containers` on its own and you get the kubelet's names
+instead, which carry the pod and container.
+
+A broken link, a socket, and a symlink to a directory are each reported with a
+reason rather than failing the walk — and reasons shared by three or more files
+are counted on one line instead of scrolling past:
+
+```
+Skipped /var/log/containers/gone.log: broken symlink
+Skipped /var/log/podslink: a symlink to a directory — name it directly to read it
+```
 
 **Compression is transparent**, and detected from magic bytes rather than the
 file name — a rotated `.log` that is really gzip is common:
