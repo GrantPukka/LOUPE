@@ -381,11 +381,13 @@ func zoneFor(name string, zones map[string]*time.Location) (*time.Location, Zone
 // logicalName reduces a path to the source name a user would type, dropping the
 // directory, the compression suffix, the rotation number, and a trailing .log.
 //
-// checkout-api.log, checkout-api.log.1, and checkout-api.log.2.gz all become
-// checkout-api, which is what makes source:checkout-api match a rotation group.
+// checkout-api.log, checkout-api.log.1, and checkout-api.log.2.zst all become
+// checkout-api, which is what makes source:checkout-api match a rotation group
+// whatever its archives are compressed with.
 func logicalName(path string) string {
-	name := filepath.Base(path)
-	name = strings.TrimSuffix(name, ".gz")
+	// The same trimming the walker uses to group a rotation, so a source name
+	// and a rotation group cannot disagree about which files belong together.
+	name := source.TrimCompressionSuffix(filepath.Base(path))
 
 	if i := strings.LastIndex(name, "."); i > 0 {
 		if _, err := strconv.Atoi(name[i+1:]); err == nil {

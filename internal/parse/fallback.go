@@ -59,15 +59,30 @@ func (p *fallbackParser) Parse(line []byte) (Record, error) {
 		}
 	}
 
-	// Only look for a level near the front. A message mentioning the word
-	// "error" three sentences in is not an error-level record.
-	head := rec.Message
-	if len(head) > 64 {
-		head = head[:64]
-	}
-	if m := embeddedLevelRe.FindStringSubmatch(head); m != nil {
-		rec.Level = NormaliseLevel(m[1])
-	}
+	rec.Level = levelFromMessage(rec.Message)
 
 	return rec, nil
+}
+
+// levelFromMessage reads a severity out of the text of a message.
+//
+// Shared with the container formats, which carry no severity field of their
+// own: Docker and CRI record only which stream a line came from, and inferring
+// the level from stderr would mark ordinary progress output as an error and
+// poison level:>=error for the whole source. Reading the word the program
+// actually wrote is a better-founded guess, and it is the same guess the
+// fallback parser has always made.
+//
+// Only the front of the message is searched. A line mentioning the word "error"
+// three sentences in is not an error-level record.
+func levelFromMessage(msg string) string {
+	const head = 64
+	if len(msg) > head {
+		msg = msg[:head]
+	}
+
+	if m := embeddedLevelRe.FindStringSubmatch(msg); m != nil {
+		return NormaliseLevel(m[1])
+	}
+	return ""
 }

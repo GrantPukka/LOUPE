@@ -37,9 +37,15 @@ var skipDirs = map[string]bool{
 // skipExts are extensions that are never log files. This is a courtesy filter
 // for speed; the binary content check below is what actually guarantees
 // correctness.
+//
+// The single-file compression formats are deliberately absent. logrotate names
+// its archives .gz, .bz2, .xz and .zst, and skipping those meant a directory of
+// rotated logs read only the live file — silently, which is the failure this
+// project refuses. Archive *containers* stay on the list: a .zip or .tar holds
+// many files and reading one as a byte stream produces nonsense.
 var skipExts = map[string]bool{
 	".duckdb": true, ".db": true, ".sqlite": true, ".sqlite3": true,
-	".zip": true, ".tar": true, ".bz2": true, ".xz": true, ".zst": true, ".7z": true,
+	".zip": true, ".tar": true, ".7z": true,
 	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".pdf": true, ".ico": true,
 	".so": true, ".dylib": true, ".dll": true, ".exe": true, ".a": true, ".o": true,
 	".class": true, ".jar": true, ".pyc": true, ".wasm": true,
@@ -182,7 +188,7 @@ func consider(path string, d fs.DirEntry, opts *WalkOptions) (*File, string) {
 
 	// The ceiling applies to uncompressed files only; a compressed file's
 	// on-disk size says little about how much data it holds.
-	if !f.gzipped && info.Size() > opts.maxSize() {
+	if !f.Compressed() && info.Size() > opts.maxSize() {
 		return nil, fmt.Sprintf("larger than %s (use --max-file-size)", humanSize(opts.maxSize()))
 	}
 
@@ -275,8 +281,9 @@ func looksBinary(path string) (bool, error) {
 	}
 	buf = buf[:n]
 
-	// Gzip is binary but wanted, and File handles the decompression.
-	if n >= 2 && buf[0] == 0x1f && buf[1] == 0x8b {
+	// A compressed log is binary but wanted, and File handles the
+	// decompression transparently.
+	if detectCodec(buf) != codecNone {
 		return false, nil
 	}
 
@@ -294,10 +301,15 @@ func looksBinary(path string) (bool, error) {
 // 2. Higher numbers are older, which is what makes chronological ordering
 // possible without opening the files.
 //
+// Every compression suffix is stripped, not only .gz, so that access.log.2.zst
+// belongs to the same rotation group as access.log and file:access.log finds
+// it. A suffix left on would put the archive in a group of its own, where it
+// would sort separately and answer a filter nobody typed.
+//
 // The group includes the directory, so two access.log files in different
 // directories are not treated as rotations of each other.
 func rotationOf(path string) (group, name string, index int) {
-	name = strings.TrimSuffix(filepath.Base(path), ".gz")
+	name = TrimCompressionSuffix(filepath.Base(path))
 
 	if i := strings.LastIndex(name, "."); i > 0 {
 		if n, err := strconv.Atoi(name[i+1:]); err == nil {
@@ -321,6 +333,26 @@ func sortRotation(files []*File) {
 		}
 		return ni > nj // higher rotation number is older, so it comes first
 	})
+}
+
+// compressionSuffixes are the extensions a rotated archive carries. Stripping
+// them is a naming convenience only; what a file actually is comes from its
+// magic bytes.
+var compressionSuffixes = []string{".gz", ".zst", ".bz2", ".xz"}
+
+// TrimCompressionSuffix removes the archive extension from a file name.
+//
+// Exported because internal/store reduces a path to a logical source name by
+// the same rule, and the two lists must not drift: when this one learned zstd
+// and the store's had only gzip, access.log.2.zst became a source of its own
+// and source:access silently stopped matching it.
+func TrimCompressionSuffix(name string) string {
+	for _, suffix := range compressionSuffixes {
+		if trimmed, ok := strings.CutSuffix(name, suffix); ok {
+			return trimmed
+		}
+	}
+	return name
 }
 
 func humanSize(n int64) string {

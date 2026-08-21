@@ -87,11 +87,17 @@ type Source interface {
 ```
 
 v1 implementations: local file, local directory walk (with glob + ignore rules), stdin,
-transparent gzip/zstd decompression. Later: S3/GCS prefix, `journalctl`, Docker `json-file`.
+transparent gzip/zstd/bzip2/xz decompression. Later: S3/GCS prefix.
+
+Compression is recognised from magic bytes, never from the extension: rotated logs are named
+inconsistently, and a `.log` that is really gzip is common. A compressed source is never
+`Tailable` — an offset into decompressed bytes cannot be seeked to — which is what EC001's
+incremental path already assumes.
 
 Directory walking should skip binaries and anything over a configurable size ceiling, and
 should recognise rotated-log naming (`app.log`, `app.log.1`, `app.log.2.gz`) so it can order
-them chronologically.
+them chronologically. The archive suffix is stripped by one shared function, so a rotation
+group and a logical source name cannot disagree about which files belong together.
 
 ### 3.2 Parser — *bytes to records*
 

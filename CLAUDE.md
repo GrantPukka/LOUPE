@@ -96,9 +96,15 @@ Full rules in `docs/FILTER-DSL.md` §2. The ones that are easy to get wrong:
 
 ## Adding dependencies
 
-Ask first. The allowed set is `cobra`, `go-duckdb`, a colour library, and the
-standard library. Prefer stdlib. Do not add a logging framework, a DI container, a
-config library, or an ORM.
+Ask first. The allowed set is `cobra`, `go-duckdb`, a colour library,
+`klauspost/compress` (zstd), `ulikunitz/xz`, and the standard library. Prefer
+stdlib. Do not add a logging framework, a DI container, a config library, or an
+ORM.
+
+The two decompressors were approved for EC008 on the numbers the item asked for:
+both BSD-3-Clause, neither with a transitive dependency, and +0.51MB together on
+a 54MB binary — `klauspost/compress` was already in the build graph via
+go-duckdb, so only the zstd package itself is new. gzip and bzip2 are stdlib.
 
 ---
 

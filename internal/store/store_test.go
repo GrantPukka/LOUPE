@@ -654,3 +654,30 @@ func TestPerSourceTimezoneOverridesTheDefault(t *testing.T) {
 		t.Errorf("difference = %v, want 9h; the named source did not override the default", diff)
 	}
 }
+
+// A rotated archive must reduce to the same logical source name as the live
+// file, whatever it is compressed with.
+//
+// This had two implementations for a while, and they disagreed: the walker
+// learned zstd, bzip2 and xz while this one still knew only gzip, so
+// access.log.2.zst became a source of its own and source:access silently
+// stopped matching it. They now share one list.
+func TestLogicalNameIgnoresCompressionSuffix(t *testing.T) {
+	tests := map[string]string{
+		"/var/log/access.log":         "access",
+		"/var/log/access.log.1":       "access",
+		"/var/log/access.log.2.gz":    "access",
+		"/var/log/access.log.3.zst":   "access",
+		"/var/log/access.log.4.bz2":   "access",
+		"/var/log/access.log.5.xz":    "access",
+		"/var/log/checkout-api.log":   "checkout-api",
+		"/var/log/pods/app.log.9.zst": "app",
+		"/var/log/syslog":             "syslog",
+	}
+
+	for path, want := range tests {
+		if got := logicalName(path); got != want {
+			t.Errorf("logicalName(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
