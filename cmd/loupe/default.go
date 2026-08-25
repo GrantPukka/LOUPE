@@ -99,7 +99,25 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 
 	// The initial page is printed first either way: following starts from what
 	// is already on screen, so the user sees context before the live tail.
-	res, err := sess.Records(cmd.Context(), plan, session.RecordQuery{Limit: g.limit, Sort: order})
+	if g.context < 0 {
+		return fmt.Errorf("--context takes a count of records, not %d", g.context)
+	}
+	if g.context > 0 && plan.Query.IsEmpty() {
+		return fmt.Errorf("--context shows the records around a match; this filter matches everything\n" +
+			"give a filter, or drop --context to list the lot")
+	}
+
+	if g.fold && g.context > 0 {
+		return fmt.Errorf("--fold and --context ask for opposite things: " +
+			"one hides repeated lines, the other shows more lines around them")
+	}
+
+	res, err := sess.Records(cmd.Context(), plan, session.RecordQuery{
+		Limit:   g.limit,
+		Sort:    order,
+		Context: g.context,
+		Fold:    g.fold,
+	})
 	if err != nil {
 		return err
 	}
@@ -107,6 +125,12 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	writer, err := g.renderer(sess.Loc)
 	if err != nil {
 		return err
+	}
+	if g.fold {
+		// A folded row is a run of records, not one record, and a footer saying
+		// "showing 6 of 32,371 records" would misstate both what is on screen
+		// and the size of what the limit cut off.
+		writer.SetRowNoun("run", "runs")
 	}
 	if err := writer.Result(res); err != nil {
 		return err

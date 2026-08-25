@@ -8,7 +8,8 @@
     "continuation": 96,
     "truncated": 0,
     "blank": 1,
-    "zone_assumed": 21
+    "zone_assumed": 21,
+    "invalid_utf8": 0
   },
   "records": [
     {

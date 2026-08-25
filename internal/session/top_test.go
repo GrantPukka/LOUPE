@@ -245,3 +245,95 @@ func TestTopOnEmptyResults(t *testing.T) {
 		t.Errorf("absent = %d, want all %d matched", absent.Absent, absent.Matched)
 	}
 }
+
+// sshFixture writes the two shapes sshd actually uses. Counting the phrase
+// "Failed password for root" finds only the first and undercounts by 42%,
+// looking like a clean confident answer — the failure `top` exists to prevent,
+// except that the username lives in unparsed text where there is no field.
+func sshFixture(t *testing.T) *Session {
+	t.Helper()
+
+	return openFixture(t,
+		`Aug 13 14:00:00 host sshd[1001]: Failed password for root from 10.0.0.1 port 2222 ssh2`,
+		`Aug 13 14:00:01 host sshd[1002]: Failed password for invalid user root from 10.0.0.2 port 2222 ssh2`,
+		`Aug 13 14:00:02 host sshd[1003]: Failed password for invalid user root from 10.0.0.3 port 2222 ssh2`,
+		`Aug 13 14:00:03 host sshd[1004]: Failed password for admin from 10.0.0.4 port 2222 ssh2`,
+		`Aug 13 14:00:04 host sshd[1005]: Accepted password for deploy from 10.0.0.5 port 2222 ssh2`,
+	)
+}
+
+func TestTopByRegexCapture(t *testing.T) {
+	got := topOf(t, sshFixture(t), `/Failed password for (?:invalid user )?(\S+)/`, "", -1)
+
+	want := map[string]int64{"root": 3, "admin": 1}
+	if len(got.Values) != len(want) {
+		t.Fatalf("values = %+v, want %d of them", got.Values, len(want))
+	}
+	for _, v := range got.Values {
+		if want[v.Value] != v.Count {
+			t.Errorf("%s = %d, want %d", v.Value, v.Count, want[v.Value])
+		}
+	}
+
+	// The line that did not match is outside the breakdown and has to be said
+	// so, not folded into the denominator.
+	if got.Absent != 1 {
+		t.Errorf("Absent = %d, want 1 — the Accepted line matches no capture", got.Absent)
+	}
+}
+
+// A pattern with no capture group means the whole match.
+func TestTopByRegexWithoutACapture(t *testing.T) {
+	got := topOf(t, sshFixture(t), `/(?:Failed|Accepted) password/`, "", -1)
+
+	counts := map[string]int64{}
+	for _, v := range got.Values {
+		counts[v.Value] = v.Count
+	}
+	if counts["Failed password"] != 4 || counts["Accepted password"] != 1 {
+		t.Errorf("values = %+v, want 4 Failed and 1 Accepted", got.Values)
+	}
+}
+
+// The field~/regex/ form targets a column, spelled the way the filter language
+// spells a regex.
+func TestTopByRegexOnANamedField(t *testing.T) {
+	got := topOf(t, sshFixture(t), `message~/for (?:invalid user )?(\S+)/`, "", -1)
+
+	if len(got.Values) == 0 {
+		t.Fatal("no values extracted from message")
+	}
+	for _, v := range got.Values {
+		if strings.ContainsAny(v.Value, " ") {
+			t.Errorf("captured %q, want a single username", v.Value)
+		}
+	}
+}
+
+// A bad pattern is an error before anything runs, not an empty table.
+func TestTopByInvalidRegex(t *testing.T) {
+	sess := sshFixture(t)
+
+	_, err := sess.Top(context.Background(), plan(t, sess, ""),
+		TopQuery{Field: `/unclosed (group/`, Limit: -1})
+	if err == nil {
+		t.Fatal("an invalid regex should be an error")
+	}
+	if !strings.Contains(err.Error(), "invalid regex") {
+		t.Errorf("error = %v, want it to name the problem", err)
+	}
+}
+
+// The regex is a parameter, never concatenated into the statement.
+func TestTopRegexIsParameterised(t *testing.T) {
+	expr, err := topExprFor(query.Schema{}, `/x(y)/`)
+	if err != nil {
+		t.Fatalf("topExprFor: %v", err)
+	}
+	if strings.Contains(expr.SQL, "x(y)") {
+		t.Errorf("the pattern was built into the SQL: %s", expr.SQL)
+	}
+	if len(expr.Args) != 1 || expr.Args[0] != "x(y)" {
+		t.Errorf("Args = %#v, want the pattern as a parameter", expr.Args)
+	}
+}

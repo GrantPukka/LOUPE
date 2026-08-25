@@ -153,6 +153,17 @@ func (s *DB) Load(ctx context.Context, sources []source.Source, opts LoadOptions
 		}
 	}()
 
+	// Checked once, before anything is read. Left to the per-source path this
+	// surfaces as a warning on every file and a listing of no records at all —
+	// a typo answering with silence, which is the behaviour FILTER-DSL section
+	// 7 forbids for a field name and which is no better for a format name.
+	if opts.Parser != "" {
+		if _, ok := parse.Get(opts.Parser); !ok {
+			return load, fmt.Errorf("unknown parser %q (available: %s)",
+				opts.Parser, strings.Join(parse.Names(), ", "))
+		}
+	}
+
 	for _, src := range sources {
 		if err := ctx.Err(); err != nil {
 			return load, err
@@ -259,6 +270,10 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 		}
 	}
 
+	// Sanitisation happens at the appender, so its count is collected here
+	// rather than arriving from the reader with the rest.
+	stats.InvalidUTF8 = ing.InvalidUTF8()
+
 	return IngestResult{
 		Source: meta,
 		Stats:  stats,
@@ -333,8 +348,34 @@ func openAt(ctx context.Context, src source.Source, offset int64) (io.ReadCloser
 	return rc, nil
 }
 
+// MixedCoverage is the share of sampled lines the detected parser must claim
+// before it is trusted with the whole file.
+//
+// Below it, the file is read with per-line detection instead. The threshold is
+// deliberately generous: a file that really is one format with a scattering of
+// damaged lines sits far above it, and a file that is genuinely mixed sits far
+// below — the corpus that prompted this had the detected parser claiming 15.5%.
+// Choosing per-line detection when it was not needed costs some ingest speed
+// and nothing else, because the per-line answer for a uniform file is the same
+// parser on every line.
+const MixedCoverage = 0.8
+
+// MixedMinSample is how many lines must be seen before coverage means anything.
+//
+// A file of three lines, one of them damaged, scores 0.67 and would otherwise
+// be declared multi-format on no evidence at all. Below this, detection is
+// trusted; the fallback for a genuinely mixed file that is this short is that
+// its handful of records are unparsed, which is what they would have been
+// anyway.
+const MixedMinSample = 20
+
 // parserFor resolves the format for a source, either from the override or by
 // sampling the head of the file.
+//
+// Detection answers "which parser is this file's format", and then coverage
+// answers the question that was missing: "and does that parser actually read
+// this file". A file where it does not is read per line instead. See
+// parse.mixedParser for why one file is not necessarily one format.
 func (s *DB) parserFor(ctx context.Context, src source.Source, override string) (parse.Parser, error) {
 	if override != "" {
 		p, ok := parse.Get(override)
@@ -354,7 +395,37 @@ func (s *DB) parserFor(ctx context.Context, src source.Source, override string) 
 	if det.Parser == nil {
 		return nil, fmt.Errorf("no parser could read %s", src.Name())
 	}
+
+	if needsPerLineDetection(det.Parser, sample) {
+		if mixed, ok := parse.Get(parse.MixedName); ok {
+			return mixed, nil
+		}
+	}
 	return det.Parser, nil
+}
+
+// needsPerLineDetection reports whether the detected parser leaves too much of
+// the sample unread to be trusted with the file.
+//
+// The fallback is asked a different question, because it claims every line and
+// so has perfect coverage by construction. What matters for it is whether a
+// real parser would have claimed some of the lines — if one would, the file has
+// structure the fallback is about to throw away.
+func needsPerLineDetection(detected parse.Parser, sample [][]byte) bool {
+	if len(sample) < MixedMinSample {
+		return false
+	}
+
+	if detected.Name() == "text" {
+		for name, n := range parse.Formats(sample) {
+			if name != "text" && n > 0 {
+				return true
+			}
+		}
+		return false
+	}
+
+	return parse.Coverage(detected, sample) < MixedCoverage
 }
 
 // zoneFor picks the timezone applied to this source's zoneless timestamps, and

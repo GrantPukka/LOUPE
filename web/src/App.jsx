@@ -640,10 +640,15 @@ function groupSources(sources) {
 function Header({ schema, timeZone }) {
   const formats = new Set((schema?.sources ?? []).map((s) => s.format));
 
+  // A source row is one file *and* one format, so a file read line by line
+  // contributes several. Counting rows would report one merged log as seven
+  // files.
+  const files = new Set((schema?.sources ?? []).map((s) => s.file));
+
   return (
     <header>
       <span class="brand">loupe</span>
-      <span class="path">{schema ? `${schema.sources?.length ?? 0} files` : 'loading…'}</span>
+      <span class="path">{schema ? `${files.size} ${files.size === 1 ? 'file' : 'files'}` : 'loading…'}</span>
       <span class="meta">
         <b>{formats.size}</b> formats · <b>{number(schema?.records)}</b> records
         {schema?.unparsed > 0 && (

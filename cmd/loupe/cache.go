@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -29,6 +30,13 @@ directory re-ingests each time. The cache pays off on archived and rotated logs.
 			return runCacheList(g)
 		},
 	}
+
+	// The subcommands are verbs, not flags, and `cache --clear` is the obvious
+	// wrong guess. Cobra's own message says only "unknown flag", which is true
+	// and unhelpful when the thing the user wants is one word away.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		return suggestCacheVerb(c, err)
+	})
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "clear",
@@ -59,6 +67,29 @@ directory re-ingests each time. The cache pays off on archived and rotated logs.
 	})
 
 	return cmd
+}
+
+// cacheVerbs maps a mistaken flag to the subcommand that does the job.
+var cacheVerbs = map[string]string{
+	"--clear": "clear",
+	"--purge": "clear",
+	"--path":  "path",
+	"--list":  "",
+}
+
+// suggestCacheVerb names the subcommand behind a flag someone reached for.
+func suggestCacheVerb(cmd *cobra.Command, err error) error {
+	for flag, verb := range cacheVerbs {
+		if !strings.Contains(err.Error(), flag) {
+			continue
+		}
+		if verb == "" {
+			return fmt.Errorf("%w\n\ndid you mean `%s`? listing is what it does with no arguments",
+				err, cmd.CommandPath())
+		}
+		return fmt.Errorf("%w\n\ndid you mean `%s %s`?", err, cmd.CommandPath(), verb)
+	}
+	return err
 }
 
 func runCacheList(g *globals) error {

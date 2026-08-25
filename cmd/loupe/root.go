@@ -40,6 +40,8 @@ type globals struct {
 	redact      []string
 	sort        string
 	configDir   string
+	context     int
+	fold        bool
 }
 
 func newRootCommand() *cobra.Command {
@@ -70,7 +72,8 @@ Read-only, local-only, no daemon, no network.`,
 
 	pf := root.PersistentFlags()
 	pf.StringVar(&g.parser, "parser", "", "force a log format instead of detecting it")
-	pf.StringVar(&g.format, "format", "", "output format: table, json, ndjson, raw, csv")
+	pf.StringVar(&g.format, "format", "",
+		"output format: table, json, ndjson, raw, csv (default table on a terminal, ndjson when piped)")
 	pf.IntVar(&g.limit, "limit", defaultDisplayLimit, "maximum rows to display (0 for no limit)")
 	pf.BoolVar(&g.noColour, "no-color", false, "disable colour output")
 	pf.BoolVar(&g.utc, "utc", false, "show times in UTC")
@@ -96,6 +99,10 @@ Read-only, local-only, no daemon, no network.`,
 	// does, so it delegates rather than growing a second code path.
 	root.Flags().BoolVar(&g.follow, "follow", false,
 		"keep watching for records written after the initial read")
+	root.Flags().IntVarP(&g.context, "context", "C", 0,
+		"also show this many records either side of each match, from the same file")
+	root.Flags().BoolVar(&g.fold, "fold", false,
+		"collapse consecutive repeats of the same line into one row with a count")
 	root.Flags().BoolVar(&g.ui, "ui", false, "open the results in a local web UI instead of printing them")
 	root.Flags().StringVar(&g.uiAddr, "addr", server.DefaultAddr, "loopback address for --ui")
 
@@ -243,10 +250,33 @@ func (g *globals) renderer(loc *time.Location) (*render.Writer, error) {
 	return g.rendererFor(loc, false)
 }
 
+// sqlRenderer builds a renderer for output whose columns the user named.
+//
+// See render.Options.UserSQL: a TIMESTAMP a user computed is not an instant,
+// and must not be moved by the display offset.
+func (g *globals) sqlRenderer(loc *time.Location) (*render.Writer, render.Options, error) {
+	opts, err := g.renderOptions(loc, false)
+	if err != nil {
+		return nil, opts, err
+	}
+	opts.UserSQL = true
+	return render.New(os.Stdout, opts), opts, nil
+}
+
 // rendererFor builds a renderer, marking it continuous for output that arrives
 // in batches but is one listing — a live tail, or a stream being read as it is
 // written.
 func (g *globals) rendererFor(loc *time.Location, continuous bool) (*render.Writer, error) {
+	opts, err := g.renderOptions(loc, continuous)
+	if err != nil {
+		return nil, err
+	}
+	return render.New(os.Stdout, opts), nil
+}
+
+// renderOptions resolves the flags into render options, for the callers that
+// need to inspect them as well as render with them.
+func (g *globals) renderOptions(loc *time.Location, continuous bool) (render.Options, error) {
 	opts := render.Options{
 		Location:   loc,
 		Continuous: continuous,
@@ -255,11 +285,21 @@ func (g *globals) rendererFor(loc *time.Location, continuous bool) (*render.Writ
 	if g.format != "" {
 		f, err := render.ParseFormat(g.format)
 		if err != nil {
-			return nil, err
+			return opts, err
 		}
 		opts.Format = f
 	}
-	return render.New(os.Stdout, opts), nil
+	if opts.Format == "" {
+		// Resolved here rather than left to render.New, so that a caller
+		// reading these options back sees the format that will actually be
+		// used.
+		if render.IsTerminal(os.Stdout) {
+			opts.Format = render.FormatTable
+		} else {
+			opts.Format = render.FormatNDJSON
+		}
+	}
+	return opts, nil
 }
 
 // describeNoSources expands the error with the list of skipped files.

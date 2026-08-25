@@ -54,6 +54,19 @@ func statusLine(w io.Writer, s *session.Session) {
 			a.Source.Name, a.Records, a.Source.Zone, a.Source.ZoneSource)
 	}
 
+	if n := s.Load.Stats.InvalidUTF8; n > 0 {
+		// Said as its own sentence rather than as another count in the summary
+		// line, because it is the one number here the reader has to act on: a
+		// search for text inside those records will not match what they typed.
+		was := "were"
+		if n == 1 {
+			was = "was"
+		}
+		fmt.Fprintf(w, "Note: %s contained invalid UTF-8 and %s stored with replacement characters; "+
+			"the original bytes are in the %s field (%s:* finds them).\n",
+			countOf(n, "record", "records"), was, store.RawHexField, store.RawHexField)
+	}
+
 	cacheLine(w, s)
 
 	writeSkips(w, s.Walk.Skipped)
@@ -74,7 +87,8 @@ func cacheLine(w io.Writer, s *session.Session) {
 		// The stored duration is what the original ingest cost, not this run.
 		// Saying which is the difference between a reassuring number and a
 		// confusing one.
-		fmt.Fprintf(w, "Reused a cached ingest — the original read took %s. Pass --no-cache to re-read the files.\n",
+		fmt.Fprintf(w, "Reused a cached ingest — reading these files cost %s when the cache was built. "+
+			"Pass --no-cache to re-read them.\n",
 			s.Load.Took.Round(time.Millisecond))
 	case s.HasStream():
 		// "Re-read the log files" is wrong for a pipe: there are no files, and

@@ -62,6 +62,21 @@ type Options struct {
 	// printed once rather than once per batch, which is the difference between
 	// a log view and a stack of tiny tables.
 	Continuous bool
+
+	// UserSQL marks a result whose columns were chosen by the user rather than
+	// by loupe's own compiler, which changes what a TIMESTAMP in it means.
+	//
+	// A DuckDB TIMESTAMP is a naive value: it carries no zone. Loupe's own
+	// queries only ever produce one from ts, which holds UTC, so converting it
+	// into the display timezone is right and is what every other part of this
+	// tool promises. A value the user computed in `loupe sql` was never UTC,
+	// and shifting it by the display offset moved literal timestamps ten hours
+	// and a day, silently, in the one command whose whole purpose is answering
+	// what the DSL cannot.
+	//
+	// So under this flag only ts, and anything DuckDB actually typed as
+	// TIMESTAMP WITH TIME ZONE, is converted. See VerbatimTimestamps.
+	UserSQL bool
 }
 
 // Writer renders results.
@@ -120,12 +135,19 @@ func (w *Writer) Result(res store.Result) error {
 }
 
 // value renders one cell for display.
-func (w *Writer) value(v any) string {
+//
+// localise says whether a timestamp in this column is a real instant, and so
+// whether showing it in the display timezone is a conversion or a corruption.
+// See Options.UserSQL and localisedColumns.
+func (w *Writer) value(v any, localise bool) string {
 	switch t := v.(type) {
 	case nil:
 		return ""
 	case time.Time:
-		return t.In(w.opts.Location).Format("2006-01-02 15:04:05.000")
+		if localise {
+			t = t.In(w.opts.Location)
+		}
+		return t.Format("2006-01-02 15:04:05.000")
 	case []byte:
 		return string(t)
 	case string:
@@ -169,4 +191,58 @@ func TerminalWidth(w io.Writer) int {
 		return n
 	}
 	return 120
+}
+
+// localisedColumns decides, per column, whether a timestamp found in it is a
+// real UTC instant.
+//
+// Loupe's own compiler only ever derives a timestamp from ts, so everything it
+// produces is one. User SQL is the exception, and there the only column loupe
+// can vouch for is ts itself — plus anything DuckDB has explicitly typed as
+// carrying a zone, which is unambiguous whoever wrote it.
+func (w *Writer) localisedColumns(res store.Result) []bool {
+	out := make([]bool, len(res.Columns))
+	for i := range res.Columns {
+		switch {
+		case i < len(res.Types) && zoned(res.Types[i]):
+			out[i] = true
+		case !w.opts.UserSQL:
+			out[i] = true
+		default:
+			out[i] = res.Columns[i] == "ts"
+		}
+	}
+	return out
+}
+
+// zoned reports whether a DuckDB type carries a timezone of its own.
+func zoned(dbType string) bool {
+	upper := strings.ToUpper(dbType)
+	return strings.Contains(upper, "WITH TIME ZONE") || strings.Contains(upper, "TIMESTAMPTZ")
+}
+
+// VerbatimTimestamps names the timestamp columns a result will show exactly as
+// computed, without converting them into the display timezone.
+//
+// Every other conversion in this tool is announced, and a conversion that does
+// *not* happen where the reader expects one has to be announced too. `loupe
+// sql` prints this above its table; it is empty for every other caller, whose
+// timestamps are all real instants.
+func VerbatimTimestamps(opts Options, res store.Result) []string {
+	if !opts.UserSQL {
+		return nil
+	}
+
+	var out []string
+	for i, col := range res.Columns {
+		if col == "ts" || i >= len(res.Types) || zoned(res.Types[i]) {
+			continue
+		}
+		if !strings.HasPrefix(strings.ToUpper(res.Types[i]), "TIMESTAMP") &&
+			!strings.EqualFold(res.Types[i], "DATE") {
+			continue
+		}
+		out = append(out, col)
+	}
+	return out
 }

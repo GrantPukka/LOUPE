@@ -64,8 +64,15 @@ func (s *DB) InferAndPromote(ctx context.Context, opts schema.Options) ([]schema
 // ten thousand records are all Nginx — so a head sample promotes Nginx's
 // columns and nothing else, which is a confidently wrong schema.
 //
-// Taking an equal slice from each source instead means every format is seen,
-// which is also what lets schema.Infer judge coverage per source.
+// Taking an equal slice from each source and format instead means every format
+// is seen, which is also what lets schema.Infer judge coverage per group.
+//
+// Format is part of the key, not just source, because one file can hold many
+// formats. Partitioning by source alone would reproduce the same bug one level
+// down on a merged stream — the head of the single source is whichever format
+// happens to come first — and would judge coverage across formats that share no
+// fields, so that a key carried by every Nginx line scores 19% and never earns
+// a column.
 //
 // The sample is deterministic — the first rows of each source, not a random
 // draw — because the promotion decision is cached, and a schema that varied
@@ -79,18 +86,24 @@ func (s *DB) sampleFields(ctx context.Context, opts schema.Options) ([]schema.Sa
 		return nil, nil
 	}
 
-	perSource := opts.SampleSize / sources
-	if perSource < 1 {
-		perSource = 1
+	perGroup := opts.SampleSize / sources
+	if perGroup < 1 {
+		perGroup = 1
+	}
+
+	compound, err := s.sourcesWithManyFormats(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	rows, err := s.Query(ctx, `
-		SELECT source, fields FROM (
-			SELECT source, fields, row_number() OVER (PARTITION BY source ORDER BY seq) AS rn
+		SELECT source, format, fields FROM (
+			SELECT source, format, fields,
+			       row_number() OVER (PARTITION BY source, format ORDER BY seq) AS rn
 			FROM logs
 			WHERE fields IS NOT NULL
 		)
-		WHERE rn <= ?`, perSource)
+		WHERE rn <= ?`, perGroup)
 	if err != nil {
 		return nil, err
 	}
@@ -100,9 +113,10 @@ func (s *DB) sampleFields(ctx context.Context, opts schema.Options) ([]schema.Sa
 	for rows.Next() {
 		var (
 			source string
+			format string
 			raw    sql.NullString
 		)
-		if err := rows.Scan(&source, &raw); err != nil {
+		if err := rows.Scan(&source, &format, &raw); err != nil {
 			return nil, fmt.Errorf("scan field bag: %w", err)
 		}
 		if !raw.Valid {
@@ -115,20 +129,58 @@ func (s *DB) sampleFields(ctx context.Context, opts schema.Options) ([]schema.Sa
 			// is not a reason to abandon inference.
 			continue
 		}
-		samples = append(samples, schema.Sample{Source: source, Fields: normaliseNumbers(bag)})
+		// loupe's own bookkeeping is not part of the log's schema. On a source
+		// where few records carry any fields at all it would otherwise have
+		// near-total coverage of the sample and promote to a column, putting a
+		// hex dump next to the fields the user actually wants to filter on.
+		delete(bag, RawHexField)
+
+		// The group is named for the source alone unless that source holds more
+		// than one format, so the usual case reports "checkout-api" rather than
+		// "checkout-api/jsonl" in a skip explanation.
+		group := source
+		if compound[source] {
+			group = source + "/" + format
+		}
+
+		samples = append(samples, schema.Sample{Source: group, Fields: normaliseNumbers(bag)})
 	}
 
 	return samples, rows.Err()
 }
 
-// countSources returns how many distinct logical sources were ingested.
+// countSources returns how many distinct source-and-format groups were
+// ingested, which is what the sample is stratified over.
 func (s *DB) countSources(ctx context.Context) (int, error) {
 	var n int
-	row := s.QueryRow(ctx, `SELECT count(DISTINCT source) FROM logs`)
+	row := s.QueryRow(ctx, `SELECT count(*) FROM (SELECT DISTINCT source, format FROM logs)`)
 	if err := row.Scan(&n); err != nil {
 		return 0, fmt.Errorf("count sources: %w", err)
 	}
 	return n, nil
+}
+
+// sourcesWithManyFormats names the sources that hold more than one format,
+// which is only ever a file read with per-line detection.
+func (s *DB) sourcesWithManyFormats(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.Query(ctx, `
+		SELECT source FROM logs
+		GROUP BY source
+		HAVING count(DISTINCT format) > 1`)
+	if err != nil {
+		return nil, fmt.Errorf("count formats per source: %w", err)
+	}
+	defer rows.Close()
+
+	out := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("scan source: %w", err)
+		}
+		out[name] = true
+	}
+	return out, rows.Err()
 }
 
 // normaliseNumbers converts JSON numbers back to int64 where they are whole.

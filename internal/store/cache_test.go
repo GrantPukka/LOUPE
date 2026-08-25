@@ -36,9 +36,26 @@ func walk(t *testing.T, dir string) []source.Source {
 	return sources
 }
 
-// openCached is the common path: walk, open through the cache, register
-// cleanup.
+// openCached is the common path: walk, open through the cache, stamp the
+// result complete, register cleanup.
+//
+// The stamp is what session.Open does once the whole pipeline — inference
+// included — has succeeded. Without it nothing here would ever hit the cache,
+// which is the point: see TestUnstampedCacheIsNotReused.
 func openCached(t *testing.T, dir, cacheDir string, opts CacheOptions) *Cached {
+	t.Helper()
+
+	cached := openCachedRaw(t, dir, cacheDir, opts)
+	if !cached.Hit && cached.Path != "" {
+		if err := cached.DB.MarkComplete(context.Background()); err != nil {
+			t.Fatalf("MarkComplete: %v", err)
+		}
+	}
+	return cached
+}
+
+// openCachedRaw stops short of stamping, for the tests that are about the stamp.
+func openCachedRaw(t *testing.T, dir, cacheDir string, opts CacheOptions) *Cached {
 	t.Helper()
 	opts.Dir = cacheDir
 
@@ -629,5 +646,64 @@ func TestSummaryMatchesTheTableAfterAnAppend(t *testing.T) {
 	}
 	if metaRows != 1 {
 		t.Errorf("loupe_cache_meta holds %d rows, want exactly 1", metaRows)
+	}
+}
+
+// A cache file whose ingest never finished must never be reused. Appending the
+// records is not the whole ingest — schema inference runs afterwards — and a
+// half-built database is indistinguishable from a good one by record count
+// alone, which is how a run silently loses every promoted column.
+func TestUnstampedCacheIsNotReused(t *testing.T) {
+	dir := logDir(t)
+	cacheDir := t.TempDir()
+
+	first := openCachedRaw(t, dir, cacheDir, CacheOptions{})
+	if first.Hit {
+		t.Fatal("the first open cannot be a hit")
+	}
+	if first.Path == "" {
+		t.Fatal("a cacheable directory should have produced a cache file")
+	}
+
+	// Reopening now hits, because Session stamps the file after promotion.
+	if err := first.DB.MarkComplete(context.Background()); err != nil {
+		t.Fatalf("MarkComplete: %v", err)
+	}
+	first.DB.Close()
+
+	second := openCachedRaw(t, dir, cacheDir, CacheOptions{})
+	if !second.Hit {
+		t.Fatalf("a completed cache should be reused, got miss: %s", second.Reason)
+	}
+
+	// Now put it back the way an interrupted run would have left it.
+	if err := second.DB.Exec(context.Background(),
+		`UPDATE loupe_cache_meta SET complete = false`); err != nil {
+		t.Fatalf("unstamp: %v", err)
+	}
+	second.DB.Close()
+
+	third := openCachedRaw(t, dir, cacheDir, CacheOptions{})
+	if third.Hit {
+		t.Fatal("an unstamped cache was reused — a partial ingest can reach the user")
+	}
+	if !strings.Contains(third.Reason, "did not finish") {
+		t.Errorf("reason = %q, want it to say the previous ingest did not finish", third.Reason)
+	}
+}
+
+// A fresh ingest must not stamp itself. Only the caller that has finished the
+// whole pipeline knows the ingest is complete.
+func TestFreshIngestIsNotStampedComplete(t *testing.T) {
+	dir := logDir(t)
+	cacheDir := t.TempDir()
+
+	cached := openCachedRaw(t, dir, cacheDir, CacheOptions{})
+	cached.DB.Close()
+
+	// Nothing called MarkComplete, so the next open must re-read.
+	again := openCachedRaw(t, dir, cacheDir, CacheOptions{})
+	if again.Hit {
+		t.Fatal("an ingest that was never stamped complete was reused")
 	}
 }

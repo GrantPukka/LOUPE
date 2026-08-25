@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -252,11 +253,21 @@ func mustFloat(s string) float64 {
 //
 // That is ripgrep's behaviour, which users of this kind of tool already have in
 // their fingers.
+//
+// The case-insensitive form is a literal-anchored regex rather than
+// lower(expr) LIKE …, which is what it used to be. DuckDB's lower() does not
+// merely reject text that is not valid UTF-8, it fails to return on it, so a
+// single corrupt byte anywhere in the corpus made every lowercase search — the
+// primary interaction of the whole tool — hang forever with no output, while
+// the same search with one capital letter in it returned instantly. Ingest no
+// longer stores such text (see store.sanitiseEntry), but the tool should not
+// depend on that to answer a query at all, and RE2 measures marginally faster
+// here besides.
 func (b *builder) contains(expr, needle string) string {
 	if hasUpper(needle) {
 		return fmt.Sprintf("%s LIKE %s", expr, b.arg("%"+escapeLike(needle)+"%"))
 	}
-	return fmt.Sprintf("lower(%s) LIKE %s", expr, b.arg("%"+strings.ToLower(escapeLike(needle))+"%"))
+	return fmt.Sprintf("regexp_matches(%s, %s)", expr, b.arg("(?i)"+regexp.QuoteMeta(needle)))
 }
 
 // regexFlags prefixes a case-insensitive flag unless the pattern contains an

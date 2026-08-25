@@ -52,6 +52,10 @@ type Hop struct {
 	// none, and neither does an undated one.
 	Gap    time.Duration `json:"gap,omitempty"`
 	HasGap bool          `json:"has_gap,omitempty"`
+
+	// TextOnly marks a hop matched on the line's text rather than on the
+	// correlation field, which it does not carry.
+	TextOnly bool `json:"text_only,omitempty"`
 }
 
 // Dated reports whether this hop can be placed in time.
@@ -92,6 +96,12 @@ type Trace struct {
 
 	// Reach classifies every source in the data against this trace.
 	Reach []SourceReach `json:"reach"`
+
+	// TextOnly is how many hops were found only by searching the records'
+	// text, because they do not carry the correlation field. Their fields are
+	// unavailable and the match was a substring one, both of which the reader
+	// has to be told.
+	TextOnly int `json:"text_only,omitempty"`
 }
 
 // Found reports whether the trace matched anything.
@@ -139,15 +149,30 @@ func (t Trace) filterReach(keep func(SourceReach) bool) []SourceReach {
 	return out
 }
 
-// DetectTraceField picks the correlation field to follow.
+// DetectTraceField picks the correlation field to follow, knowing nothing about
+// which id is being followed.
+func (s *Session) DetectTraceField(ctx context.Context) (TraceField, error) {
+	return s.DetectTraceFieldFor(ctx, "")
+}
+
+// DetectTraceFieldFor picks the correlation field to follow for a given id.
+//
+// Coverage decides only when the id itself cannot. A field holding the value
+// the user actually pasted beats a field holding forty thousand other values,
+// however well covered the latter is: asked to follow
+// req-7f3c9a2e-…, picking trace_id because it covers more records and then
+// reporting that no record carries that trace_id is a confidently wrong answer
+// to a question the tool had all the information to answer. An id present in
+// two fields still falls back to coverage, which is the only tie-break left.
 //
 // Candidates are tested through the ordinary filter path rather than by
 // inspecting the schema directly, so a promoted column and a key still in the
 // JSON bag are found the same way and neither needs special handling here.
-func (s *Session) DetectTraceField(ctx context.Context) (TraceField, error) {
+func (s *Session) DetectTraceFieldFor(ctx context.Context, id string) (TraceField, error) {
 	type candidate struct {
-		name  string
-		count int64
+		name    string
+		count   int64
+		matches int64
 	}
 	var found []candidate
 
@@ -163,19 +188,36 @@ func (s *Session) DetectTraceField(ctx context.Context) (TraceField, error) {
 		if err != nil {
 			return TraceField{}, err
 		}
-		if n > 0 {
-			found = append(found, candidate{name: name, count: n})
+		if n == 0 {
+			continue
 		}
+
+		c := candidate{name: name, count: n}
+
+		if id != "" {
+			holding, err := s.Plan(ctx, renderTerm(name, id))
+			if err == nil {
+				if c.matches, err = s.Count(ctx, holding); err != nil {
+					return TraceField{}, err
+				}
+			}
+		}
+
+		found = append(found, c)
 	}
 
 	if len(found) == 0 {
 		return TraceField{}, &NoTraceFieldError{Tried: TraceFields}
 	}
 
-	// Most-covered wins; the candidate order settles a tie. Sorting rather
-	// than taking the first match means a dataset where request_id appears on
-	// a handful of records does not outrank a trace_id on all of them.
-	sort.SliceStable(found, func(i, j int) bool { return found[i].count > found[j].count })
+	// Holding the id wins; then coverage; then the candidate order, which is
+	// what SliceStable preserves.
+	sort.SliceStable(found, func(i, j int) bool {
+		if found[i].matches != found[j].matches {
+			return found[i].matches > found[j].matches
+		}
+		return found[i].count > found[j].count
+	})
 
 	out := TraceField{Name: found[0].name, Records: found[0].count}
 	for _, c := range found[1:] {
@@ -199,7 +241,7 @@ func (e *NoTraceFieldError) Error() string {
 // Trace follows one correlation id through every source.
 func (s *Session) Trace(ctx context.Context, id, field string) (Trace, error) {
 	if field == "" {
-		detected, err := s.DetectTraceField(ctx)
+		detected, err := s.DetectTraceFieldFor(ctx, id)
 		if err != nil {
 			return Trace{}, err
 		}
@@ -224,6 +266,22 @@ func (s *Session) Trace(ctx context.Context, id, field string) (Trace, error) {
 	}
 
 	out.Hops = hopsFrom(res.Columns, res.Rows)
+
+	// An id can be in the file without being in a field. An unparsed line, or a
+	// format with nowhere to put a correlation id, still mentions it in its
+	// text, and a trace that lists only the records that carry the field shows
+	// one hop of six and reads as though the other five never happened.
+	//
+	// An empty or one-character id would match most of the corpus as a
+	// substring, which is not a trace, so this declines to guess.
+	if len(id) > 1 {
+		raw, err := s.traceFromText(ctx, id)
+		if err != nil {
+			return Trace{}, err
+		}
+		out.Hops, out.TextOnly = mergeHops(out.Hops, raw)
+	}
+
 	for i := range out.Hops {
 		if !out.Hops[i].Dated() {
 			out.Undated++
@@ -232,7 +290,7 @@ func (s *Session) Trace(ctx context.Context, id, field string) (Trace, error) {
 	fillGaps(out.Hops)
 	out.Span = spanOf(out.Hops)
 
-	reach, err := s.traceReach(ctx, field, plan)
+	reach, err := s.traceReach(ctx, field, plan, out.Hops)
 	if err != nil {
 		return Trace{}, err
 	}
@@ -241,12 +299,84 @@ func (s *Session) Trace(ctx context.Context, id, field string) (Trace, error) {
 	return out, nil
 }
 
+// mergeHops folds text matches into the field matches, in time order.
+//
+// It returns how many hops only the text search found, because that is the
+// caveat the reader needs: those records have no fields to inspect, and the
+// match was a substring rather than a field equality.
+func mergeHops(fielded, text []Hop) ([]Hop, int) {
+	seen := make(map[int64]bool, len(fielded))
+	for _, h := range fielded {
+		seen[h.Seq] = true
+	}
+
+	merged := fielded
+	extra := 0
+	for _, h := range text {
+		if seen[h.Seq] {
+			continue
+		}
+		h.TextOnly = true
+		merged = append(merged, h)
+		extra++
+	}
+
+	if extra == 0 {
+		return merged, 0
+	}
+
+	// Undated hops sort last and among themselves by ingest order, which is
+	// what SortTime means everywhere else in this tool.
+	sort.SliceStable(merged, func(i, j int) bool {
+		a, b := merged[i], merged[j]
+		switch {
+		case a.Dated() != b.Dated():
+			return a.Dated()
+		case a.Dated() && !a.Time.Equal(b.Time):
+			return a.Time.Before(b.Time)
+		default:
+			return a.Seq < b.Seq
+		}
+	})
+	return merged, extra
+}
+
+// traceFromText looks for the id in the text of the records themselves.
+//
+// The term is quoted, so it is matched as a literal rather than as a regex or
+// as DSL vocabulary: a correlation id is an opaque token and must not be
+// reinterpreted on the way through.
+func (s *Session) traceFromText(ctx context.Context, id string) ([]Hop, error) {
+	term := &query.FreeTerm{Value: query.Value{Text: id, Quoted: true}}
+
+	plan, err := s.Plan(ctx, term.String())
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := s.Records(ctx, plan, RecordQuery{
+		Sort:    SortTime,
+		Columns: "seq, ts, source, file, level, message",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return hopsFrom(res.Columns, res.Rows), nil
+}
+
 // traceReach counts, per source, how much of this trace it saw and whether it
 // could have seen any of it.
-func (s *Session) traceReach(ctx context.Context, field string, plan Plan) ([]SourceReach, error) {
+// hops are counted from the merged list rather than re-queried, so a source
+// that only mentioned the id in its text still shows as present.
+func (s *Session) traceReach(ctx context.Context, field string, plan Plan, hops []Hop) ([]SourceReach, error) {
 	present, err := s.Plan(ctx, renderTerm(field, "*"))
 	if err != nil {
 		return nil, err
+	}
+
+	perSource := map[string]int64{}
+	for _, h := range hops {
+		perSource[h.Source]++
 	}
 
 	// Both predicates are compiled from the filter language, so their values
