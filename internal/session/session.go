@@ -158,6 +158,17 @@ func Open(ctx context.Context, opts Options) (*Session, error) {
 		return nil, err
 	}
 
+	// Only now is the ingest actually finished, so only now may the file on
+	// disk be offered to a later run. Anything that went wrong above leaves it
+	// unstamped and the next run re-reads rather than serving a database with
+	// no promoted columns. See store.DB.MarkComplete.
+	if !cached.Hit && cached.Path != "" {
+		if err := cached.DB.MarkComplete(ctx); err != nil {
+			cached.Path = ""
+			cached.Reason = fmt.Sprintf("could not finalise cache: %v", err)
+		}
+	}
+
 	return &Session{
 		DB:            cached.DB,
 		Paths:         opts.Paths,
@@ -386,6 +397,14 @@ func (s *Session) PlanAggregate(ctx context.Context, filter string) (Plan, error
 // handoff.
 const RecordColumns = `ts, level, source, message`
 
+// ContextColumns is what a listing with surrounding records selects.
+//
+// hit separates the matches from their neighbours, without which a block of
+// five lines does not say which one was found. line_no is included because
+// adjacency is the entire point of the mode and a gap between two blocks should
+// be visible rather than inferred.
+const ContextColumns = `hit, line_no, ts, level, source, message`
+
 // SortOrder is how a record listing is ordered.
 type SortOrder string
 
@@ -397,11 +416,14 @@ const (
 	SortTimeDesc SortOrder = "-time"
 )
 
-func (o SortOrder) clause() string {
+func (o SortOrder) clause() string { return " ORDER BY " + o.expr() }
+
+// expr is the ordering without the keyword, for use inside a window.
+func (o SortOrder) expr() string {
 	if o == SortTimeDesc {
-		return ` ORDER BY ts DESC NULLS LAST, seq DESC`
+		return `ts DESC NULLS LAST, seq DESC`
 	}
-	return ` ORDER BY ts NULLS LAST, seq`
+	return `ts NULLS LAST, seq`
 }
 
 // RecordQuery is one page of records.
@@ -418,6 +440,14 @@ type RecordQuery struct {
 	// everything else rather than a parallel path.
 	Where     string
 	WhereArgs []any
+
+	// Context includes this many records either side of every match, from the
+	// same file. Zero is the ordinary listing.
+	Context int
+
+	// Fold collapses runs of consecutive records that share a template into one
+	// row carrying the count.
+	Fold bool
 }
 
 // Records runs a plan and returns matching records.
@@ -434,6 +464,13 @@ func (s *Session) Records(ctx context.Context, plan Plan, q RecordQuery) (store.
 		args = append(append([]any{}, args...), q.WhereArgs...)
 	}
 
+	if q.Context > 0 {
+		return s.recordsWithContext(ctx, where, args, q)
+	}
+	if q.Fold {
+		return s.recordsFolded(ctx, where, args, q)
+	}
+
 	sql := `SELECT ` + columns + ` FROM logs WHERE ` + where + q.Sort.clause()
 
 	if q.Offset > 0 {
@@ -446,6 +483,88 @@ func (s *Session) Records(ctx context.Context, plan Plan, q RecordQuery) (store.
 		sql += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, q.Offset)
 		return s.DB.QueryResult(ctx, 0, sql, args...)
 	}
+
+	return s.DB.QueryResult(ctx, q.Limit, sql, args...)
+}
+
+// recordsWithContext lists every match together with its neighbours.
+//
+// A stack trace is useless one frame at a time, and this corpus is full of
+// records that only mean something next to the ones around them: a Java
+// `Caused by:` chain, a Python traceback, a Postgres ERROR/DETAIL/HINT block.
+// Grep has had -C since before any of these formats existed, and reaching for
+// a line number and running a second query to see what was on either side of it
+// is not a workflow.
+//
+// Neighbours are found by ingest order within one file rather than by line
+// number: a record can span many physical lines, so the record before this one
+// is not reliably the line before this one.
+func (s *Session) recordsWithContext(ctx context.Context, where string, args []any, q RecordQuery) (store.Result, error) {
+	columns := q.Columns
+	if columns == "" {
+		columns = ContextColumns
+	}
+
+	// Argument order follows the order the placeholders appear: the CTE's
+	// predicate, then the same predicate again in the hit column, then the
+	// window either side.
+	all := concatArgs(args, args, []any{q.Context, q.Context})
+
+	sql := `WITH hits AS (SELECT seq, file FROM logs WHERE ` + where + `)
+		SELECT (` + where + `) AS hit, ` + strings.TrimPrefix(columns, "hit, ") + `
+		FROM logs l
+		WHERE EXISTS (
+			SELECT 1 FROM hits h
+			WHERE h.file = l.file AND h.seq BETWEEN l.seq - ? AND l.seq + ?
+		)` + q.Sort.clause()
+
+	return s.DB.QueryResult(ctx, q.Limit, sql, all...)
+}
+
+// FoldColumns is what a folded listing selects.
+const FoldColumns = `repeats, ts, level, source, message`
+
+// recordsFolded collapses runs of the same line into one row with a count.
+//
+// A block of twenty thousand identical lines is one fact, and printing it
+// twenty thousand times buries the twenty lines on either side that are the
+// reason anybody opened the file. `loupe patterns` already finds the repeated
+// shape and ranks it first; this is the same knowledge applied to the listing,
+// so the timeline stays readable without anyone having to leave it.
+//
+// Only consecutive runs fold, which is what makes the count meaningful: it says
+// "this happened N times in a row here", not "this shape occurs N times
+// somewhere in the file". Records are grouped by their template rather than by
+// exact text, so a line that differs only in a request id still folds — that
+// being the whole point of computing a template at ingest.
+//
+// The first record of a run is the one shown, so its timestamp is when the run
+// began.
+func (s *Session) recordsFolded(ctx context.Context, where string, args []any, q RecordQuery) (store.Result, error) {
+	order := q.Sort.expr()
+
+	// Gaps and islands: subtracting a per-template row number from the overall
+	// row number gives a constant for each consecutive run of that template.
+	sql := `
+		WITH ordered AS (
+			SELECT ts, level, source, message, seq, pattern_id,
+			       row_number() OVER (ORDER BY ` + order + `) AS rn
+			FROM logs WHERE ` + where + `
+		),
+		runs AS (
+			SELECT *, rn - row_number() OVER (
+				PARTITION BY pattern_id ORDER BY rn
+			) AS run
+			FROM ordered
+		)
+		SELECT count(*) AS repeats,
+		       arg_min(ts, rn) AS ts,
+		       arg_min(level, rn) AS level,
+		       arg_min(source, rn) AS source,
+		       arg_min(message, rn) AS message
+		FROM runs
+		GROUP BY pattern_id, run
+		ORDER BY min(rn)`
 
 	return s.DB.QueryResult(ctx, q.Limit, sql, args...)
 }

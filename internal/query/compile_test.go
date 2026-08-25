@@ -173,15 +173,46 @@ func TestExistenceTerms(t *testing.T) {
 
 // Smart case: case-insensitive unless the pattern contains an uppercase
 // character, which is ripgrep's behaviour.
+//
+// Asserted on the compiled predicate rather than on the name of the SQL
+// function, because which function does the matching has changed once already
+// and the rule it implements has not.
 func TestSmartCase(t *testing.T) {
 	lower := compile(t, "message~timeout")
-	if !strings.Contains(lower.Where, "lower(") {
-		t.Errorf("an all-lowercase pattern should match case-insensitively:\n  %s", lower.Where)
+	if !caseInsensitive(lower) {
+		t.Errorf("an all-lowercase pattern should match case-insensitively:\n  %s %#v",
+			lower.Where, lower.Args)
 	}
 
 	upper := compile(t, "message~Timeout")
-	if strings.Contains(upper.Where, "lower(") {
-		t.Errorf("a pattern with an uppercase character should be case-sensitive:\n  %s", upper.Where)
+	if caseInsensitive(upper) {
+		t.Errorf("a pattern with an uppercase character should be case-sensitive:\n  %s %#v",
+			upper.Where, upper.Args)
+	}
+}
+
+// caseInsensitive reports whether a compiled substring match ignores case.
+func caseInsensitive(sql SQL) bool {
+	for _, arg := range sql.Args {
+		if s, ok := arg.(string); ok && strings.HasPrefix(s, "(?i)") {
+			return true
+		}
+	}
+	return false
+}
+
+// A lowercase term must never compile to lower(), whatever else changes.
+//
+// DuckDB's lower() does not return on text that is not valid UTF-8, so a single
+// corrupt byte in the corpus used to make every lowercase search — which is
+// what people type — hang forever with no output, while the same search with
+// one capital letter in it answered instantly.
+func TestCaseInsensitiveMatchAvoidsLower(t *testing.T) {
+	for _, input := range []string{"message~timeout", "timeout", `message~/failed/`} {
+		sql := compile(t, input)
+		if strings.Contains(sql.Where, "lower(") {
+			t.Errorf("%s compiled to lower(): %s", input, sql.Where)
+		}
 	}
 }
 
@@ -197,13 +228,42 @@ func TestRegexGetsSmartCaseFlag(t *testing.T) {
 	}
 }
 
-// Searching for 100% must find the text, not match everything.
-func TestLikeWildcardsInValuesAreEscaped(t *testing.T) {
-	sql := compile(t, `message~"100%"`)
+// Searching for 100% must find the text, not match everything. The same goes
+// for the regex metacharacters a literal term can contain now that the
+// case-insensitive path is a regex.
+func TestWildcardsInValuesAreNeutralised(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantArg string
+	}{
+		{
+			// Uppercase, so this is the LIKE path: % is the wildcard to kill.
+			name:    "percent in a LIKE pattern",
+			input:   `message~"100% CPU"`,
+			wantArg: `%100\% CPU%`,
+		},
+		{
+			// Lowercase, so this is the regex path: % is ordinary text and the
+			// metacharacters are what must not be honoured.
+			name:    "metacharacters in a regex pattern",
+			input:   `message~"a.b*c"`,
+			wantArg: `(?i)a\.b\*c`,
+		},
+		{
+			name:    "percent is literal in a regex pattern",
+			input:   `message~"100%"`,
+			wantArg: `(?i)100%`,
+		},
+	}
 
-	arg, _ := sql.Args[0].(string)
-	if !strings.Contains(arg, `\%`) {
-		t.Errorf("percent sign not escaped in a LIKE pattern: %q", arg)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sql := compile(t, tt.input)
+			if len(sql.Args) != 1 || sql.Args[0] != tt.wantArg {
+				t.Errorf("Args = %#v, want [%q]", sql.Args, tt.wantArg)
+			}
+		})
 	}
 }
 

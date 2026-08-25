@@ -16,7 +16,10 @@ func init() { Register(&fallbackParser{}) }
 // timeline rather than an error. It never returns ErrNoMatch.
 type fallbackParser struct{}
 
-func (p *fallbackParser) Name() string { return "text" }
+// FallbackName is the format identifier for the catch-all parser.
+const FallbackName = "text"
+
+func (p *fallbackParser) Name() string { return FallbackName }
 
 // Detect always returns a small non-zero confidence. It must be low enough to
 // lose to any real parser and high enough to win when nothing else matches.

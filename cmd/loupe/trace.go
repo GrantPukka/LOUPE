@@ -105,6 +105,14 @@ func writeTrace(out, status io.Writer, t session.Trace, loc *time.Location, quie
 			t.ID, t.Field,
 			countOf(int64(len(t.Hops)), "hop", "hops"),
 			countOf(int64(len(t.Present())), "source", "sources"))
+
+		// A hop found in the line's text answered a looser question than the
+		// one asked, so the difference is stated rather than blended in.
+		if t.TextOnly > 0 {
+			fmt.Fprintf(status, "%s marked · do not carry %s and were matched on the line's "+
+				"text, so their fields are unavailable.\n",
+				countOf(int64(t.TextOnly), "hop", "hops"), t.Field)
+		}
 	}
 
 	slowest := t.Slowest()
@@ -112,10 +120,13 @@ func writeTrace(out, status io.Writer, t session.Trace, loc *time.Location, quie
 
 	for i, h := range t.Hops {
 		marker := "  "
-		if i == slowest {
+		switch {
+		case i == slowest:
 			// The largest wait is the reason to draw a timeline at all, so it
 			// is the one thing marked.
 			marker = "▸ "
+		case h.TextOnly:
+			marker = "· "
 		}
 
 		fmt.Fprintf(out, "%s%s  %*s  %-14s %-5s %s\n",
@@ -175,6 +186,9 @@ func writeTraceFooter(w io.Writer, t session.Trace, loc *time.Location) {
 
 	if len(t.Hops) > 0 {
 		fmt.Fprintf(w, "Every record: loupe <dir> '%s:%s'\n", t.Field, t.ID)
+		if t.TextOnly > 0 {
+			fmt.Fprintf(w, "Including the text matches: loupe <dir> '%q'\n", t.ID)
+		}
 	}
 }
 

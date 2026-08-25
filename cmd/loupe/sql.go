@@ -4,9 +4,35 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/GrantPukka/loupe/internal/render"
 	"github.com/spf13/cobra"
 )
+
+// explainSQLError turns DuckDB's binder errors into ones that name a way
+// forward.
+//
+// The timezone case is the one worth catching. The embedded DuckDB has no ICU
+// extension, so AT TIME ZONE does not bind, and installing one would mean an
+// outbound request — which this tool does not make, and not making it is most
+// of why it can be trusted with production logs. The raw error names a function
+// signature and leaves the reader to work out that a whole class of query is
+// unavailable, when in fact the tool already does the conversion they were
+// reaching for.
+func explainSQLError(err error, loc *time.Location) error {
+	msg := err.Error()
+	if !strings.Contains(msg, "timezone(") && !strings.Contains(msg, "AT TIME ZONE") {
+		return err
+	}
+
+	return fmt.Errorf("%w\n\n"+
+		"AT TIME ZONE needs DuckDB's ICU extension, which is not built in — "+
+		"loading one would mean an outbound request, and loupe makes none.\n"+
+		"loupe already converts for you: ts is shown in %s, and --tz or --utc "+
+		"changes that for the whole session.\n"+
+		"For arithmetic on another zone, work in UTC and offset it yourself", err, loc)
+}
 
 func newSQLCommand(g *globals) *cobra.Command {
 	cmd := &cobra.Command{
@@ -74,12 +100,23 @@ func runSQL(cmd *cobra.Command, g *globals, path, query string) error {
 
 	res, err := sess.DB.QueryResult(cmd.Context(), g.limit, query)
 	if err != nil {
-		return err
+		return explainSQLError(err, sess.Loc)
 	}
 
-	writer, err := g.renderer(sess.Loc)
+	writer, opts, err := g.sqlRenderer(sess.Loc)
 	if err != nil {
 		return err
 	}
+
+	// Every conversion in this tool is announced. A conversion the reader is
+	// entitled to expect and does not get has to be announced too, or the
+	// column silently reads as though it were in the display zone.
+	if cols := render.VerbatimTimestamps(opts, res); len(cols) > 0 && !g.quiet {
+		fmt.Fprintf(os.Stderr,
+			"Shown exactly as computed, not converted to %s: %s. "+
+				"Only ts is known to hold UTC.\n\n",
+			sess.Loc, strings.Join(cols, ", "))
+	}
+
 	return writer.Result(res)
 }

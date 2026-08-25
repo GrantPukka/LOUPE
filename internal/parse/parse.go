@@ -41,6 +41,15 @@ type Record struct {
 	// Fields holds everything else. Never drop a key: anything dropped here is
 	// invisible forever.
 	Fields map[string]any
+
+	// Format names the parser that produced this record, and is set only when
+	// that differs per record — which is to say, only by the mixed parser. Left
+	// empty, the record takes its source's format, which is the answer for
+	// every file that really is one format.
+	//
+	// It is a field rather than a method on Parser because it is a fact about
+	// one record, not a capability a parser author has to implement.
+	Format string
 }
 
 // HasTimestamp reports whether a timestamp was extracted.

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -440,6 +441,10 @@ func TestLoadContinuesPastAFailingSource(t *testing.T) {
 	}
 }
 
+// A typo in --parser is an error, not a warning attached to a listing of no
+// records. Answering a misspelling with silence is the behaviour
+// docs/FILTER-DSL.md section 7 forbids for a field name, and a format name is
+// no different.
 func TestLoadRejectsUnknownParser(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "a.log", "x\n")
@@ -447,12 +452,16 @@ func TestLoadRejectsUnknownParser(t *testing.T) {
 	sources, _ := source.Walk(dir, nil)
 	db := open(t)
 
-	load, err := db.Load(context.Background(), sources, LoadOptions{Parser: "no-such-format"})
-	if err != nil {
-		t.Fatalf("Load: %v", err)
+	_, err := db.Load(context.Background(), sources, LoadOptions{Parser: "no-such-format"})
+	if err == nil {
+		t.Fatal("Load accepted an unknown parser")
 	}
-	if len(load.Errors) != 1 {
-		t.Fatalf("got %d errors, want 1 naming the bad parser", len(load.Errors))
+	if !strings.Contains(err.Error(), "no-such-format") {
+		t.Errorf("error = %v, want it to name the parser given", err)
+	}
+	// The candidate list is what turns a dead end into a next step.
+	if !strings.Contains(err.Error(), "jsonl") {
+		t.Errorf("error = %v, want it to list the available parsers", err)
 	}
 }
 

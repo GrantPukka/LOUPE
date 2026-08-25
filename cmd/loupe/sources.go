@@ -3,10 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"text/tabwriter"
 	"time"
 
+	"github.com/GrantPukka/loupe/internal/parse"
+	"github.com/GrantPukka/loupe/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -62,10 +65,73 @@ func runSources(cmd *cobra.Command, g *globals, path string) error {
 		return fmt.Errorf("write table: %w", err)
 	}
 
+	warnUnparsed(os.Stderr, infos)
+
 	for _, skip := range sess.Walk.Skipped {
 		fmt.Fprintf(os.Stderr, "Skipped %s: %s\n", skip.Path, skip.Reason)
 	}
 	return nil
+}
+
+// unparsedWarning is the share of a file that has to be unreadable before the
+// number is worth an explanation rather than just a column.
+const unparsedWarning = 0.5
+
+// warnUnparsed says what a large unparsed fraction probably means.
+//
+// The count on its own is honest but leaves the inference to the reader, and
+// the inference is not obvious: a file can carry several formats, and until
+// that occurs to you the number reads as "this tool cannot parse my logs".
+//
+// Judged per file rather than per row. A file read line by line has one row per
+// format it turned out to contain, and the row holding what nothing claimed is
+// 100% unparsed by construction — warning on that would fire on every mixed
+// file however well it was read.
+func warnUnparsed(w io.Writer, infos []store.SourceInfo) {
+	type totals struct {
+		records, unparsed int64
+		formats           []string
+	}
+
+	var order []string
+	byFile := map[string]*totals{}
+
+	for _, si := range infos {
+		t := byFile[si.File]
+		if t == nil {
+			t = &totals{}
+			byFile[si.File] = t
+			order = append(order, si.File)
+		}
+		t.records += si.Records
+		t.unparsed += si.Unparsed
+		t.formats = append(t.formats, si.Format)
+	}
+
+	for _, file := range order {
+		t := byFile[file]
+		if t.records == 0 || float64(t.unparsed)/float64(t.records) < unparsedWarning {
+			continue
+		}
+
+		fmt.Fprintf(w, "\n%.1f%% of %s did not match %s.\n",
+			100*float64(t.unparsed)/float64(t.records), file, describeFormats(t.formats))
+		fmt.Fprintln(w, "Those records are still loaded and still searchable — "+
+			"`parsed:false` lists them, and `loupe patterns` groups them by shape.")
+	}
+}
+
+// describeFormats names what the file was read as.
+func describeFormats(formats []string) string {
+	for _, f := range formats {
+		if f == parse.MixedName {
+			return "any known format, even read line by line"
+		}
+	}
+	if len(formats) == 1 {
+		return fmt.Sprintf("the detected format %s", formats[0])
+	}
+	return "any of the formats detected in it"
 }
 
 // count renders zero as a dash, so the numbers that matter stand out.

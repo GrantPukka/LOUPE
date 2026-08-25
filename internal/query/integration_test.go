@@ -523,3 +523,50 @@ func TestEveryOperatorProducesValidSQL(t *testing.T) {
 		})
 	}
 }
+
+// Smart case, executed rather than inspected.
+//
+// A lowercase term is what people type, and it used to hang the tool outright
+// on any corpus containing one byte of invalid UTF-8. These run the compiled
+// predicate against real rows, so a change to how the match is compiled has to
+// keep finding the same records.
+func TestSmartCaseAgainstRealDuckDB(t *testing.T) {
+	db, schema := setup(t)
+
+	tests := []struct {
+		filter string
+		want   []string
+	}{
+		// Lowercase ignores case, so both spellings match.
+		{"message~timeout", []string{"upstream timeout contacting payments", "Timeout waiting for lock"}},
+		// An uppercase character makes it exact, so each spelling matches only itself.
+		{"message~Timeout", []string{"Timeout waiting for lock"}},
+		{"message~TIMEOUT", nil},
+		{"message~fatal", []string{"FATAL: remaining connection slots are reserved"}},
+		{"message~FATAL", []string{"FATAL: remaining connection slots are reserved"}},
+		// A bare word is the same match, against raw.
+		{"timeout", []string{"upstream timeout contacting payments", "Timeout waiting for lock"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.filter, func(t *testing.T) {
+			got := run(t, db, schema, tt.filter)
+			if strings.Join(got, "|") != strings.Join(tt.want, "|") {
+				t.Errorf("%s matched %q, want %q", tt.filter, got, tt.want)
+			}
+		})
+	}
+}
+
+// A term containing regex metacharacters must match them as text.
+func TestLiteralTermsAreNotRegexes(t *testing.T) {
+	db, schema := setup(t)
+
+	// . matches any character in a regex; as a literal it matches nothing here.
+	if got := run(t, db, schema, `message~"g.t /healthz"`); len(got) != 0 {
+		t.Errorf("a literal dot matched as a wildcard: %q", got)
+	}
+	if got := run(t, db, schema, `message~"get /healthz"`); len(got) != 1 {
+		t.Errorf("literal match failed: %q", got)
+	}
+}

@@ -22,7 +22,7 @@ import (
 // normalisation, or to timestamp handling belongs here. Forgetting to bump it
 // means users silently keep reading data produced by the old code, which is a
 // nastier bug than a slow re-ingest.
-const IngestVersion = 6
+const IngestVersion = 7
 
 // cacheMetaTable holds one row describing how the cached database was built.
 const cacheMetaTable = `
@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS loupe_cache_meta (
     fingerprint     VARCHAR NOT NULL,
     ingest_version  BIGINT  NOT NULL,
     created_at      TIMESTAMP NOT NULL,
-    summary         VARCHAR NOT NULL   -- JSON, see cachedSummary
+    summary         VARCHAR NOT NULL,  -- JSON, see cachedSummary
+    complete        BOOLEAN NOT NULL   -- see MarkComplete
 )`
 
 // CacheOptions controls the on-disk cache.
@@ -65,6 +66,7 @@ type parseStatsJSON struct {
 	Truncated    int64 `json:"truncated"`
 	Blank        int64 `json:"blank"`
 	ZoneAssumed  int64 `json:"zone_assumed"`
+	InvalidUTF8  int64 `json:"invalid_utf8"`
 }
 
 // Fingerprint identifies a set of sources, not their contents.
@@ -213,7 +215,7 @@ func openHit(ctx context.Context, path, fingerprint string) (*Cached, error) {
 		return nil, err
 	}
 
-	summary, storedVersion, storedFingerprint, err := readCacheMeta(ctx, db)
+	meta, err := readCacheMeta(ctx, db)
 	if err != nil {
 		db.Close()
 		return nil, err
@@ -221,9 +223,16 @@ func openHit(ctx context.Context, path, fingerprint string) (*Cached, error) {
 
 	// The fingerprint is in the file name too, but checking the stored copy
 	// catches a file that was renamed or half-written.
-	if storedFingerprint != fingerprint || storedVersion != IngestVersion {
+	if meta.Fingerprint != fingerprint || meta.Version != IngestVersion {
 		db.Close()
-		return nil, fmt.Errorf("stale cache (version %d, want %d)", storedVersion, IngestVersion)
+		return nil, fmt.Errorf("stale cache (version %d, want %d)", meta.Version, IngestVersion)
+	}
+
+	// A cache that was never stamped complete is a cache whose ingest did not
+	// finish. Reusing it would serve a partial result that looks healthy.
+	if !meta.Complete {
+		db.Close()
+		return nil, fmt.Errorf("previous ingest did not finish")
 	}
 
 	if n, err := db.Count(ctx); err != nil || n == 0 {
@@ -231,25 +240,49 @@ func openHit(ctx context.Context, path, fingerprint string) (*Cached, error) {
 		return nil, fmt.Errorf("cache holds no records")
 	}
 
-	return &Cached{DB: db, Load: summary.toLoad(), Hit: true}, nil
+	return &Cached{DB: db, Load: meta.Summary.toLoad(), Hit: true}, nil
 }
 
-func readCacheMeta(ctx context.Context, db *DB) (cachedSummary, int64, string, error) {
+// cacheMeta is what one cache file records about how it was built.
+type cacheMeta struct {
+	Summary     cachedSummary
+	Version     int64
+	Fingerprint string
+	Complete    bool
+}
+
+func readCacheMeta(ctx context.Context, db *DB) (cacheMeta, error) {
 	var (
-		summary     cachedSummary
-		version     int64
-		fingerprint string
-		raw         string
+		meta cacheMeta
+		raw  string
 	)
 
-	row := db.QueryRow(ctx, `SELECT fingerprint, ingest_version, summary FROM loupe_cache_meta LIMIT 1`)
-	if err := row.Scan(&fingerprint, &version, &raw); err != nil {
-		return summary, 0, "", fmt.Errorf("read cache metadata: %w", err)
+	row := db.QueryRow(ctx, `SELECT fingerprint, ingest_version, summary, complete FROM loupe_cache_meta LIMIT 1`)
+	if err := row.Scan(&meta.Fingerprint, &meta.Version, &raw, &meta.Complete); err != nil {
+		return cacheMeta{}, fmt.Errorf("read cache metadata: %w", err)
 	}
-	if err := json.Unmarshal([]byte(raw), &summary); err != nil {
-		return summary, 0, "", fmt.Errorf("decode cache metadata: %w", err)
+	if err := json.Unmarshal([]byte(raw), &meta.Summary); err != nil {
+		return cacheMeta{}, fmt.Errorf("decode cache metadata: %w", err)
 	}
-	return summary, version, fingerprint, nil
+	return meta, nil
+}
+
+// MarkComplete stamps a cache file as safe to reuse.
+//
+// Appending the records is not the end of an ingest: schema inference runs
+// afterwards and gives the frequent fields real columns, and until it has, the
+// database on disk is missing every column a user would filter on. A run that
+// died in between used to leave that half-built database behind under a name
+// the next run trusted — same record count, same status line, no promoted
+// columns — so `service:payments-api` came back as an unknown field and the
+// honest conclusion was that the data does not carry it.
+//
+// Nothing reuses a file that has not been through here.
+func (s *DB) MarkComplete(ctx context.Context) error {
+	if err := s.Exec(ctx, `UPDATE loupe_cache_meta SET complete = true`); err != nil {
+		return fmt.Errorf("mark cache complete: %w", err)
+	}
+	return nil
 }
 
 // ingestFresh reads the sources, writing to path when one is given.
@@ -347,6 +380,7 @@ func writeCacheMeta(ctx context.Context, db *DB, fileName string, result Load) e
 			Truncated:    result.Stats.Truncated,
 			Blank:        result.Stats.Blank,
 			ZoneAssumed:  result.Stats.ZoneAssumed,
+			InvalidUTF8:  result.Stats.InvalidUTF8,
 		},
 		Took: result.Took,
 	}
@@ -365,9 +399,11 @@ func writeCacheMeta(ctx context.Context, db *DB, fileName string, result Load) e
 		return fmt.Errorf("clear cache metadata: %w", err)
 	}
 
+	// complete is false here on purpose. Writing the records is not the whole
+	// ingest — see MarkComplete.
 	return db.Exec(ctx,
-		`INSERT INTO loupe_cache_meta VALUES (?, ?, ?, ?)`,
-		fingerprint, int64(IngestVersion), time.Now().UTC(), string(encoded))
+		`INSERT INTO loupe_cache_meta VALUES (?, ?, ?, ?, ?)`,
+		fingerprint, int64(IngestVersion), time.Now().UTC(), string(encoded), false)
 }
 
 func (s cachedSummary) toLoad() Load {
@@ -380,6 +416,7 @@ func (s cachedSummary) toLoad() Load {
 	load.Stats.Truncated = s.Stats.Truncated
 	load.Stats.Blank = s.Stats.Blank
 	load.Stats.ZoneAssumed = s.Stats.ZoneAssumed
+	load.Stats.InvalidUTF8 = s.Stats.InvalidUTF8
 	return load
 }
 

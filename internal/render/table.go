@@ -54,11 +54,13 @@ func (w *Writer) table(res store.Result) error {
 		return err
 	}
 
+	localise := w.localisedColumns(res)
+
 	cells := make([][]string, len(res.Rows))
 	for i, row := range res.Rows {
 		cells[i] = make([]string, len(row))
 		for j, v := range row {
-			cells[i][j] = sanitise(w.tableValue(v))
+			cells[i][j] = sanitise(w.tableValue(v, j < len(localise) && localise[j]))
 		}
 	}
 
@@ -266,11 +268,11 @@ func plural(n int64, one, many string) string {
 // 4963.4400000000005, and a reader concludes the tool is broken rather than
 // that binary floating point is. The machine formats are untouched, so nothing
 // downstream loses a digit.
-func (w *Writer) tableValue(v any) string {
+func (w *Writer) tableValue(v any, localise bool) string {
 	if f, ok := v.(float64); ok {
 		return tableFloat(f)
 	}
-	return w.value(v)
+	return w.value(v, localise)
 }
 
 // tableFloat trims a float to twelve significant digits, which is past anything

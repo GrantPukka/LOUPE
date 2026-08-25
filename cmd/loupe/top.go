@@ -18,7 +18,7 @@ func newTopCommand(g *globals) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "top <field> [directory] [filter]",
+		Use:     "top <field|/regex/> [directory] [filter]",
 		Aliases: []string{"facet"},
 		Short:   "Count the values of one field, most frequent first",
 		Long: `Answer "which endpoints are 500ing?" without dropping to SQL.
@@ -32,9 +32,22 @@ to a column, or a key still in the JSON bag — and an unknown name gets the sam
 spelling suggestion it would get in a filter.
 
 Records that carry no value for the field are counted and reported separately
-rather than quietly left out of the denominator.`,
+rather than quietly left out of the denominator.
+
+When the value you want is not a field — because the line was never parsed, or
+because its format has nowhere to put it — give a regex instead and the first
+capture group is what gets counted. sshd writes both "Failed password for root"
+and "Failed password for invalid user root", so counting the phrase undercounts
+by 42% and looks like a clean answer; one capture counts both shapes.
+
+    loupe top '/Failed password for (?:invalid user )?(\S+)/' ./logs
+
+A bare /regex/ reads the raw line. Prefix it the way a filter would to read a
+particular field instead: 'message~/GET (/[^ ?]*)/'. A pattern with no capture
+group counts the whole match.`,
 		Example: `  loupe top path ./logs
   loupe top status ./logs 'level:>=error'
+  loupe top '/Failed password for (?:invalid user )?(\S+)/' ./logs
   loupe top source ./logs --all`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

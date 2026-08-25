@@ -30,6 +30,9 @@ type Ingester struct {
 	// scratch is reused between rows so that encoding the fields bag does not
 	// allocate a new buffer per record.
 	scratch []byte
+
+	// invalidUTF8 counts records sanitised since the current source began.
+	invalidUTF8 int64
 }
 
 // driverConn is the subset of the DuckDB connection the Appender needs. Named
@@ -106,11 +109,27 @@ func (s *DB) NewIngesterInto(table string) (*Ingester, error) {
 	}, nil
 }
 
-// SetSource declares which source the following records come from.
-func (i *Ingester) SetSource(src Source) { i.meta = src }
+// SetSource declares which source the following records come from. It resets
+// the per-source counters, so each source reports only its own numbers.
+func (i *Ingester) SetSource(src Source) {
+	i.meta = src
+	i.invalidUTF8 = 0
+}
+
+// InvalidUTF8 is how many records of the current source held invalid UTF-8 and
+// were stored with replacement characters.
+func (i *Ingester) InvalidUTF8() int64 { return i.invalidUTF8 }
 
 // Add appends one record.
+//
+// The record is made safe for the appender before anything is derived from it,
+// so that the pattern, the fields bag and the stored text all describe the same
+// bytes. See sanitiseEntry for why that is not simply the parser's job.
 func (i *Ingester) Add(e parse.Entry) error {
+	if sanitiseEntry(&e) {
+		i.invalidUTF8++
+	}
+
 	fields, err := i.encodeFields(e.Fields)
 	if err != nil {
 		return err
@@ -125,6 +144,15 @@ func (i *Ingester) Add(e parse.Entry) error {
 
 	shape := patternOf(e)
 
+	// A record knows its own format only in mixed mode; otherwise the source's
+	// format is the whole truth. Recording the per-line answer is what makes
+	// format:nginx work inside a merged file, and what lets `loupe sources`
+	// show the breakdown rather than one misleading row.
+	format := i.meta.Format
+	if e.Format != "" {
+		format = e.Format
+	}
+
 	err = i.appender.AppendRow(
 		i.store.seq,
 		ts,
@@ -133,7 +161,7 @@ func (i *Ingester) Add(e parse.Entry) error {
 		e.Message,
 		i.meta.Name,
 		i.meta.File,
-		i.meta.Format,
+		format,
 		e.LineNo,
 		e.Parsed,
 		e.Raw,

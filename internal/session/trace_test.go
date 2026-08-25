@@ -427,3 +427,115 @@ func TestOrdinaryHandoffHasNoTraceSection(t *testing.T) {
 		t.Errorf("a filter extract carries a trace section: %+v", got.Trace)
 	}
 }
+
+// correlationFixture is the shape that used to defeat detection: a trace_id on
+// almost every record, and the id the user actually pasted sitting in a
+// correlation_id on one — plus lines that mention it only in their text.
+func correlationFixture(t *testing.T) *Session {
+	t.Helper()
+	dir := t.TempDir()
+
+	var lines []string
+	for i := 0; i < 40; i++ {
+		lines = append(lines, `{"ts":"2026-08-13T14:00:00Z","level":"info","msg":"handled","trace_id":"t`+
+			strings.Repeat("0", 3)+string(rune('a'+i%26))+`"}`)
+	}
+	lines = append(lines,
+		`{"ts":"2026-08-13T14:01:00Z","level":"error","msg":"payment declined","correlation_id":"req-7f3c"}`,
+		`2026-08-13 14:01:01 ERROR gateway upstream failed for req-7f3c retrying`,
+		`2026-08-13 14:01:02 ERROR gateway giving up on req-7f3c`,
+	)
+
+	path := filepath.Join(dir, "app.log")
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	sess, err := Open(context.Background(), Options{
+		Paths:    []string{dir},
+		Location: time.UTC,
+		NoCache:  true,
+	})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { sess.Close() })
+	return sess
+}
+
+// Detection used to pick the best-covered field and then report that no record
+// carried the id — a confidently wrong answer to a question it had all the
+// information to answer.
+func TestTraceFieldPrefersTheFieldHoldingTheID(t *testing.T) {
+	sess := correlationFixture(t)
+	ctx := context.Background()
+
+	// Knowing nothing about the id, coverage is the only signal there is.
+	byCoverage, err := sess.DetectTraceField(ctx)
+	if err != nil {
+		t.Fatalf("DetectTraceField: %v", err)
+	}
+	if byCoverage.Name != "trace_id" {
+		t.Errorf("without an id, coverage should win: got %q", byCoverage.Name)
+	}
+
+	// Given the id, the field that holds it wins.
+	byValue, err := sess.DetectTraceFieldFor(ctx, "req-7f3c")
+	if err != nil {
+		t.Fatalf("DetectTraceFieldFor: %v", err)
+	}
+	if byValue.Name != "correlation_id" {
+		t.Errorf("field = %q, want correlation_id — it is the one holding the id", byValue.Name)
+	}
+}
+
+// A trace has to include the records that mention the id without carrying it as
+// a field, or it shows one hop of six and reads as though the rest never
+// happened.
+func TestTraceIncludesTextOnlyHops(t *testing.T) {
+	sess := correlationFixture(t)
+
+	tr, err := sess.Trace(context.Background(), "req-7f3c", "")
+	if err != nil {
+		t.Fatalf("Trace: %v", err)
+	}
+
+	if len(tr.Hops) != 3 {
+		t.Fatalf("hops = %d, want 3 (one field match and two text matches)", len(tr.Hops))
+	}
+	if tr.TextOnly != 2 {
+		t.Errorf("TextOnly = %d, want 2 — the caveat has to be countable", tr.TextOnly)
+	}
+
+	marked := 0
+	for _, h := range tr.Hops {
+		if h.TextOnly {
+			marked++
+		}
+	}
+	if marked != 2 {
+		t.Errorf("%d hops marked TextOnly, want 2", marked)
+	}
+}
+
+// A record that carries the field is never double-counted as a text match, even
+// though its raw line contains the id too.
+func TestTraceDoesNotDoubleCountFieldHops(t *testing.T) {
+	sess := traceFixture(t)
+
+	tr, err := sess.Trace(context.Background(), "abc123", "")
+	if err != nil {
+		t.Fatalf("Trace: %v", err)
+	}
+
+	seen := map[int64]bool{}
+	for _, h := range tr.Hops {
+		if seen[h.Seq] {
+			t.Fatalf("hop seq %d appears twice", h.Seq)
+		}
+		seen[h.Seq] = true
+	}
+	if tr.TextOnly != 0 {
+		t.Errorf("TextOnly = %d, want 0 — every one of these carries the field", tr.TextOnly)
+	}
+}

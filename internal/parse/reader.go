@@ -55,6 +55,18 @@ type Stats struct {
 	// displayed times depend on an assumption, and FILTER-DSL section 2.5
 	// requires saying so.
 	ZoneAssumed int64 `json:"zone_assumed"`
+
+	// InvalidUTF8 counts records whose text was not valid UTF-8 and was stored
+	// with U+FFFD in place of the offending bytes. The original bytes are kept
+	// hex-encoded in the fields bag, so nothing is lost — but a replacement
+	// character the reader did not put there is a fact about the data, and an
+	// undisclosed one would make a search for the original text fail for a
+	// reason nobody could see.
+	//
+	// It is counted at the store boundary rather than here, because that is
+	// where the constraint lives: a Go string holds arbitrary bytes quite
+	// happily, and DuckDB does not.
+	InvalidUTF8 int64 `json:"invalid_utf8"`
 }
 
 // ReaderOptions configures a read.
@@ -392,4 +404,5 @@ func (s *Stats) Add(other Stats) {
 	s.Truncated += other.Truncated
 	s.Blank += other.Blank
 	s.ZoneAssumed += other.ZoneAssumed
+	s.InvalidUTF8 += other.InvalidUTF8
 }
