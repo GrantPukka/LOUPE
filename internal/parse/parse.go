@@ -16,6 +16,20 @@ import (
 // must not abort a 4GB file.
 var ErrNoMatch = errors.New("line does not match this format")
 
+// ErrPartial means the parser recognised the line but the line stopped early —
+// a JSON object cut off mid-member, the commonest corruption a log file has.
+//
+// The Record returned alongside it holds what was there before the cut and is
+// kept: the fields that did arrive are the difference between a real ERROR
+// appearing in level:>=error and the whole record being invisible. The record
+// is still counted as unparsed, because it is, and `parsed:false` still finds
+// it — salvaging what survived must not quietly shrink the number that tells a
+// user their data is damaged.
+//
+// A parser that returns this must return a usable Record with it. Returning it
+// with an empty Record is the same as returning ErrNoMatch, more confusingly.
+var ErrPartial = errors.New("line is a truncated record; what preceded the cut was kept")
+
 // Record is one log entry, normalised across every format.
 type Record struct {
 	// Timestamp is the zero value when the line carried none. That is not an
@@ -30,6 +44,18 @@ type Record struct {
 	// False is the safe default: an undisclosed assumption is the failure mode
 	// worth designing against.
 	TimestampZoned bool
+
+	// ZoneAbbrev is the timezone abbreviation the line carried, when the line
+	// carried one that could not be resolved to an offset. AEST, CST and IST
+	// each name more than one zone, so an abbreviation is not enough to place
+	// an instant and TimestampZoned stays false — but "read as UTC (default)"
+	// on a record whose format plainly wrote AEST is a disclosure that tells
+	// the reader nothing they can act on.
+	//
+	// Recording it turns that into "read as UTC (default; the format writes
+	// AEST)", which names the flag they need. It is empty for the ordinary case
+	// of a format that writes no zone at all, because there is nothing to say.
+	ZoneAbbrev string
 
 	// Level is normalised to trace/debug/info/warn/error/fatal by
 	// NormaliseLevel, so that level:>=warn works across formats. A level

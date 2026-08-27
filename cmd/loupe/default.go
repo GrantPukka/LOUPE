@@ -19,7 +19,7 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	if err != nil {
 		return err
 	}
-	paths, note := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	// `loupe ./logs --ui` is the README's headline invocation and is exactly
 	// `loupe serve ./logs`, so it runs the same code rather than a parallel one.
@@ -59,9 +59,6 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	}
 
 	if !g.quiet {
-		if note != "" {
-			fmt.Fprintf(os.Stderr, "%s\n", note)
-		}
 		statusLine(os.Stderr, sess)
 	}
 
@@ -112,11 +109,17 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 			"one hides repeated lines, the other shows more lines around them")
 	}
 
+	if g.format == "raw" && g.fold {
+		return fmt.Errorf("--fold and --format raw ask for opposite things: " +
+			"a folded row is a run of records, and there is no single original line to print")
+	}
+
 	res, err := sess.Records(cmd.Context(), plan, session.RecordQuery{
 		Limit:   g.limit,
 		Sort:    order,
 		Context: g.context,
 		Fold:    g.fold,
+		Columns: rawColumnsFor(g.format, g.context),
 	})
 	if err != nil {
 		return err
@@ -141,6 +144,9 @@ func runDefault(cmd *cobra.Command, g *globals, args []string) error {
 	// their data genuinely contains nothing.
 	if res.RowCount() == 0 && !plan.Query.IsEmpty() && !g.follow {
 		fmt.Fprintf(os.Stderr, "\n%s\n", sess.Explain(cmd.Context(), plan).Text)
+		if hint := subcommandHint(cmd, given, filter); hint != "" {
+			fmt.Fprintf(os.Stderr, "%s\n", hint)
+		}
 	}
 
 	if g.follow {
@@ -253,31 +259,106 @@ func looksLikePath(arg string) bool {
 	return colon < 0 || colon > slash
 }
 
-// resolvePaths decides what to read when no directory was named.
+// resolvePaths decides what to read when no directory was named, and says so.
 //
 // Subscriptions first, then the working directory. Someone who has subscribed
 // to /var/log expects a bare `loupe` to read it, not whatever they happen to be
 // standing in.
-func resolvePaths(g *globals, given []string) ([]string, string) {
+//
+// It prints the explanation itself rather than returning it for the caller to
+// print. Returned, it was dropped with `_` by five of the seven commands that
+// call this — so `loupe top corpus service` mistyped its arguments, fell back
+// to a subscription made eleven days earlier, and answered from an unrelated
+// directory without ever naming it. Falling back is the documented feature;
+// doing it in silence is not, and a report that cannot be silently discarded is
+// the only version of it that stays true.
+func resolvePaths(g *globals, given []string) []string {
 	if len(given) > 0 {
-		return given, ""
+		return given
 	}
 
 	// A pipe is something the user did deliberately, a moment ago. It outranks
 	// subscriptions, which are ambient, and the working directory, which is an
 	// accident of where the shell happens to be.
 	if stdinIsPiped() {
-		return []string{session.StdinPath}, "reading standard input"
+		return notePaths(g, []string{session.StdinPath}, "reading standard input")
 	}
 
 	work, err := workspace.Load(g.configDir)
 	if err != nil {
-		return []string{"."}, fmt.Sprintf("subscriptions unavailable (%v), reading .", err)
+		return notePaths(g, []string{"."},
+			fmt.Sprintf("subscriptions unavailable (%v), reading the working directory", err))
 	}
 
-	if active := work.ActivePaths(); len(active) > 0 {
-		return active, fmt.Sprintf("reading %d subscribed location(s); "+
-			"name a directory to read something else", len(active))
+	if active := work.Active(); len(active) > 0 {
+		paths := make([]string, len(active))
+		named := make([]string, len(active))
+		for i, sub := range active {
+			paths[i] = sub.Path
+			named[i] = fmt.Sprintf("%s (subscription %q)", sub.Path, sub.Name())
+		}
+		// The paths, not the count. "reading 1 subscribed location(s)" is
+		// exactly as much help as saying nothing when the question is whether
+		// the answer came from the directory you meant.
+		return notePaths(g, paths,
+			"reading "+strings.Join(named, ", ")+"; name a directory to read something else")
 	}
-	return []string{"."}, ""
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return notePaths(g, []string{"."}, "reading the working directory")
+	}
+	return notePaths(g, []string{"."}, "reading "+cwd)
+}
+
+// notePaths prints why these paths were chosen and returns them unchanged.
+func notePaths(g *globals, paths []string, note string) []string {
+	if !g.quiet && note != "" {
+		fmt.Fprintln(os.Stderr, note)
+	}
+	return paths
+}
+
+// rawColumnsFor selects the original text when the output format is raw.
+//
+// Empty for every other format, which leaves the listing on its default
+// projection. --format raw exists to hand the file's own bytes to the next
+// program in the pipe, and a listing that never selects raw could not do that
+// on any filter query at all.
+func rawColumnsFor(format string, context int) string {
+	if format != "raw" {
+		return ""
+	}
+	if context > 0 {
+		return session.ContextRawColumns
+	}
+	return session.RawColumns
+}
+
+// subcommandHint spots a filter that is really a mistyped subcommand.
+//
+// `loupe corpus sources` is a search for the literal word "sources" and finds
+// nothing, which is correct and unhelpful — the argument order for a subcommand
+// is the other way round, and two of the findings in this project's bug list
+// began as exactly this mistake. The hint only appears once the search has
+// already come back empty, so someone genuinely grepping for the word never
+// sees it.
+func subcommandHint(cmd *cobra.Command, given []string, filter string) string {
+	word := strings.TrimSpace(filter)
+	if word == "" || strings.ContainsAny(word, " :\"") {
+		return ""
+	}
+
+	root := cmd.Root()
+	for _, sub := range root.Commands() {
+		if sub.Name() != word {
+			continue
+		}
+		where := strings.Join(given, " ")
+		if where == "" {
+			return fmt.Sprintf("`%s` is also a subcommand. Did you mean `loupe %s`?", word, word)
+		}
+		return fmt.Sprintf("`%s` is also a subcommand. Did you mean `loupe %s %s`?", word, word, where)
+	}
+	return ""
 }

@@ -62,7 +62,7 @@ func runPatterns(cmd *cobra.Command, g *globals, args []string, limit int, newSi
 	if err != nil {
 		return err
 	}
-	paths, _ := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	var since time.Duration
 	if newSince != "" {

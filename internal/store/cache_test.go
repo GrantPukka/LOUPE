@@ -524,7 +524,7 @@ func TestReopenAppendsOnlyTheNewRecords(t *testing.T) {
 	if freshCount != after {
 		t.Errorf("incremental read holds %d records, a cold read holds %d", after, freshCount)
 	}
-	if fresh.Load.Stats != second.Load.Stats {
+	if !fresh.Load.Stats.Equal(second.Load.Stats) {
 		t.Errorf("incremental stats differ from a cold read\n  incremental: %+v\n  cold:        %+v",
 			second.Load.Stats, fresh.Load.Stats)
 	}

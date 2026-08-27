@@ -22,7 +22,7 @@ import (
 // normalisation, or to timestamp handling belongs here. Forgetting to bump it
 // means users silently keep reading data produced by the old code, which is a
 // nastier bug than a slow re-ingest.
-const IngestVersion = 7
+const IngestVersion = 8
 
 // cacheMetaTable holds one row describing how the cached database was built.
 const cacheMetaTable = `

@@ -244,11 +244,14 @@ func (s *DB) applyPromotions(ctx context.Context, promotions []schema.Promotion)
 // inside a '...' SQL string literal — so both need escaping. A field named a'b
 // closes the literal early and the rest of the path is parsed as SQL.
 // Backslash is replaced first, or it escapes the backslashes added after it.
+//
+// Parenthesised, because ->> binds looser than both :: and AND in DuckDB. See
+// query.jsonPath for what that costs when it is left off.
 func jsonExtract(field string) string {
 	esc := strings.ReplaceAll(field, `\`, `\\`)
 	esc = strings.ReplaceAll(esc, `"`, `\"`)
 	esc = strings.ReplaceAll(esc, `'`, `''`)
-	return `fields->>'$."` + esc + `"'`
+	return `(fields->>'$."` + esc + `"')`
 }
 
 // quoteIdent wraps an identifier in double quotes, doubling any inside.

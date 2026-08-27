@@ -18,6 +18,7 @@ import (
 var Layouts = []string{
 	time.RFC3339Nano,                       // 2026-08-13T14:02:00.021472370Z
 	time.RFC3339,                           // 2026-08-13T14:02:00Z
+	"2006-01-02T15:04:05.999999999-0700",   // ISO 8601 basic offset: +1000, no colon
 	"2006-01-02T15:04:05.999999999",        // no zone: caller applies the assumed one
 	"2006-01-02T15:04:05",                  //
 	"2006-01-02 15:04:05.999999 MST",       // postgres

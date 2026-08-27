@@ -3,6 +3,7 @@ package parse
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 )
 
 func init() { Register(&mixedParser{}) }
@@ -22,9 +23,26 @@ const MixedName = "mixed"
 // clothes. The documented remedy, "point loupe at the directory", does not
 // exist when the directory is one file.
 //
-// It holds no state, so the registry's single instance is safe to share and two
-// lines the same distance into a file always parse the same way.
-type mixedParser struct{}
+// The one piece of state it holds is a cache of which parsers to try for a
+// given line shape, which memoises a pure function: it changes how long Parse
+// takes and never what Parse returns, so the registry's single instance is
+// still safe to share and two lines the same distance into a file still parse
+// the same way.
+type mixedParser struct {
+	// order maps a shapeKey to the parser indices to try, best first. Written
+	// once per distinct shape and read on every line after that, which is what
+	// sync.Map is for.
+	order sync.Map // string -> []int
+	// shapes counts the distinct shapes cached, so a file of pathologically
+	// varied lines cannot grow the map without bound. Past the cap, detection
+	// simply runs as it did before.
+	shapes atomic.Int64
+}
+
+// maxShapes bounds the order cache. A merged platform log has on the order of
+// twenty distinct line shapes; a thousand is far past anything a real format
+// mix produces and still trivial to hold.
+const maxShapes = 1024
 
 func (p *mixedParser) Name() string { return MixedName }
 
@@ -53,11 +71,60 @@ func (p *mixedParser) Detect([][]byte) float64 { return 0 }
 // timestamp can still ask for it with --parser text.
 func (p *mixedParser) Parse(line []byte) (Record, error) {
 	candidates := realParsers()
+	order := p.orderFor(line, candidates)
+
+	// A partial parse is held back rather than returned straight away. A
+	// truncated JSON line is still JSON, but if some other format reads the
+	// whole line cleanly then that format is the better answer, and confidence
+	// order alone cannot tell the two apart.
+	var (
+		partial     Record
+		havePartial bool
+	)
+
+	// Every parser is offered the line, in confidence order. The order is a
+	// hint about which to try first; Parse is the authority on who claims it,
+	// so a cached order shared by two formats costs a failed match and nothing
+	// else.
+	for _, i := range order {
+		rec, err := candidates[i].Parse(line)
+		switch {
+		case err == nil:
+			rec.Format = candidates[i].Name()
+			return rec, nil
+
+		case errors.Is(err, ErrPartial) && !havePartial:
+			rec.Format = candidates[i].Name()
+			partial, havePartial = rec, true
+
+		default:
+			// ErrNoMatch is the ordinary answer. A parser that fails some other
+			// way has an opinion worth respecting, but not one worth losing the
+			// line over, so both simply move on.
+		}
+	}
+
+	if havePartial {
+		return partial, ErrPartial
+	}
+	return Record{}, ErrNoMatch
+}
+
+// orderFor returns the parser indices to try for this line, best first.
+//
+// Scoring is the expensive half of per-line detection — one regex scan per
+// registered format, on every line of the file — and it answers the same way
+// for every line of the same shape. The answer is cached under shapeKey and
+// the scan is skipped from the second line of a given shape onwards.
+func (p *mixedParser) orderFor(line []byte, candidates []Parser) []int {
+	key := shapeKey(line)
+	if cached, ok := p.order.Load(key); ok {
+		return cached.([]int)
+	}
 
 	// Scored into a stack array rather than a fresh slice: this runs once per
-	// line of the file, and an allocation and a sort there is the difference
-	// between per-line detection being a mode you can leave on and one you
-	// reach for once.
+	// line shape, and the array keeps the miss path allocation-free apart from
+	// the order it is about to store.
 	var (
 		scores [maxParsers]float64
 		sample = [1][]byte{line}
@@ -69,7 +136,8 @@ func (p *mixedParser) Parse(line []byte) (Record, error) {
 	// Highest score first, ties by registry order, which realParsers holds
 	// sorted by name — so identical input always resolves to the same parser.
 	// A selection sort over a dozen items beats sort.Slice's closure and
-	// interface overhead, and needs no allocation.
+	// interface overhead.
+	order := make([]int, 0, len(candidates))
 	tried := [maxParsers]bool{}
 	for range candidates {
 		best := -1
@@ -82,22 +150,15 @@ func (p *mixedParser) Parse(line []byte) (Record, error) {
 			break
 		}
 		tried[best] = true
-
-		rec, err := candidates[best].Parse(line)
-		if err != nil {
-			// ErrNoMatch is the ordinary answer. A parser that fails some other
-			// way has an opinion worth respecting, but not one worth losing the
-			// line over, so both simply move on.
-			if !errors.Is(err, ErrNoMatch) {
-				continue
-			}
-			continue
-		}
-		rec.Format = candidates[best].Name()
-		return rec, nil
+		order = append(order, best)
 	}
 
-	return Record{}, ErrNoMatch
+	if p.shapes.Load() < maxShapes {
+		if _, loaded := p.order.LoadOrStore(key, order); !loaded {
+			p.shapes.Add(1)
+		}
+	}
+	return order
 }
 
 // IsContinuation asks every format that has a continuation concept.
@@ -202,7 +263,10 @@ func Formats(sample [][]byte) map[string]int {
 
 	for _, line := range sample {
 		rec, err := mixed.Parse(line)
-		if err != nil {
+		// A partial parse still identifies the format: a truncated JSON line is
+		// a jsonl line, and counting it as unrecognised would overstate how much
+		// of the file nothing understood.
+		if err != nil && !errors.Is(err, ErrPartial) {
 			out[UnclaimedFormat]++
 			continue
 		}

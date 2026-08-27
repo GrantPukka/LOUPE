@@ -440,7 +440,7 @@ func TestTailStatsTotalExactlyAcrossAResume(t *testing.T) {
 	total := tail.Before
 	total.Add(resumed)
 
-	if total != whole {
+	if !total.Equal(whole) {
 		t.Errorf("incremental totals do not match a single read\n  incremental: %+v\n  single:      %+v",
 			total, whole)
 	}

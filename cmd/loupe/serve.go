@@ -79,7 +79,7 @@ func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbos
 			strings.Join(given, " "), filter)
 	}
 
-	paths, note := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	sess, err := g.openBatch(cmd.Context(), paths...)
 	if err != nil {
@@ -87,9 +87,6 @@ func runServe(cmd *cobra.Command, g *globals, args []string, addr string, verbos
 	}
 	defer sess.Close()
 
-	if note != "" {
-		fmt.Fprintf(os.Stderr, "%s\n", note)
-	}
 	statusLine(os.Stderr, sess)
 
 	// The workspace lets the UI browse and change what is subscribed. A

@@ -77,17 +77,15 @@ func (p *jsonlParser) Parse(line []byte) (Record, error) {
 	// json.Number keeps integer IDs from being mangled into float64 and
 	// re-rendered in scientific notation, which silently corrupts values like
 	// a 19-digit trace id.
-	dec := json.NewDecoder(bytes.NewReader(line))
-	dec.UseNumber()
-
-	var raw map[string]any
-	if err := dec.Decode(&raw); err != nil {
+	raw, truncated := decodeJSONObject(line)
+	if raw == nil {
 		return Record{}, ErrNoMatch
 	}
 
-	rec := Record{Fields: make(map[string]any, len(raw))}
+	rec := Record{Fields: make(map[string]any, len(raw)+1)}
 
-	for key, val := range raw {
+	for _, kv := range raw {
+		key, val := kv.key, kv.value
 		switch {
 		case rec.Timestamp.IsZero() && isKey(key, tsKeys):
 			if ts, zoned, ok := coerceTime(val); ok {
@@ -107,7 +105,7 @@ func (p *jsonlParser) Parse(line []byte) (Record, error) {
 				continue
 			}
 		}
-		rec.Fields[key] = normaliseValue(val)
+		putField(rec.Fields, key, normaliseValue(val))
 	}
 
 	// A JSON object with none of the three recognisable shapes is more likely
@@ -115,6 +113,15 @@ func (p *jsonlParser) Parse(line []byte) (Record, error) {
 	// so nothing is lost.
 	if rec.Message == "" && rec.Level == "" && rec.Timestamp.IsZero() {
 		rec.Message = string(line)
+	}
+
+	if truncated {
+		// The reader has to be able to tell a complete record from a salvaged
+		// prefix, or the salvage is worse than the omission: a cart-svc ERROR
+		// appearing in level:>=error with three of its five keys must not look
+		// like a cart-svc ERROR that only ever had three.
+		rec.Fields["truncated"] = true
+		return rec, ErrPartial
 	}
 
 	return rec, nil

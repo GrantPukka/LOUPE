@@ -179,7 +179,13 @@ func (s *DB) Sources(ctx context.Context) ([]SourceInfo, error) {
 		       min(ts), max(ts)
 		FROM logs
 		GROUP BY source, file, format
-		ORDER BY source, file`)
+		-- Ordered all the way down to a unique key. A file read line by line
+		-- yields one row per format it turned out to contain, and those rows
+		-- share a source and a file — so ordering by those two alone left the
+		-- rest to the engine, and two runs over an unchanged cache listed the
+		-- same formats in different orders. Detection goes out of its way to be
+		-- deterministic; the report of it should match.
+		ORDER BY source, file, count(*) DESC, format`)
 	if err != nil {
 		return nil, err
 	}

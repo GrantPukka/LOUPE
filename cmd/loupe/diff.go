@@ -62,7 +62,7 @@ func runDiff(cmd *cobra.Command, g *globals, args []string, before, after string
 	if err != nil {
 		return err
 	}
-	paths, _ := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	// A comparison is a whole-dataset question: it cannot say what is
 	// different about a window whose records have not arrived.

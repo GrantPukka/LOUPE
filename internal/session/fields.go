@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/GrantPukka/loupe/internal/query"
 )
 
 // DefaultFieldLimit is how many fields a listing shows when the caller does not
@@ -233,8 +235,8 @@ func (s *Session) fieldCandidates(ctx context.Context) ([]fieldCandidate, []stri
 		// A promoted or built-in field resolves to a bare column reference; a
 		// bag field resolves to an extraction, which is also the shape whose
 		// stored type has to be asked for separately.
-		if strings.HasPrefix(expr, "fields->>") {
-			c.jsonPath = strings.TrimPrefix(expr, "fields->>")
+		if path, isBag := query.BagPath(expr); isBag {
+			c.jsonPath = path
 		} else {
 			c.column = true
 		}

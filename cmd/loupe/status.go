@@ -50,8 +50,12 @@ func statusLine(w io.Writer, s *session.Session) {
 	}
 
 	for _, a := range s.Load.AssumedZones() {
-		fmt.Fprintf(w, "Note: %s has %d record(s) with no timezone in the format, read as %s (%s)\n",
-			a.Source.Name, a.Records, a.Source.Zone, a.Source.ZoneSource)
+		// When the format wrote an abbreviation loupe could not resolve, name
+		// it. "read as UTC (default)" on records that plainly say AEST is a
+		// true statement that leaves the reader with nothing to do; naming the
+		// abbreviation turns it into an instruction.
+		fmt.Fprintf(w, "Note: %s has %d record(s) with no timezone in the format, read as %s (%s)%s\n",
+			a.Source.Name, a.Records, a.Source.Zone, a.Source.ZoneSource, abbrevHint(a))
 	}
 
 	if n := s.Load.Stats.InvalidUTF8; n > 0 {
@@ -62,9 +66,18 @@ func statusLine(w io.Writer, s *session.Session) {
 		if n == 1 {
 			was = "was"
 		}
+		// It names both halves on purpose. The old wording promised "the
+		// original bytes are in the loupe_raw_hex field" and then offered only
+		// the filter, which finds the record without ever showing the bytes —
+		// and the field is deliberately kept out of the promoted columns, so
+		// `SELECT loupe_raw_hex` does not resolve either. Recovering the bytes
+		// is the entire reason they were kept, so the line that mentions them
+		// says how.
 		fmt.Fprintf(w, "Note: %s contained invalid UTF-8 and %s stored with replacement characters; "+
-			"the original bytes are in the %s field (%s:* finds them).\n",
-			countOf(n, "record", "records"), was, store.RawHexField, store.RawHexField)
+			"%s:* finds them and `loupe sql <dir> \"SELECT line_no, %s AS hex FROM logs WHERE %s IS NOT NULL\"` "+
+			"reads the original bytes back as hex.\n",
+			countOf(n, "record", "records"), was,
+			store.RawHexField, store.RawHexExpr, store.RawHexExpr)
 	}
 
 	cacheLine(w, s)
@@ -74,6 +87,22 @@ func statusLine(w io.Writer, s *session.Session) {
 	for _, err := range s.Load.Errors {
 		fmt.Fprintf(w, "Warning: %v\n", err)
 	}
+}
+
+// abbrevHint names the unresolved zone abbreviations a source's records carried,
+// and how to act on them.
+//
+// It says nothing when the format carried no zone at all, which is the ordinary
+// case and where there is nothing more to tell.
+func abbrevHint(a store.AssumedZone) string {
+	if len(a.Abbrevs) == 0 {
+		return ""
+	}
+	if a.Source.ZoneSource != store.ZoneFromDefault {
+		return fmt.Sprintf("; the format writes %s", strings.Join(a.Abbrevs, ", "))
+	}
+	return fmt.Sprintf("; the format writes %s — pass --source-tz to place %s records exactly",
+		strings.Join(a.Abbrevs, ", "), a.Source.Name)
 }
 
 // cacheLine reports whether the ingest was reused.

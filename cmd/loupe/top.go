@@ -69,7 +69,7 @@ func runTop(cmd *cobra.Command, g *globals, args []string, limit int, all bool) 
 	if err != nil {
 		return err
 	}
-	paths, _ := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	// A breakdown is a whole-dataset question: it cannot report a distribution
 	// over records that have not arrived.

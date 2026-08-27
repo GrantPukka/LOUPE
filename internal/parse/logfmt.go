@@ -18,8 +18,16 @@ func (p *logfmtParser) Name() string { return "logfmt" }
 
 // Detect looks for the key=value shape. It is deliberately conservative: a
 // prose line containing one equals sign should not be claimed as logfmt, so a
-// line only counts when it has at least two well-formed pairs and starts with
-// one.
+// line only counts when it carries at least two well-formed pairs.
+//
+// It does not require the *first* token to be a pair. Requiring that rejected
+// every line written as `<timestamp> level=info svc=… msg=…`, which is what a
+// bare-timestamp logfmt writer and every metrics agent emit, and left those
+// lines to no parser at all.
+//
+// The result is capped at genericKVCeil: a key=value tail is something most
+// formats have, so a parser that recognises the whole line has to be able to
+// outrank this one. See the ceiling ladder in detect.go.
 func (p *logfmtParser) Detect(sample [][]byte) float64 {
 	if len(sample) == 0 {
 		return 0
@@ -39,15 +47,25 @@ func (p *logfmtParser) Detect(sample [][]byte) float64 {
 			continue
 		}
 
-		pairs := parseLogfmt(line)
-		if len(pairs) >= 2 && pairs[0].key != "" {
+		if keyedPairs(parseLogfmt(line)) >= 2 {
 			matched++
 		}
 	}
 	if considered == 0 {
 		return 0
 	}
-	return float64(matched) / float64(considered)
+	return genericKVCeil * float64(matched) / float64(considered)
+}
+
+// keyedPairs counts the pairs that actually carry a key.
+func keyedPairs(pairs []logfmtPair) int {
+	var n int
+	for _, pair := range pairs {
+		if pair.key != "" {
+			n++
+		}
+	}
+	return n
 }
 
 func (p *logfmtParser) Parse(line []byte) (Record, error) {
@@ -65,13 +83,7 @@ func (p *logfmtParser) Parse(line []byte) (Record, error) {
 	// Claiming it would mark genuinely damaged lines as parsed and hide them
 	// from the unparsed count, which is the number that tells a user their data
 	// is incomplete.
-	var keyed int
-	for _, pair := range pairs {
-		if pair.key != "" {
-			keyed++
-		}
-	}
-	if keyed == 0 {
+	if keyedPairs(pairs) == 0 {
 		return Record{}, ErrNoMatch
 	}
 
@@ -100,7 +112,20 @@ func (p *logfmtParser) Parse(line []byte) (Record, error) {
 			rec.Message = pair.value
 			continue
 		}
-		rec.Fields[pair.key] = typed(pair.value)
+		putField(rec.Fields, pair.key, typed(pair.value))
+	}
+
+	// A leading bare token is very often the timestamp: Go's own slog text
+	// handler writes `time=`, but a metrics agent writes a bare epoch float and
+	// plenty of services write a bare RFC3339 stamp before the first pair. It is
+	// offered to ParseTime only in first position and only when no keyed
+	// timestamp was found, so a message that happens to begin with a number is
+	// not turned into a date.
+	if rec.Timestamp.IsZero() && len(bare) > 0 && pairs[0].key == "" {
+		if ts, zoned, ok := ParseTime(bare[0], time.UTC); ok {
+			rec.Timestamp, rec.TimestampZoned = ts, zoned
+			bare = bare[1:]
+		}
 	}
 
 	if rec.Message == "" && len(bare) > 0 {

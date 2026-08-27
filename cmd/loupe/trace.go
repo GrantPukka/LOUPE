@@ -48,6 +48,9 @@ you to conclude a request skipped a service it went straight through.`,
 }
 
 func runTrace(cmd *cobra.Command, g *globals, args []string, field string) error {
+	if swapped := traceArgsSwapped(args); swapped != "" {
+		return fmt.Errorf("%s", swapped)
+	}
 	id := args[0]
 
 	given, filter, err := resolveArgs(args[1:])
@@ -56,10 +59,10 @@ func runTrace(cmd *cobra.Command, g *globals, args []string, field string) error
 	}
 	if filter != "" {
 		return fmt.Errorf("trace takes an id and a directory, not a filter — "+
-			"a trace is already one request. Did you mean `loupe %s %q`?",
-			strings.Join(given, " "), filter)
+			"a trace is already one request. Did you mean `loupe trace %q %s`?",
+			filter, strings.Join(given, " "))
 	}
-	paths, _ := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	// A trace is a whole-dataset question: it cannot know which sources stayed
 	// silent until every source has been read.
@@ -257,4 +260,26 @@ func runTraceHandoff(cmd *cobra.Command, g *globals, sess *session.Session, t se
 	}
 
 	return emitHandoff(g, sess, extract, format)
+}
+
+// traceArgsSwapped reports the arguments having been given the other way round.
+//
+// `loupe trace ./logs req-7f3c…` reads the directory as the id and the id as a
+// filter, and the error that came of it was wrong twice over: it said no
+// directory was given when one was, and its suggested command dropped it. The
+// two are trivially distinguishable — one is a path that exists on disk and the
+// other is not — so the fix is to say which way round they go rather than to
+// improve the wording of a misdiagnosis.
+func traceArgsSwapped(args []string) string {
+	if len(args) < 2 || !isExistingPath(args[0]) || isExistingPath(args[1]) {
+		return ""
+	}
+	return fmt.Sprintf("trace takes the id first: `loupe trace %s %s`, not the other way round",
+		args[1], args[0])
+}
+
+// isExistingPath reports whether a name is a file or directory on disk.
+func isExistingPath(name string) bool {
+	_, err := os.Stat(name)
+	return err == nil
 }
