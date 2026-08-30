@@ -24,6 +24,20 @@ const MixedName = "mixed"
 //
 // It holds no state, so the registry's single instance is safe to share and two
 // lines the same distance into a file always parse the same way.
+//
+// It held a cache once, keyed on a coarse shape of the line, to avoid scoring
+// every parser on every line. That was wrong, and the way it was wrong is worth
+// recording. The reasoning was "the cache only reorders the candidates, and
+// Parse is the authority, so a shape shared by two formats costs a failed match
+// and nothing else". But Parse succeeding is not the same as Parse being right:
+// more than one parser can read a line, and then the order *is* the answer.
+// Spring and Postgres write the same opening shape, so a Postgres FATAL that
+// happened to follow a Spring line was offered to logfmt first, which read its
+// `-- correlation_id=…` trailer, claimed the line, and dropped the severity.
+// One `pg_severity:FATAL` in the corpus quietly went missing.
+//
+// Scoring every parser on every line is the price of getting that right. It is
+// about 18% of ingest, and it buys the one property this tool cannot trade.
 type mixedParser struct{}
 
 func (p *mixedParser) Name() string { return MixedName }
@@ -66,6 +80,15 @@ func (p *mixedParser) Parse(line []byte) (Record, error) {
 		scores[i] = candidate.Detect(sample[:])
 	}
 
+	// A partial parse is held back rather than returned straight away. A
+	// truncated JSON line is still JSON, but if some other format reads the
+	// whole line cleanly then that format is the better answer, and confidence
+	// order alone cannot tell the two apart.
+	var (
+		partial     Record
+		havePartial bool
+	)
+
 	// Highest score first, ties by registry order, which realParsers holds
 	// sorted by name — so identical input always resolves to the same parser.
 	// A selection sort over a dozen items beats sort.Slice's closure and
@@ -84,19 +107,25 @@ func (p *mixedParser) Parse(line []byte) (Record, error) {
 		tried[best] = true
 
 		rec, err := candidates[best].Parse(line)
-		if err != nil {
+		switch {
+		case err == nil:
+			rec.Format = candidates[best].Name()
+			return rec, nil
+
+		case errors.Is(err, ErrPartial) && !havePartial:
+			rec.Format = candidates[best].Name()
+			partial, havePartial = rec, true
+
+		default:
 			// ErrNoMatch is the ordinary answer. A parser that fails some other
 			// way has an opinion worth respecting, but not one worth losing the
 			// line over, so both simply move on.
-			if !errors.Is(err, ErrNoMatch) {
-				continue
-			}
-			continue
 		}
-		rec.Format = candidates[best].Name()
-		return rec, nil
 	}
 
+	if havePartial {
+		return partial, ErrPartial
+	}
 	return Record{}, ErrNoMatch
 }
 
@@ -202,7 +231,10 @@ func Formats(sample [][]byte) map[string]int {
 
 	for _, line := range sample {
 		rec, err := mixed.Parse(line)
-		if err != nil {
+		// A partial parse still identifies the format: a truncated JSON line is
+		// a jsonl line, and counting it as unrecognised would overstate how much
+		// of the file nothing understood.
+		if err != nil && !errors.Is(err, ErrPartial) {
 			out[UnclaimedFormat]++
 			continue
 		}

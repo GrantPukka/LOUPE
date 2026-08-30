@@ -60,6 +60,10 @@ func ParseLocation(utc bool, tz string) (*time.Location, error) {
 //
 // Two shapes: a bare zone applying to every source, and source:zone naming one.
 // Both may be given, and the named one wins.
+//
+// The prefix is a source name — what `loupe sources` lists — not a format name.
+// store.checkSourceZones rejects one that matches no source, because a prefix
+// that silently matches nothing is worse than no flag at all.
 func ParseSourceZones(values []string) (map[string]*time.Location, error) {
 	if len(values) == 0 {
 		return nil, nil
@@ -75,7 +79,7 @@ func ParseSourceZones(values []string) (map[string]*time.Location, error) {
 		loc, err := time.LoadLocation(zone)
 		if err != nil {
 			return nil, fmt.Errorf("unknown timezone %q in --source-tz %q: "+
-				"use a tz database name, e.g. --source-tz=UTC or --source-tz=postgres:Europe/London",
+				"use a tz database name, e.g. --source-tz=UTC or --source-tz=<source>:Europe/London",
 				zone, v)
 		}
 		out[name] = loc

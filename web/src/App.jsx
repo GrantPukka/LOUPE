@@ -319,6 +319,16 @@ export function App() {
     setFilter((current) => removeTerm(current, term));
   }, []);
 
+  // What Escape should act on, read at keypress time rather than closed over.
+  //
+  // Effects flush after paint, so for one frame after a panel opens the
+  // listener attached below still held the previous state — it saw no panel,
+  // fell through to clearFilter(), and Escape then left the panel open *and*
+  // threw away the filter behind it. Assigning during render keeps this
+  // current no matter when the effect runs.
+  const panels = useRef({});
+  panels.current = { traceID, topField, showBrowser, showSubs, showHelp };
+
   // Keyboard: / focuses the filter, Escape clears it.
   useEffect(() => {
     const onKey = (e) => {
@@ -327,15 +337,16 @@ export function App() {
         input.current?.focus();
       }
       if (e.key === 'Escape') {
-        if (traceID) {
+        const open = panels.current;
+        if (open.traceID) {
           setTraceID(null);
           return;
         }
-        if (topField) {
+        if (open.topField) {
           setTopField(null);
           return;
         }
-        if (showBrowser || showSubs || showHelp) {
+        if (open.showBrowser || open.showSubs || open.showHelp) {
           setShowBrowser(false);
           setShowSubs(false);
           setShowHelp(false);
@@ -358,7 +369,10 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [showBrowser, showSubs, showHelp, traceID, topField, clearFilter]);
+    // Attached once. The panel state it needs comes from the ref above, so
+    // there is no re-attach on every open and close, and therefore no frame in
+    // which the listener disagrees with the screen.
+  }, [clearFilter]);
 
   /** A timeline drag replaces any existing time term with the dragged range. */
   const onRange = useCallback((term) => {

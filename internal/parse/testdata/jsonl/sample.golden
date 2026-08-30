@@ -4,7 +4,7 @@
     "lines": 46,
     "records": 45,
     "unparsed": 7,
-    "no_timestamp": 8,
+    "no_timestamp": 6,
     "continuation": 0,
     "truncated": 0,
     "blank": 1,
@@ -48,7 +48,11 @@
     },
     {
       "line_no": 3,
-      "message": "{\"latency_ms\":102,\"level\":\"info\",\"msg\":\"request",
+      "level": "info",
+      "fields": {
+        "latency_ms": 102,
+        "truncated": true
+      },
       "parsed": false,
       "raw": "{\"latency_ms\":102,\"level\":\"info\",\"msg\":\"request"
     },
@@ -351,7 +355,12 @@
     },
     {
       "line_no": 23,
-      "message": "{\"latency_ms\":100,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/a",
+      "level": "info",
+      "message": "request completed",
+      "fields": {
+        "latency_ms": 100,
+        "truncated": true
+      },
       "parsed": false,
       "raw": "{\"latency_ms\":100,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/a"
     },
@@ -612,13 +621,26 @@
     },
     {
       "line_no": 40,
-      "message": "{\"ts\":\"2026-08-13T14:16:41Z\",\"level\":\"error\",\"msg\":\"upstream timeout\",\"status\":502,\"latency",
+      "ts": "2026-08-13T14:16:41Z",
+      "ts_zoned": true,
+      "level": "error",
+      "message": "upstream timeout",
+      "fields": {
+        "status": 502,
+        "truncated": true
+      },
       "parsed": false,
       "raw": "{\"ts\":\"2026-08-13T14:16:41Z\",\"level\":\"error\",\"msg\":\"upstream timeout\",\"status\":502,\"latency"
     },
     {
       "line_no": 41,
-      "message": "{\"ts\":\"2026-08-13T14:16:42Z\",\"level\":\"warn\",\"msg\":\"partial write\",\"trace\u0000\u0000_id\":\"c41a90b2\"}",
+      "ts": "2026-08-13T14:16:42Z",
+      "ts_zoned": true,
+      "level": "warn",
+      "message": "partial write",
+      "fields": {
+        "truncated": true
+      },
       "parsed": false,
       "raw": "{\"ts\":\"2026-08-13T14:16:42Z\",\"level\":\"warn\",\"msg\":\"partial write\",\"trace\u0000\u0000_id\":\"c41a90b2\"}"
     },

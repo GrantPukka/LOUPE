@@ -112,9 +112,18 @@ func runSQL(cmd *cobra.Command, g *globals, path, query string) error {
 	// entitled to expect and does not get has to be announced too, or the
 	// column silently reads as though it were in the display zone.
 	if cols := render.VerbatimTimestamps(opts, res); len(cols) > 0 && !g.quiet {
+		// Naming the consequence, not just the fact. A derived timestamp column
+		// is almost always a date_trunc, and a date_trunc over ts bins on UTC
+		// midnight while the ts column beside it renders in the display zone —
+		// so an hourly histogram built this way is offset from every other
+		// hourly histogram loupe draws. docs/FILTER-DSL.md requires stats bins
+		// to be anchored to local midnight, and the filter DSL's own stats
+		// clause is the thing that does it.
 		fmt.Fprintf(os.Stderr,
 			"Shown exactly as computed, not converted to %s: %s. "+
-				"Only ts is known to hold UTC.\n\n",
+				"Only ts is known to hold UTC.\n"+
+				"date_trunc over ts therefore bins on UTC boundaries; "+
+				"for bins anchored to local midnight use the filter DSL, e.g. `stats count() by ts:1h`.\n\n",
 			sess.Loc, strings.Join(cols, ", "))
 	}
 

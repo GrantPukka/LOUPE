@@ -41,7 +41,15 @@ var levelAliases = map[string]string{
 
 	"i": LevelInfo, "inf": LevelInfo, "info": LevelInfo, "information": LevelInfo,
 	"informational": LevelInfo, "notice": LevelInfo, "note": LevelInfo,
+	// Postgres writes these where a severity goes, but they annotate the
+	// record above rather than rating this one. Left unmapped they became
+	// levels in their own right: `top level` and `diff` ranked "level=hint"
+	// alongside error and warn, and a diff reported "140 -> 0 gone level=hint"
+	// as though a class of problem had stopped happening. The word itself is
+	// not lost — the postgres parser keeps it in pg_severity.
 	"log": LevelInfo, "statement": LevelInfo, "detail": LevelInfo,
+	"hint": LevelInfo, "context": LevelInfo, "query": LevelInfo,
+	"location": LevelInfo,
 
 	"w": LevelWarn, "wrn": LevelWarn, "warn": LevelWarn, "warning": LevelWarn,
 

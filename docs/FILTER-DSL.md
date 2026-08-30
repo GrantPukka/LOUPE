@@ -272,6 +272,18 @@ Numeric comparison when both sides parse as numbers, string comparison otherwise
 `field:*` matches records where the field exists at all; `field:none` where it
 doesn't.
 
+Both are read as those words only when written bare. A log that stores the
+literal text is common — auditd writes `approved_by=NONE` for an unapproved
+change — so quote it to mean the value rather than the absence:
+
+```
+approved_by:none     records with no approved_by field at all
+approved_by:"NONE"   records whose approved_by is the string NONE
+```
+
+The same applies to `*`. Quoting means "the literal text" everywhere else in
+this language, and it means it here too.
+
 ### 6.1 Field names that need quoting
 
 A field name comes out of a log file, so it can contain anything — a space, a

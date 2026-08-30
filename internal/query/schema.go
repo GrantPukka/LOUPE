@@ -137,8 +137,31 @@ func (s Schema) resolve(key string) (expr string, err error) {
 // resolve only reaches this with a key already present in the data, so the
 // value comes from the database's own contents rather than the query string.
 // It is escaped anyway: a log file is not a trusted input.
+//
+// The result is parenthesised because ->> binds looser than both :: and AND in
+// DuckDB. Unbracketed, `format = ? AND fields->>'$."k"' = ?` parses as
+// `format = ? AND fields ->> ('$."k"' = ?)` and fails at run time with a type
+// error naming a value from some unrelated record — so every bag field became
+// unqueryable the moment it was combined with a second term, which is most of
+// the time. The parentheses make the extraction one expression whatever it is
+// dropped into.
 func jsonPath(key string) string {
-	return `fields->>'$."` + escapeJSONPathKey(key) + `"'`
+	return `(fields->>'$."` + escapeJSONPathKey(key) + `"')`
+}
+
+// BagPath reports whether expr is a fields-bag extraction, and returns the JSON
+// path literal inside it.
+//
+// Callers ask this rather than matching the prefix themselves. The expression's
+// exact spelling is jsonPath's business — it grew a pair of parentheses to fix
+// an operator-precedence bug, and a caller string-matching "fields->>" silently
+// reclassified every bag field as a real column the moment it did.
+func BagPath(expr string) (string, bool) {
+	const open, prefix, close = "(", "fields->>", ")"
+	if !strings.HasPrefix(expr, open+prefix) || !strings.HasSuffix(expr, close) {
+		return "", false
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(expr, open+prefix), close), true
 }
 
 // escapeJSONPathKey escapes a field name for both quoting contexts it lands in.

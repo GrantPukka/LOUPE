@@ -145,7 +145,16 @@ func (b *builder) fieldTerm(t *FieldTerm) (string, error) {
 
 func (b *builder) fieldPredicate(t *FieldTerm) (string, error) {
 	// Existence tests are the same for every key, promoted or not.
-	if len(t.Values) == 1 && t.Op == OpEq {
+	//
+	// Only unquoted. `none` and `*` are the DSL's words for absent and present,
+	// and a log that writes them as ordinary values is not unusual — auditd's
+	// `approved_by=NONE` is precisely the record someone goes looking for. Read
+	// as the sentinel, `approved_by:NONE` compiled to "the field is absent" and
+	// answered a question about one unapproved role change with 207,776
+	// records that have no such field at all: not an empty result, a confidently
+	// wrong one. Quoting means "the literal text" everywhere else in the DSL,
+	// so it means it here too, and `approved_by:"NONE"` reaches the value.
+	if len(t.Values) == 1 && t.Op == OpEq && !t.Values[0].Quoted {
 		switch strings.ToLower(t.Values[0].Text) {
 		case "none":
 			expr, err := b.schema.resolve(t.Key)

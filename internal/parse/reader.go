@@ -3,8 +3,10 @@ package parse
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -55,6 +57,12 @@ type Stats struct {
 	// displayed times depend on an assumption, and FILTER-DSL section 2.5
 	// requires saying so.
 	ZoneAssumed int64 `json:"zone_assumed"`
+
+	// ZoneAbbrevs counts, per abbreviation, the records that carried a zone
+	// abbreviation nothing could resolve. A source reported as "read as UTC
+	// (default)" whose records all say AEST is one flag away from being right,
+	// and this is what lets the status line say so.
+	ZoneAbbrevs map[string]int64 `json:"zone_abbrevs,omitempty"`
 
 	// InvalidUTF8 counts records whose text was not valid UTF-8 and was stored
 	// with U+FFFD in place of the offending bytes. The original bytes are kept
@@ -165,6 +173,12 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 			stats.NoTimestamp++
 		} else if !e.TimestampZoned {
 			stats.ZoneAssumed++
+			if e.ZoneAbbrev != "" {
+				if stats.ZoneAbbrevs == nil {
+					stats.ZoneAbbrevs = map[string]int64{}
+				}
+				stats.ZoneAbbrevs[e.ZoneAbbrev]++
+			}
 		}
 		return fn(e)
 	}
@@ -219,15 +233,24 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 		}
 
 		rec, perr := opts.Parser.Parse(trimmed)
-		if perr != nil {
-			// Not an error worth propagating: keep the raw text and move on.
-			entry.Record = Record{Message: string(trimmed), Fields: map[string]any{}}
-		} else {
+		switch {
+		case perr == nil:
 			entry.Record = applyAssumedZone(rec, loc)
 			entry.Parsed = true
-			if entry.Fields == nil {
-				entry.Fields = map[string]any{}
-			}
+
+		case errors.Is(perr, ErrPartial):
+			// The line stopped early and the parser salvaged what preceded the
+			// cut. The fields are kept so the record is findable and placeable;
+			// Parsed stays false so the damage is still counted and still
+			// reachable through parsed:false.
+			entry.Record = applyAssumedZone(rec, loc)
+
+		default:
+			// Not an error worth propagating: keep the raw text and move on.
+			entry.Record = Record{Message: string(trimmed), Fields: map[string]any{}}
+		}
+		if entry.Fields == nil {
+			entry.Fields = map[string]any{}
 		}
 
 		pending = &entry
@@ -394,6 +417,19 @@ func (s Stats) Describe() string {
 	return strings.Join(parts, " · ")
 }
 
+// Equal compares two Stats.
+//
+// It exists because Stats holds a map and so is not comparable with ==. A nil
+// map and an empty one are the same answer to "did these two reads agree", so
+// they are normalised before the comparison rather than being allowed to make
+// an incremental read look different from a cold one.
+func (s Stats) Equal(other Stats) bool {
+	if len(s.ZoneAbbrevs) == 0 && len(other.ZoneAbbrevs) == 0 {
+		s.ZoneAbbrevs, other.ZoneAbbrevs = nil, nil
+	}
+	return reflect.DeepEqual(s, other)
+}
+
 // Add accumulates stats across sources.
 func (s *Stats) Add(other Stats) {
 	s.Lines += other.Lines
@@ -405,4 +441,10 @@ func (s *Stats) Add(other Stats) {
 	s.Blank += other.Blank
 	s.ZoneAssumed += other.ZoneAssumed
 	s.InvalidUTF8 += other.InvalidUTF8
+	for abbrev, n := range other.ZoneAbbrevs {
+		if s.ZoneAbbrevs == nil {
+			s.ZoneAbbrevs = map[string]int64{}
+		}
+		s.ZoneAbbrevs[abbrev] += n
+	}
 }

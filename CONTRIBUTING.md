@@ -176,7 +176,9 @@ mechanism, not your bump. Only you can do that part.
   carries no timezone, add it to `zonelessLayouts` too, or times from that format will be
   reported as known when they are actually assumed.
 - **Performance** — bring a benchmark. `go test -bench` before and after, both numbers in the
-  PR description.
+  PR description. For end-to-end claims rather than one function, [docs/BENCHMARKING.md](docs/BENCHMARKING.md)
+  sets out how to build a corpus and a ground truth that can be trusted, and why the obvious
+  way to do it produces a number that is quietly wrong.
 - **Bug reports with a fixture** — a 20-line sample that reproduces the problem is worth more
   than a long description.
 

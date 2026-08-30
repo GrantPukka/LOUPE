@@ -3,6 +3,7 @@ package parse
 import (
 	"bytes"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -79,6 +80,12 @@ func (p *fallbackParser) Parse(line []byte) (Record, error) {
 // Only the front of the message is searched. A line mentioning the word "error"
 // three sentences in is not an error-level record.
 func levelFromMessage(msg string) string {
+	// A CI runner colours its status marker, so the severity word arrives
+	// wrapped in escape sequences that no \b in the expression below can see
+	// past. Stripping them costs nothing on the overwhelming majority of lines
+	// that contain none.
+	msg = StripANSI(msg)
+
 	const head = 64
 	if len(msg) > head {
 		msg = msg[:head]
@@ -88,4 +95,21 @@ func levelFromMessage(msg string) string {
 		return NormaliseLevel(m[1])
 	}
 	return ""
+}
+
+// ansiRe matches an ANSI CSI escape sequence, which is how anything that
+// expects a terminal writes colour.
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+// StripANSI removes terminal escape sequences from a string.
+//
+// The bytes are only removed from the derived view — the level, the message —
+// never from raw, which stays exactly as the file had it. A CI log rendered
+// without its colours is readable; a raw column quietly rewritten is a log tool
+// editing evidence.
+func StripANSI(s string) string {
+	if !strings.ContainsRune(s, 0x1b) {
+		return s
+	}
+	return ansiRe.ReplaceAllString(s, "")
 }

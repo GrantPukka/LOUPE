@@ -405,6 +405,22 @@ const RecordColumns = `ts, level, source, message`
 // be visible rather than inferred.
 const ContextColumns = `hit, line_no, ts, level, source, message`
 
+// RawColumns is what a record listing selects for --format raw.
+//
+// The whole point of that format is to emit the file's own bytes, so the
+// listing has to select the column holding them. RecordColumns leaves raw out
+// because it makes the table unreadable — which is right, and which is why the
+// two projections are separate rather than one being widened.
+//
+// Without this, --format raw failed on every filter query with an error telling
+// the user to use a filter query.
+const RawColumns = `raw`
+
+// ContextRawColumns is RawColumns for a listing with surrounding records. hit
+// stays, because a block of five raw lines that does not say which one matched
+// is five lines of nothing in particular.
+const ContextRawColumns = `hit, raw`
+
 // SortOrder is how a record listing is ordered.
 type SortOrder string
 

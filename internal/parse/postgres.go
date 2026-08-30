@@ -99,11 +99,25 @@ func (p *postgresParser) Parse(line []byte) (Record, error) {
 	// Keep the original word: LOG, STATEMENT, and DETAIL all normalise to info
 	// but mean different things, and throwing that away loses information the
 	// reader may want.
-	if rec.Level != strings.ToLower(severity) {
-		rec.Fields["pg_severity"] = severity
-	}
+	//
+	// Unconditionally. It used to be stored only when it differed from the
+	// normalised level, which is a compression that saves nothing and costs the
+	// four severities that matter most: ERROR, FATAL, HINT and CONTEXT all
+	// lowercase to their own normalised form, so pg_severity was null for every
+	// one of them while `loupe fields` went on advertising the field. A filter
+	// written against a documented, autocompleted column returned zero on a file
+	// containing 1,825 matching lines.
+	rec.Fields["pg_severity"] = severity
 
-	rec.Timestamp, rec.TimestampZoned = postgresTime(string(m[1]), string(m[2]))
+	zone := string(m[2])
+	rec.Timestamp, rec.TimestampZoned = postgresTime(string(m[1]), zone)
+	if !rec.TimestampZoned && zone != "" && zone[0] != '+' && zone[0] != '-' {
+		// The line said which zone it meant; loupe could not turn that into an
+		// offset. Saying so is the difference between the reader knowing to
+		// pass --source-tz and the reader trusting a timeline that is out by
+		// the whole offset.
+		rec.ZoneAbbrev = zone
+	}
 
 	if pid, err := strconv.ParseInt(string(m[3]), 10, 64); err == nil {
 		rec.Fields["pid"] = pid

@@ -35,6 +35,8 @@ async function openATrace(page) {
 
   await button.click();
   await expect(page.locator('.modal.trace')).toBeVisible({ timeout: 20_000 });
+  // The hops arrive after the panel does; wait for it to have settled.
+  await expect(page.locator('.rail-loading')).toHaveCount(0, { timeout: 20_000 });
 
   return id.trim();
 }

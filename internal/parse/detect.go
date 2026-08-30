@@ -12,6 +12,26 @@ import (
 // format, small enough to stay cheap on a 4GB file.
 const DetectSampleLines = 200
 
+// The confidence ceilings a parser claims, highest first.
+//
+// Detect returns "how specifically do I claim this line", not "how sure am I
+// that it parses". That distinction only pays off if the generic readers sit
+// below the specific ones by a clear margin, because mixedParser resolves a tie
+// by parser name — so without a ladder, whether nginx or logfmt reads an nginx
+// access log with a `rt=…` tail comes down to the letter l sorting before n.
+//
+// Every gap is at least Ambiguous's tenth, so a parser that wins also wins
+// visibly rather than being reported as a coin flip.
+//
+//	1.00  a parser that recognises the format itself — nginx, postgres, redis
+//	0.85  a frame around someone else's payload, or generic JSON
+//	0.75  generic key=value, which almost any format's tail also looks like
+//	0.01  the fallback, which claims everything and reads nothing
+const (
+	frameCeiling  = 0.85
+	genericKVCeil = 0.75
+)
+
 // Detection is the outcome of choosing a parser for a source.
 type Detection struct {
 	Parser Parser

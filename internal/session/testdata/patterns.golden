@@ -1,13 +1,13 @@
 {
   "records": 3738,
-  "templates": 49,
-  "unparsed_templates": 23,
+  "templates": 44,
+  "unparsed_templates": 19,
   "unparsed_records": 38,
   "patterns": [
     {
       "id": "002cf356a676",
       "template": "request completed",
-      "count": 1243,
+      "count": 1248,
       "sources": [
         "checkout-api"
       ],
@@ -169,15 +169,6 @@
       "example": "POST \u0000\u0000/healthz"
     },
     {
-      "id": "26247a8873c5",
-      "template": "{\"latency_ms\":175,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"36a4529",
-      "count": 1,
-      "sources": [
-        "checkout-api"
-      ],
-      "example": "{\"latency_ms\":175,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"region\":\"us-east-1\",\"status\":200,\"trace_id\":\"36a4529"
-    },
-    {
       "id": "317551423bed",
       "template": "PaymentGatewayException: r",
       "count": 1,
@@ -322,15 +313,6 @@
       "example": "{\"latency_ms\":172,\"level\":\"info\",\"msg\":\"request"
     },
     {
-      "id": "9e2c3b2f1ad4",
-      "template": "{\"latency_ms\":122,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\"",
-      "count": 1,
-      "sources": [
-        "checkout-api"
-      ],
-      "example": "{\"latency_ms\":122,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/session\",\""
-    },
-    {
       "id": "a3fbd803940d",
       "template": "memory cgroup near limit: \u003cnum\u003eG of \u003cnum\u003eG",
       "count": 1,
@@ -356,15 +338,6 @@
         "checkout-api"
       ],
       "example": "{\"latency_ms\":91,\"level\":\"info\",\"msg\":\"request"
-    },
-    {
-      "id": "d232676310aa",
-      "template": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u003cctl\u003e-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}",
-      "count": 1,
-      "sources": [
-        "checkout-api"
-      ],
-      "example": "{\"latency_ms\":141,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/healthz\",\"region\":\"ap-south\u0000\u0000-1\",\"status\":200,\"trace_id\":\"9e95d5e1\",\"ts\":\"2026-08-13T14:18:21.90800629Z\",\"user_id\":\"u_7073\"}"
     },
     {
       "id": "d38fcbea181a",
@@ -412,15 +385,6 @@
       "example": "POST /a\u0000\u0000pi/checkout"
     },
     {
-      "id": "f3befec26bfc",
-      "template": "{\"latency_ms\":181,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"65b46107\",\"ts\":\"2026-08-13T14:19:56.",
-      "count": 1,
-      "sources": [
-        "checkout-api"
-      ],
-      "example": "{\"latency_ms\":181,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"eu-west-1\",\"status\":200,\"trace_id\":\"65b46107\",\"ts\":\"2026-08-13T14:19:56."
-    },
-    {
       "id": "f51bd2b0c15c",
       "template": "\u003cts\u003e \u003cts\u003e UTC [\u003cnum\u003e] WARN: connection pool exhausted, \u003cnum\u003e of \u003cnum\u003e connections in use",
       "count": 1,
@@ -437,15 +401,6 @@
         "payment-worker"
       ],
       "example": "HikariPool-1 - Connection is not available, request timed out after 30000ms"
-    },
-    {
-      "id": "fb676decdde9",
-      "template": "{\"latency_ms\":49,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"us-east-1\",\"status\":200,\"trace_i",
-      "count": 1,
-      "sources": [
-        "checkout-api"
-      ],
-      "example": "{\"latency_ms\":49,\"level\":\"info\",\"msg\":\"request completed\",\"path\":\"/api/orders/2291\",\"region\":\"us-east-1\",\"status\":200,\"trace_i"
     }
   ]
 }

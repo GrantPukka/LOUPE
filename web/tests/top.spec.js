@@ -45,10 +45,12 @@ async function openTop(page, field) {
     if ((await button.count()) > 0) {
       await button.first().click();
       await expect(page.locator('.modal.top')).toBeVisible({ timeout: 20_000 });
-      // The values arrive after the panel does.
-      await expect(
-        page.locator('.top-row').first().or(page.locator('.rail-empty')),
-      ).toBeVisible({ timeout: 20_000 });
+      // The values arrive after the panel does, so wait for the panel to have
+      // settled rather than for it to exist. Waiting on "a row or an empty
+      // notice" was satisfied by the loading placeholder, which used to share
+      // a class with the empty one — so this returned mid-fetch and the tests
+      // counted zero rows.
+      await expect(page.locator('.rail-loading')).toHaveCount(0, { timeout: 20_000 });
       return;
     }
 
@@ -153,4 +155,69 @@ test('the breakdown narrows with the filter', async ({ page }) => {
 
   await openTop(page, 'source');
   expect(await page.locator('.top-row').count()).toBeLessThan(all);
+});
+
+// Escape on a panel that has not finished loading.
+test('escape closes a panel that is still loading, and keeps the filter', async ({ page }) => {
+  await page.fill(filterBox, 'level:error');
+  await expect(page.locator('.terms .term')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator(rows).first()).toBeVisible({ timeout: 20_000 });
+
+  await page.route('**/api/top**', async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+
+  const count = Math.min(await page.locator(rows).count(), 20);
+  for (let i = 0; i < count; i++) {
+    await expand(page, i);
+    const button = fieldRow(page, 'source').locator('.v-top');
+    if ((await button.count()) > 0) {
+      await button.first().click();
+      break;
+    }
+    await page.locator(rows).nth(i).click();
+  }
+
+  // Still fetching: this is the window the bug lived in.
+  await expect(page.locator('.modal.top')).toBeVisible();
+  await expect(page.locator('.rail-loading')).toHaveCount(1);
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.locator('.modal.top')).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator(filterBox)).toHaveValue('level:error');
+});
+
+// Escape immediately after opening a panel.
+//
+// Preact flushes a render on a microtask but defers effects to an animation
+// frame, so there is a window in which the panel is on screen and the key
+// listener that knows about it has not been attached yet. The app's own
+// handler used to read the panel state from that same deferred effect's
+// closure, so during the window it believed nothing was open: Escape closed
+// nothing and cleared the filter instead — the panel you wanted shut still
+// there, and the query you had built gone.
+//
+// Driving the browser from outside cannot aim at that window; Playwright's
+// round-trips are slower than a frame, which is why this only ever showed up
+// as a flake on a loaded CI machine. Awaiting a microtask inside the page hits
+// it exactly, and deterministically.
+test('escape works in the frame after a panel opens', async ({ page }) => {
+  await page.fill(filterBox, 'level:error');
+  await expect(page.locator('.terms .term')).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator(rows).first()).toBeVisible({ timeout: 20_000 });
+
+  await expand(page, 0);
+
+  await page.evaluate(async () => {
+    document.querySelector('.detail .v-top').click();
+    // Render has flushed; effects have not.
+    await Promise.resolve();
+    await Promise.resolve();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+
+  await expect(page.locator('.modal.top')).toHaveCount(0, { timeout: 10_000 });
+  await expect(page.locator(filterBox)).toHaveValue('level:error');
 });

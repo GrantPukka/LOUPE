@@ -66,7 +66,7 @@ export function Top({ field, filter, timeZone, onClose, onFilter }) {
         </div>
 
         {error && <div class="rail-error">{error}</div>}
-        {!set && !error && <div class="rail-empty">loading…</div>}
+        {!set && !error && <div class="rail-loading">loading…</div>}
 
         {set && set.values.length === 0 && (
           <div class="rail-empty">{emptyReason(set)}</div>

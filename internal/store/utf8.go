@@ -17,6 +17,16 @@ import (
 // clean.
 const RawHexField = "loupe_raw_hex"
 
+// RawHexExpr reads RawHexField in SQL.
+//
+// The field is kept in the JSON bag rather than promoted to a column — see
+// collectSamples, which deletes it before schema inference so a hex dump never
+// lands next to the fields someone actually filters on. That decision is right
+// and it means `SELECT loupe_raw_hex FROM logs` does not resolve, so anything
+// telling a user where the bytes are has to hand them this instead of a bare
+// column name.
+const RawHexExpr = `fields->>'$."` + RawHexField + `"'`
+
 // sanitiseEntry replaces invalid UTF-8 in a record's text with U+FFFD, keeping
 // the original bytes hex-encoded in the fields bag.
 //

@@ -9,6 +9,9 @@
     "truncated": 0,
     "blank": 1,
     "zone_assumed": 2,
+    "zone_abbrevs": {
+      "CST": 1
+    },
     "invalid_utf8": 0
   },
   "records": [
@@ -19,6 +22,7 @@
       "level": "info",
       "message": "duration: 11.647 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20177
       },
       "parsed": true,
@@ -31,6 +35,7 @@
       "level": "info",
       "message": "duration: 208.226 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20149
       },
       "parsed": true,
@@ -43,6 +48,7 @@
       "level": "info",
       "message": "duration: 93.002 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20805
       },
       "parsed": true,
@@ -55,6 +61,7 @@
       "level": "info",
       "message": "duration: 253.849 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20708
       },
       "parsed": true,
@@ -67,6 +74,7 @@
       "level": "info",
       "message": "duration: 287.700 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20280
       },
       "parsed": true,
@@ -79,6 +87,7 @@
       "level": "info",
       "message": "duration: 250.115 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20159
       },
       "parsed": true,
@@ -91,6 +100,7 @@
       "level": "info",
       "message": "duration: 193.075 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20874
       },
       "parsed": true,
@@ -103,6 +113,7 @@
       "level": "info",
       "message": "duration: 288.694 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20061
       },
       "parsed": true,
@@ -115,6 +126,7 @@
       "level": "info",
       "message": "duration: 334.515 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20248
       },
       "parsed": true,
@@ -127,6 +139,7 @@
       "level": "info",
       "message": "duration: 270.647 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20607
       },
       "parsed": true,
@@ -139,6 +152,7 @@
       "level": "info",
       "message": "duration: 21.794 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20753
       },
       "parsed": true,
@@ -151,6 +165,7 @@
       "level": "info",
       "message": "duration: 208.839 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20890
       },
       "parsed": true,
@@ -163,6 +178,7 @@
       "level": "info",
       "message": "duration: 200.598 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20643
       },
       "parsed": true,
@@ -175,6 +191,7 @@
       "level": "info",
       "message": "duration: 149.592 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20843
       },
       "parsed": true,
@@ -187,6 +204,7 @@
       "level": "info",
       "message": "duration: 106.865 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20735
       },
       "parsed": true,
@@ -199,6 +217,7 @@
       "level": "info",
       "message": "duration: 137.398 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20558
       },
       "parsed": true,
@@ -211,6 +230,7 @@
       "level": "info",
       "message": "duration: 127.253 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20176
       },
       "parsed": true,
@@ -223,6 +243,7 @@
       "level": "info",
       "message": "duration: 334.122 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20613
       },
       "parsed": true,
@@ -235,6 +256,7 @@
       "level": "info",
       "message": "duration: 368.541 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20137
       },
       "parsed": true,
@@ -247,6 +269,7 @@
       "level": "info",
       "message": "duration: 77.322 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20248
       },
       "parsed": true,
@@ -259,6 +282,7 @@
       "level": "info",
       "message": "duration: 242.441 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20257
       },
       "parsed": true,
@@ -271,6 +295,7 @@
       "level": "info",
       "message": "duration: 274.843 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20705
       },
       "parsed": true,
@@ -289,6 +314,7 @@
       "level": "error",
       "message": "FATAL: remaining connection slots are reserved for superusers",
       "fields": {
+        "pg_severity": "ERROR",
         "pid": 20044
       },
       "parsed": true,
@@ -301,6 +327,7 @@
       "level": "info",
       "message": "duration: 88.317 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20863
       },
       "parsed": true,
@@ -313,6 +340,7 @@
       "level": "info",
       "message": "duration: 58.568 ms  statement: SELECT * FROM orders WHERE user_id = $1",
       "fields": {
+        "pg_severity": "INFO",
         "pid": 20795
       },
       "parsed": true,
@@ -326,6 +354,7 @@
       "message": "relation \"orders\" does not exist",
       "fields": {
         "db": "checkout",
+        "pg_severity": "ERROR",
         "pid": 20044,
         "user": "alice"
       },
@@ -365,6 +394,7 @@
       "level": "fatal",
       "message": "no zone at all",
       "fields": {
+        "pg_severity": "FATAL",
         "pid": 20046
       },
       "parsed": true,

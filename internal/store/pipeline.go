@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -106,22 +107,50 @@ func (l Load) Sources() []Source {
 // case that silently corrupts an investigation.
 func (l Load) AssumedZones() []AssumedZone {
 	counts := map[string]int64{}
+	abbrevs := map[string]map[string]int64{}
 	var order []Source
 
 	for _, r := range l.Results {
 		if r.Stats.ZoneAssumed == 0 {
 			continue
 		}
-		if _, seen := counts[r.Source.Name]; !seen {
+		name := r.Source.Name
+		if _, seen := counts[name]; !seen {
 			order = append(order, r.Source)
 		}
-		counts[r.Source.Name] += r.Stats.ZoneAssumed
+		counts[name] += r.Stats.ZoneAssumed
+		for abbrev, n := range r.Stats.ZoneAbbrevs {
+			if abbrevs[name] == nil {
+				abbrevs[name] = map[string]int64{}
+			}
+			abbrevs[name][abbrev] += n
+		}
 	}
 
 	out := make([]AssumedZone, 0, len(order))
 	for _, s := range order {
-		out = append(out, AssumedZone{Source: s, Records: counts[s.Name]})
+		out = append(out, AssumedZone{
+			Source:  s,
+			Records: counts[s.Name],
+			Abbrevs: sortedAbbrevs(abbrevs[s.Name]),
+		})
 	}
+	return out
+}
+
+// sortedAbbrevs orders the abbreviations by how many records carried them, so
+// the one that matters leads. Ties break by name to keep output stable.
+func sortedAbbrevs(counts map[string]int64) []string {
+	out := make([]string, 0, len(counts))
+	for abbrev := range counts {
+		out = append(out, abbrev)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if counts[out[i]] != counts[out[j]] {
+			return counts[out[i]] > counts[out[j]]
+		}
+		return out[i] < out[j]
+	})
 	return out
 }
 
@@ -129,6 +158,12 @@ func (l Load) AssumedZones() []AssumedZone {
 type AssumedZone struct {
 	Source  Source
 	Records int64
+
+	// Abbrevs are the zone abbreviations those records wrote, when they wrote
+	// one that could not be resolved — most often a Postgres log saying AEST.
+	// Empty means the format carried no zone at all, which is a different and
+	// less actionable situation.
+	Abbrevs []string
 }
 
 // Load ingests sources into the store.
@@ -164,6 +199,10 @@ func (s *DB) Load(ctx context.Context, sources []source.Source, opts LoadOptions
 		}
 	}
 
+	if err := checkSourceZones(opts.SourceZones, sources); err != nil {
+		return load, err
+	}
+
 	for _, src := range sources {
 		if err := ctx.Err(); err != nil {
 			return load, err
@@ -190,6 +229,61 @@ func (s *DB) Load(ctx context.Context, sources []source.Source, opts LoadOptions
 
 	load.Took = time.Since(start)
 	return load, nil
+}
+
+// checkSourceZones rejects a --source-tz that names a source nothing is called.
+//
+// It used to be ignored in silence: the map was only ever read by name, so
+// `--source-tz postgres:Australia/Brisbane` on a file called platform-mixed
+// matched nothing, changed nothing, and the status line went on reporting
+// "read as UTC (default)". The only way to notice was to already know the
+// right answer, which is the opposite of what an escape hatch is for.
+//
+// docs/FILTER-DSL.md section 7 requires an unknown field name to be an error
+// naming what is available rather than an empty result. The same rule belongs
+// here, and for the same reason: silence is indistinguishable from success.
+//
+// The name is the *source* — for a directory, usually the file's base name with
+// its rotation suffix removed. It is not the format: one merged file is a
+// single source carrying a dozen formats, which the message says outright,
+// because reading it as a format name is the mistake the old help text invited.
+func checkSourceZones(zones map[string]*time.Location, sources []source.Source) error {
+	if len(zones) == 0 {
+		return nil
+	}
+
+	known := make(map[string]bool, len(sources))
+	names := make([]string, 0, len(sources))
+	for _, src := range sources {
+		if name := logicalName(src.Name()); !known[name] {
+			known[name] = true
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+
+	for name := range zones {
+		// The empty key is the bare --source-tz=ZONE form, which names no
+		// source because it applies to all of them.
+		if name == "" || known[name] {
+			continue
+		}
+		if parse.Names() != nil && isParserName(name) {
+			return fmt.Errorf("--source-tz names the source %q, but %q is a log format, not a source; "+
+				"sources here are: %s", name, name, strings.Join(names, ", "))
+		}
+		return fmt.Errorf("--source-tz names the source %q, which was not read; sources here are: %s",
+			name, strings.Join(names, ", "))
+	}
+	return nil
+}
+
+// isParserName reports whether a name is a registered log format, so that
+// --source-tz postgres:… can say what is actually wrong rather than only that
+// no source matched.
+func isParserName(name string) bool {
+	_, ok := parse.Get(name)
+	return ok
 }
 
 func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts LoadOptions) (IngestResult, error) {

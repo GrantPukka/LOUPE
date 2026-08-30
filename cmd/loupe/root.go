@@ -79,7 +79,8 @@ Read-only, local-only, no daemon, no network.`,
 	pf.BoolVar(&g.utc, "utc", false, "show times in UTC")
 	pf.StringVar(&g.tz, "tz", "", "display timezone, e.g. Europe/London")
 	pf.StringSliceVar(&g.sourceTZ, "source-tz", nil,
-		"timezone assumed for sources whose format carries none, e.g. UTC or postgres:Europe/London")
+		"timezone assumed for sources whose format carries none, e.g. UTC or <source>:Europe/London "+
+			"(the prefix names a source, as listed by `loupe sources`, not a log format)")
 	pf.Int64Var(&g.maxFileSize, "max-file-size", 0, "skip files larger than this many bytes")
 	pf.StringSliceVar(&g.include, "include", nil, "only read files matching these globs")
 	pf.StringSliceVar(&g.exclude, "exclude", nil, "skip files matching these globs")

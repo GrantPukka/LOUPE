@@ -44,12 +44,12 @@ func TestCompileStatsColumns(t *testing.T) {
 		{
 			filter:  "stats count(trace_id)",
 			headers: []string{"count(trace_id)"},
-			exprs:   []string{`count(fields->>'$."trace_id"')`},
+			exprs:   []string{`count((fields->>'$."trace_id"'))`},
 		},
 		{
 			filter:  "stats avg(latency_ms)",
 			headers: []string{"avg(latency_ms)"},
-			exprs:   []string{`avg(TRY_CAST(fields->>'$."latency_ms"' AS DOUBLE))`},
+			exprs:   []string{`avg(TRY_CAST((fields->>'$."latency_ms"') AS DOUBLE))`},
 		},
 		{
 			// A promoted field is a real column, read directly rather than
@@ -61,7 +61,7 @@ func TestCompileStatsColumns(t *testing.T) {
 		{
 			filter:  "stats p99(latency_ms)",
 			headers: []string{"p99(latency_ms)"},
-			exprs:   []string{`quantile_cont(TRY_CAST(fields->>'$."latency_ms"' AS DOUBLE), 0.99)`},
+			exprs:   []string{`quantile_cont(TRY_CAST((fields->>'$."latency_ms"') AS DOUBLE), 0.99)`},
 		},
 		{
 			// Groupings first, then aggregates: the order every stats table has.
@@ -116,7 +116,7 @@ func TestCompileStatsBin(t *testing.T) {
 func TestCompileStatsGroupsCarryTheirPresenceTest(t *testing.T) {
 	got := compileStats(t, "stats count() by path, region")
 
-	for i, want := range []string{`("f_path") IS NOT NULL`, `(fields->>'$."region"') IS NOT NULL`} {
+	for i, want := range []string{`("f_path") IS NOT NULL`, `((fields->>'$."region"')) IS NOT NULL`} {
 		if got.Select[i].Present != want {
 			t.Errorf("column %d presence test = %q, want %q", i, got.Select[i].Present, want)
 		}

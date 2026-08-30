@@ -66,7 +66,7 @@ export function Trace({ id, field, timeZone, onClose, onFilter }) {
         </div>
 
         {error && <div class="rail-error">{error}</div>}
-        {!trace && !error && <div class="rail-empty">loading…</div>}
+        {!trace && !error && <div class="rail-loading">loading…</div>}
 
         {trace && trace.hops.length === 0 && (
           <div class="rail-empty">No records carry {trace.field} {id}.</div>

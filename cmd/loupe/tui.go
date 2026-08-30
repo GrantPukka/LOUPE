@@ -58,7 +58,7 @@ func runTUI(cmd *cobra.Command, g *globals, args []string) error {
 	if err != nil {
 		return err
 	}
-	paths, _ := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	sess, err := g.openBatch(cmd.Context(), paths...)
 	if err != nil {

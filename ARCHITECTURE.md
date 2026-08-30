@@ -55,8 +55,13 @@ engine would eat the entire project.
 > | `GROUP BY` over 100k rows | 5ms |
 >
 > Binary size landed inside the predicted 40–60MB and the appender is roughly an order of
-> magnitude clear of what the 1GB-in-20s ingest target needs. go-duckdb requires **Go 1.24 or
-> newer**, which sets the project's floor.
+> magnitude clear of what the then-stated 1GB-in-20s ingest target needs. go-duckdb requires
+> **Go 1.24 or newer**, which sets the project's floor.
+
+The appender half of that held up; the target did not. End-to-end ingest measures 2–5MB/s, so
+1GB takes minutes rather than 20 seconds — see CLAUDE.md for the measured table. The spike was
+right that DuckDB's Appender is not the bottleneck, which is why the gap is in parsing and
+per-line format detection rather than here.
 
 **Frontend: Preact + Vite**, built to static assets and embedded with `//go:embed`. Preact
 over React purely for bundle size — the whole UI should be under 100KB. No component library,

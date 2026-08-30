@@ -53,7 +53,7 @@ func runFields(cmd *cobra.Command, g *globals, args []string, limit int, all boo
 	if err != nil {
 		return err
 	}
-	paths, _ := resolvePaths(g, given)
+	paths := resolvePaths(g, given)
 
 	// Coverage is a fraction of the whole, so it cannot be reported over
 	// records that have not arrived.
