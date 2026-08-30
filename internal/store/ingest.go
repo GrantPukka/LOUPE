@@ -14,8 +14,9 @@ import (
 // Ingester appends records to the logs table.
 //
 // It uses DuckDB's Appender rather than row-by-row INSERT, which is roughly an
-// order of magnitude faster. Records are streamed through it, so memory stays
-// bounded regardless of how much is being ingested.
+// order of magnitude faster. Records are streamed through it, so the Ingester's
+// own buffering is flat however much is appended — the table it feeds still
+// grows, which is where the process's memory goes.
 //
 // An Ingester is not safe for concurrent use. Ingest one source at a time, or
 // give each goroutine its own.

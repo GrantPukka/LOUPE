@@ -54,9 +54,10 @@ func benchCorpus(tb testing.TB, dir string) int64 {
 
 // BenchmarkIngest measures the whole read-parse-append path.
 //
-// This is the budget CLAUDE.md's "1GB of JSON lines in under 20 seconds" is
-// spent against, so a change to the ingest path is expected to report this
-// before and after.
+// This is the number CLAUDE.md's ingest rates are measured from, so a change to
+// the ingest path is expected to report it before and after. The rates there
+// are what this path actually does — about 5MB/s on one format and 2MB/s on a
+// merged stream — not a target it is being held to.
 func BenchmarkIngest(b *testing.B) {
 	dir := b.TempDir()
 	bytes := benchCorpus(b, dir)

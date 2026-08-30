@@ -111,18 +111,24 @@ The 5M-line (~960 MB) and live-follow tiers were skipped. They are the tiers
 that test the performance claims, and the performance claims are the weakest
 thing in the project. Measured properly:
 
-| | Measured | `CLAUDE.md` target |
+| | Measured | Target then documented |
 |---|---|---|
 | 323 MB of single-format JSON lines, cold | **63 s** (5.1 MB/s) | 1 GB in 20 s (51 MB/s) |
-| 48 MB merged, 12 formats, cold | 16 s | — |
-| Cached re-open | 0.35 s | under 200 ms |
+| 198 MB merged, 12 formats, cold | **90 s** (2.2 MB/s) | — |
+| 48 MB merged, 12 formats, cold | **23 s** (2.1 MB/s) | — |
+| Cached re-open | **0.3–0.5 s** | under 200 ms |
 
-The documented target is out by roughly **10×**, and per-line detection is not
-the cause: the single-format path uses one parser and is still parse-bound. The
-run's finding #11 attributed the slowness to the mixed dispatcher and suggested
-a detection cache. The cache was worth building and it helped the merged case,
-but it does not touch the number that is actually wrong. Tier 5 would have found
-that in one command.
+The target was out by roughly **10×**, and per-line detection is not the cause:
+the single-format path uses one parser and is still parse-bound. The run
+attributed the slowness to the per-line dispatcher and suggested a detection
+cache. A cache was tried and then reverted — it made the merged case faster and
+also let a worse parser claim a line whose opening shape another format shared,
+silently losing a `pg_severity:FATAL`. It never touched the single-format
+number, which was the one actually wrong.
+
+Tier 5 would have found all of this in one command. The targets in `CLAUDE.md`
+have since been replaced by the measured table there, which is what the right
+hand column above is now the history of.
 
 ### 6. "0 fallbacks to grep" is not what the run showed
 
@@ -161,9 +167,9 @@ numbers answer different questions and averaging them answers neither.
 2. **Real logs.** A few hundred MB of genuine nginx, journald, Postgres and
    Kubernetes output, redacted. A parser tuned against `gen_logs.py` scores well
    on `gen_logs.py`. Real nginx has `log_format` variants nobody invents.
-3. **One format at volume.** 1 GB of plain JSON lines, so the documented
-   throughput claim is tested against the case it describes rather than against
-   a 15-format merge that was never in scope for it.
+3. **One format at volume.** 1 GB of plain JSON lines, so the throughput
+   numbers are tested against the case they describe rather than against a
+   15-format merge that was never in scope for them.
 
 The synthetic corpus should also be regenerated at a **fresh seed** for the
 scored run. A benchmark whose needles sit at line 17,969 every time is one

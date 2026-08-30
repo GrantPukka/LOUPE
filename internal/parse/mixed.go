@@ -3,7 +3,6 @@ package parse
 import (
 	"errors"
 	"sync"
-	"sync/atomic"
 )
 
 func init() { Register(&mixedParser{}) }
@@ -23,26 +22,23 @@ const MixedName = "mixed"
 // clothes. The documented remedy, "point loupe at the directory", does not
 // exist when the directory is one file.
 //
-// The one piece of state it holds is a cache of which parsers to try for a
-// given line shape, which memoises a pure function: it changes how long Parse
-// takes and never what Parse returns, so the registry's single instance is
-// still safe to share and two lines the same distance into a file still parse
-// the same way.
-type mixedParser struct {
-	// order maps a shapeKey to the parser indices to try, best first. Written
-	// once per distinct shape and read on every line after that, which is what
-	// sync.Map is for.
-	order sync.Map // string -> []int
-	// shapes counts the distinct shapes cached, so a file of pathologically
-	// varied lines cannot grow the map without bound. Past the cap, detection
-	// simply runs as it did before.
-	shapes atomic.Int64
-}
-
-// maxShapes bounds the order cache. A merged platform log has on the order of
-// twenty distinct line shapes; a thousand is far past anything a real format
-// mix produces and still trivial to hold.
-const maxShapes = 1024
+// It holds no state, so the registry's single instance is safe to share and two
+// lines the same distance into a file always parse the same way.
+//
+// It held a cache once, keyed on a coarse shape of the line, to avoid scoring
+// every parser on every line. That was wrong, and the way it was wrong is worth
+// recording. The reasoning was "the cache only reorders the candidates, and
+// Parse is the authority, so a shape shared by two formats costs a failed match
+// and nothing else". But Parse succeeding is not the same as Parse being right:
+// more than one parser can read a line, and then the order *is* the answer.
+// Spring and Postgres write the same opening shape, so a Postgres FATAL that
+// happened to follow a Spring line was offered to logfmt first, which read its
+// `-- correlation_id=…` trailer, claimed the line, and dropped the severity.
+// One `pg_severity:FATAL` in the corpus quietly went missing.
+//
+// Scoring every parser on every line is the price of getting that right. It is
+// about 18% of ingest, and it buys the one property this tool cannot trade.
+type mixedParser struct{}
 
 func (p *mixedParser) Name() string { return MixedName }
 
@@ -71,7 +67,18 @@ func (p *mixedParser) Detect([][]byte) float64 { return 0 }
 // timestamp can still ask for it with --parser text.
 func (p *mixedParser) Parse(line []byte) (Record, error) {
 	candidates := realParsers()
-	order := p.orderFor(line, candidates)
+
+	// Scored into a stack array rather than a fresh slice: this runs once per
+	// line of the file, and an allocation and a sort there is the difference
+	// between per-line detection being a mode you can leave on and one you
+	// reach for once.
+	var (
+		scores [maxParsers]float64
+		sample = [1][]byte{line}
+	)
+	for i, candidate := range candidates {
+		scores[i] = candidate.Detect(sample[:])
+	}
 
 	// A partial parse is held back rather than returned straight away. A
 	// truncated JSON line is still JSON, but if some other format reads the
@@ -82,19 +89,31 @@ func (p *mixedParser) Parse(line []byte) (Record, error) {
 		havePartial bool
 	)
 
-	// Every parser is offered the line, in confidence order. The order is a
-	// hint about which to try first; Parse is the authority on who claims it,
-	// so a cached order shared by two formats costs a failed match and nothing
-	// else.
-	for _, i := range order {
-		rec, err := candidates[i].Parse(line)
+	// Highest score first, ties by registry order, which realParsers holds
+	// sorted by name — so identical input always resolves to the same parser.
+	// A selection sort over a dozen items beats sort.Slice's closure and
+	// interface overhead, and needs no allocation.
+	tried := [maxParsers]bool{}
+	for range candidates {
+		best := -1
+		for i := range candidates {
+			if !tried[i] && (best < 0 || scores[i] > scores[best]) {
+				best = i
+			}
+		}
+		if best < 0 {
+			break
+		}
+		tried[best] = true
+
+		rec, err := candidates[best].Parse(line)
 		switch {
 		case err == nil:
-			rec.Format = candidates[i].Name()
+			rec.Format = candidates[best].Name()
 			return rec, nil
 
 		case errors.Is(err, ErrPartial) && !havePartial:
-			rec.Format = candidates[i].Name()
+			rec.Format = candidates[best].Name()
 			partial, havePartial = rec, true
 
 		default:
@@ -108,57 +127,6 @@ func (p *mixedParser) Parse(line []byte) (Record, error) {
 		return partial, ErrPartial
 	}
 	return Record{}, ErrNoMatch
-}
-
-// orderFor returns the parser indices to try for this line, best first.
-//
-// Scoring is the expensive half of per-line detection — one regex scan per
-// registered format, on every line of the file — and it answers the same way
-// for every line of the same shape. The answer is cached under shapeKey and
-// the scan is skipped from the second line of a given shape onwards.
-func (p *mixedParser) orderFor(line []byte, candidates []Parser) []int {
-	key := shapeKey(line)
-	if cached, ok := p.order.Load(key); ok {
-		return cached.([]int)
-	}
-
-	// Scored into a stack array rather than a fresh slice: this runs once per
-	// line shape, and the array keeps the miss path allocation-free apart from
-	// the order it is about to store.
-	var (
-		scores [maxParsers]float64
-		sample = [1][]byte{line}
-	)
-	for i, candidate := range candidates {
-		scores[i] = candidate.Detect(sample[:])
-	}
-
-	// Highest score first, ties by registry order, which realParsers holds
-	// sorted by name — so identical input always resolves to the same parser.
-	// A selection sort over a dozen items beats sort.Slice's closure and
-	// interface overhead.
-	order := make([]int, 0, len(candidates))
-	tried := [maxParsers]bool{}
-	for range candidates {
-		best := -1
-		for i := range candidates {
-			if !tried[i] && (best < 0 || scores[i] > scores[best]) {
-				best = i
-			}
-		}
-		if best < 0 {
-			break
-		}
-		tried[best] = true
-		order = append(order, best)
-	}
-
-	if p.shapes.Load() < maxShapes {
-		if _, loaded := p.order.LoadOrStore(key, order); !loaded {
-			p.shapes.Add(1)
-		}
-	}
-	return order
 }
 
 // IsContinuation asks every format that has a continuation concept.

@@ -364,7 +364,10 @@ footer .clear:disabled { color: var(--text-ghost); cursor: default; opacity: .6;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-.rail-empty, .rail-error {
+/* A panel still fetching and a panel with nothing to show look alike but are
+   not: only one of them is going to change. Separate classes so that anything
+   reading the DOM can tell "wait" from "there is nothing here". */
+.rail-loading, .rail-empty, .rail-error {
   padding: 10px;
   font-family: var(--mono); font-size: 11px; color: var(--text-ghost);
   white-space: pre-wrap; line-height: 1.5;

@@ -174,10 +174,39 @@ go-duckdb, so only the zstd package itself is new. gzip and bzip2 are stdlib.
 
 State these when relevant to a change; do not optimise speculatively.
 
-- 1GB of JSON lines ingests in under 20 seconds on a modern laptop.
-- A cached re-open of the same directory is under 200ms.
-- A filter over 10M rows returns the first page in under 500ms.
-- Memory stays bounded regardless of input size — stream, never load a whole file.
+These are **measured**, not aspirational. The numbers that used to be here were
+targets nobody had checked, and they were wrong by up to an order of magnitude —
+which meant every claim made on their authority was also wrong. Quote these
+instead, and re-measure rather than trusting them if the ingest path has moved.
+
+Measured 2026-08-28 on a Ryzen 5 4600H (12 threads), 14GB RAM, NVMe SSD, with
+the file already in the page cache:
+
+| | Cold ingest | Rate | Peak RSS | Cached re-open |
+|---|---|---|---|---|
+| 48MB, ~12 formats merged | 23s | 2.1MB/s | 536MB | 0.34s |
+| 198MB, ~12 formats merged | 90s | 2.2MB/s | 1.73GB | 0.49s |
+| 323MB, single-format JSON lines | 63s | 5.1MB/s | 1.73GB | — |
+
+- **Ingest is roughly 5MB/s on one format and 2MB/s on a merged stream.** 1GB of
+  JSON lines takes about three and a half minutes, not the twenty seconds this
+  section used to claim. Per-line format detection accounts for the gap between
+  the two rates; the rest is the parser and the DuckDB append, roughly evenly.
+- **A cached re-open is 0.3-0.5s**, and grows with the data. Under 200ms is
+  where this should be, and is not where it is.
+- **A filter over 850k records returns the first page in 30-380ms**, field
+  filters at the fast end and free-text search at the slow end. End-to-end the
+  command takes 0.5-0.9s, because process start and opening the cache dominate
+  the query itself. The 10M-row case is untested — do not quote a number for it.
+- **Memory is not bounded by a constant.** Peak RSS runs about 9x the input
+  above a ~240MB floor. The *parser* streams and must keep doing so, but the
+  store holds the table, so the process as a whole scales with the data. A file
+  much larger than RAM has not been tested.
+
+Ingest throughput is the weakest number here and the one most worth improving.
+Correctness comes first when the two conflict: a per-line detection cache was
+tried and reverted because it let a worse parser claim a line, silently losing a
+`pg_severity:FATAL` — see internal/parse/mixed.go.
 
 If a change plausibly affects ingest throughput, benchmark before and after and
 report both numbers.
