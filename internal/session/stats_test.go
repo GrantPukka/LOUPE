@@ -117,6 +117,42 @@ func TestStatsCountOfAFieldCountsWhatCarriesIt(t *testing.T) {
 	}
 }
 
+// The fixture holds seven records over three distinct paths, and one record
+// carries no path at all.
+func TestStatsCountDistinct(t *testing.T) {
+	set := statsOf(t, statsFixture(t), "stats count_distinct(path)")
+
+	if got := cell(t, set, 0, "count_distinct(path)"); got != int64(3) {
+		t.Errorf("count_distinct(path) = %v, want 3", got)
+	}
+}
+
+// A distinct count hides its denominator: 3 says nothing about whether it came
+// from six records or six hundred, or how many had no value at all. Left
+// unstated, that is the confident wrong answer this project exists to avoid.
+func TestStatsCountDistinctReportsRecordsCarryingNoValue(t *testing.T) {
+	set := statsOf(t, statsFixture(t), "stats count_distinct(path)")
+
+	joined := strings.Join(set.Notes, "\n")
+	if !strings.Contains(joined, "carry no path") {
+		t.Errorf("the record with no path went unmentioned: %v", set.Notes)
+	}
+	if !strings.Contains(joined, "1 of 7") {
+		t.Errorf("the note does not say how many of how many: %v", set.Notes)
+	}
+}
+
+// And says nothing when there is nothing to say.
+func TestStatsCountDistinctIsQuietWhenEveryRecordCarriesTheField(t *testing.T) {
+	set := statsOf(t, statsFixture(t), "path:* stats count_distinct(path)")
+
+	for _, note := range set.Notes {
+		if strings.Contains(note, "carry no path") {
+			t.Errorf("nothing is missing, but it said so anyway: %q", note)
+		}
+	}
+}
+
 // A record with no value for a grouping field belongs to no group. It cannot be
 // shown, so it is counted and named instead of vanishing.
 func TestStatsReportsRecordsMissingTheGroupingField(t *testing.T) {

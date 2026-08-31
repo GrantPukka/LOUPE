@@ -429,10 +429,27 @@ command line, in a saved query, and in the UI's filter box.
 |---|---|---|
 | `count()` | nothing | every matching record |
 | `count(field)` | any field | the records that carry it, whatever it holds |
+| `count_distinct(field)` | any field | how many different values those records hold |
 | `sum`, `avg`, `min`, `max` | numbers | as written |
 | `p50`, `p95`, `p99` | numbers | interpolated percentile |
 
-`count(*)` is accepted and means `count()`.
+`count(*)` is accepted and means `count()`. `count_distinct(*)` is not: counting
+distinct whole records is not a question this answers.
+
+`count_distinct` reads any type, because the question it answers is usually
+about something that is not a number — how many different clients, hosts, or
+user agents:
+
+```
+format:nginx stats count_distinct(client)
+format:nginx stats count_distinct(client) by server
+```
+
+Like every count over a named field, it states how many matching records carry
+no value for that field. A distinct count hides its denominator — `152,127`
+says nothing about whether it came from a thousand records or a million, or how
+many had nothing to contribute — so the footer supplies it and names the term
+that finds them.
 
 ### 10.1 Grouping
 

@@ -47,6 +47,14 @@ func TestCompileStatsColumns(t *testing.T) {
 			exprs:   []string{`count((fields->>'$."trace_id"'))`},
 		},
 		{
+			// The distinct count is not a numeric aggregate: a client address
+			// is not a number and "how many different clients" is still the
+			// question. So no TRY_CAST, and no numeric probe.
+			filter:  "stats count_distinct(trace_id)",
+			headers: []string{"count_distinct(trace_id)"},
+			exprs:   []string{`count(DISTINCT (fields->>'$."trace_id"'))`},
+		},
+		{
 			filter:  "stats avg(latency_ms)",
 			headers: []string{"avg(latency_ms)"},
 			exprs:   []string{`avg(TRY_CAST((fields->>'$."latency_ms"') AS DOUBLE))`},

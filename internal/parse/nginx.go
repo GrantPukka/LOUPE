@@ -37,6 +37,28 @@ var nginxRe = regexp.MustCompile(
 	`^(\S+)((?: \S+){2,3}) \[([^\]]+)\] "([^"]*)" (\d{3}) (\d+|-)` +
 		`(?: "([^"]*)" "([^"]*)")?(.*)$`)
 
+// nginxMarker is the shortest run of literal bytes nginxRe must match.
+//
+// The expression closes the bracketed date, then a space, then the quote that
+// opens the request line — so a line without `] "` in it cannot be an access
+// log line, whatever else it looks like.
+var nginxMarker = []byte(`] "`)
+
+// couldBeNginx is a cheap gate in front of nginxRe.
+//
+// Detection asks all twelve parsers about every line, and Go's regexp
+// backtracks: this one expression was 12% of the entire ingest, almost all of
+// it spent failing on lines that were never access logs. A substring scan
+// settles that in a fraction of the time.
+//
+// It may only reject lines the expression would also reject — a gate that
+// rejects more changes which parser claims a line, which is how a
+// pg_severity:FATAL went missing once already. nginxGateIsConservative pins
+// that.
+func couldBeNginx(line []byte) bool {
+	return bytes.Contains(line, nginxMarker)
+}
+
 // requestRe splits the quoted request line into method, path, and protocol.
 //
 // It is separate because a malformed request line is common — scanners send
@@ -54,7 +76,7 @@ func (p *nginxParser) Detect(sample [][]byte) float64 {
 			continue
 		}
 		considered++
-		if nginxRe.Match(line) {
+		if couldBeNginx(line) && nginxRe.Match(line) {
 			matched++
 		}
 	}
@@ -65,6 +87,9 @@ func (p *nginxParser) Detect(sample [][]byte) float64 {
 }
 
 func (p *nginxParser) Parse(line []byte) (Record, error) {
+	if !couldBeNginx(line) {
+		return Record{}, ErrNoMatch
+	}
 	m := nginxRe.FindSubmatch(line)
 	if m == nil {
 		return Record{}, ErrNoMatch
@@ -173,8 +198,20 @@ func addKeyValueTail(fields map[string]any, tail []byte) {
 // in the file — turning a numeric column into text and breaking status:>=500
 // for the whole ingest.
 func addKeyValueMessage(fields map[string]any, message []byte) {
+	// Split once. This runs on every syslog message in the file, and it used
+	// to call parseLogfmt twice over the same bytes — once for the total and
+	// once through namedPairs for the subset.
 	pairs := parseLogfmt(bytes.TrimSpace(message))
-	named := namedPairs(message)
+
+	named := pairs[:0]
+	for _, pair := range pairs {
+		if pair.key != "" && fieldNameRe.MatchString(pair.key) {
+			named = append(named, pair)
+		}
+	}
+
+	// `named` aliases `pairs`, so the bare count has to be taken from the
+	// lengths before the loop's result is read back.
 	if len(named) < 2 || len(named) <= len(pairs)-len(named) {
 		return
 	}

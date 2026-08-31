@@ -30,17 +30,27 @@ type AggFunc string
 
 const (
 	AggCount AggFunc = "count"
-	AggSum   AggFunc = "sum"
-	AggAvg   AggFunc = "avg"
-	AggMin   AggFunc = "min"
-	AggMax   AggFunc = "max"
-	AggP50   AggFunc = "p50"
-	AggP95   AggFunc = "p95"
-	AggP99   AggFunc = "p99"
+	// AggCountDistinct counts how many different values a field holds.
+	//
+	// "How many distinct clients hit us" is one of the few questions that comes
+	// up in every incident and that none of the other seven can express. Without
+	// it the answer was only reachable through `loupe top`, which prints the
+	// number in a footer on stderr — so it could be read on screen and not piped
+	// anywhere, and could not be grouped by anything.
+	AggCountDistinct AggFunc = "count_distinct"
+	AggSum           AggFunc = "sum"
+	AggAvg           AggFunc = "avg"
+	AggMin           AggFunc = "min"
+	AggMax           AggFunc = "max"
+	AggP50           AggFunc = "p50"
+	AggP95           AggFunc = "p95"
+	AggP99           AggFunc = "p99"
 )
 
 // AggFuncs lists every aggregate, in the order help text and errors show them.
-var AggFuncs = []AggFunc{AggCount, AggSum, AggAvg, AggMin, AggMax, AggP50, AggP95, AggP99}
+var AggFuncs = []AggFunc{
+	AggCount, AggCountDistinct, AggSum, AggAvg, AggMin, AggMax, AggP50, AggP95, AggP99,
+}
 
 // aggFuncs maps a written name to its function. Lookups are lower-cased first,
 // so P99(latency_ms) works.
@@ -65,9 +75,11 @@ var quantiles = map[AggFunc]float64{
 
 // Numeric reports whether the function reads its field as a number.
 //
-// count is the only one that does not: counting the records that carry a field
-// is meaningful whatever the field holds.
-func (f AggFunc) Numeric() bool { return f != AggCount }
+// The two counting functions are the ones that do not: how many records carry a
+// field, and how many different values it holds, are meaningful whatever the
+// field holds. A client address is not a number and count_distinct(client) is
+// still the question people ask.
+func (f AggFunc) Numeric() bool { return f != AggCount && f != AggCountDistinct }
 
 // Aggregate is one aggregate in a stats clause: count(), p99(latency_ms).
 //

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -231,6 +232,23 @@ func (s *DB) Load(ctx context.Context, sources []source.Source, opts LoadOptions
 	return load, nil
 }
 
+// readWorkers is how many goroutines parse head lines for one source.
+//
+// Parsing was 60% of a merged-corpus ingest and ran on one core; it is pure
+// per-record work and the obvious thing to spread out. Deciding where records
+// begin, counting them and emitting them stay sequential — see
+// parse.ReaderOptions.Workers.
+//
+// Not while a batch callback is set. That is live mode, where the point is to
+// show a record the moment it arrives, and a pool holds one back until its
+// batch fills. A stream trades throughput for latency by definition.
+func readWorkers(opts LoadOptions) int {
+	if opts.OnBatch != nil {
+		return 1
+	}
+	return runtime.GOMAXPROCS(0)
+}
+
 // checkSourceZones rejects a --source-tz that names a source nothing is called.
 //
 // It used to be ignored in silence: the map was only ever read by name, so
@@ -321,7 +339,12 @@ func (s *DB) loadOne(ctx context.Context, ing *Ingester, src source.Source, opts
 	)
 
 	stats, tail, err := parse.ReadAll(rc,
-		parse.ReaderOptions{Parser: parser, Loc: loc, StartLine: resume.LastLine},
+		parse.ReaderOptions{
+			Parser:    parser,
+			Loc:       loc,
+			StartLine: resume.LastLine,
+			Workers:   readWorkers(opts),
+		},
 		func(e parse.Entry) error {
 			if err := ing.Add(e); err != nil {
 				ingestErr = err

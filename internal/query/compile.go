@@ -499,6 +499,12 @@ type StatsSQL struct {
 	OrderBy string
 	// Numeric is the fields to probe before running the aggregation.
 	Numeric []StatsNumeric
+	// Counting is the fields read by count() or count_distinct(). They need no
+	// numeric check, but they do need their denominator stated: a distinct
+	// count says nothing about how many records had no value at all, and
+	// docs/FILTER-DSL.md section 10.3 requires an aggregation to account for
+	// every record it could not place.
+	Counting []StatsNumeric
 	// Bin is the bucket width when the grouping includes one.
 	Bin time.Duration
 	// Origin is what the buckets are anchored to.
@@ -540,6 +546,7 @@ func CompileStats(s *Stats, schema Schema, opts StatsOptions) (StatsSQL, error) 
 		}
 		out.Select = append(out.Select, StatsColumn{Name: agg.String(), Expr: expr})
 		out.Numeric = appendNumeric(out.Numeric, agg, schema)
+		out.Counting = appendCounting(out.Counting, agg, schema)
 	}
 
 	out.GroupBy, out.OrderBy = statsClauses(s)
@@ -591,9 +598,13 @@ func statsAggExpr(agg Aggregate, schema Schema) (string, error) {
 	}
 
 	// count(field) counts the records that carry the field, whatever it holds.
-	// It is the one aggregate that does not need a number.
+	// count_distinct(field) counts how many different values those records hold.
+	// Neither needs a number.
 	if agg.Func == AggCount {
 		return "count(" + expr + ")", nil
+	}
+	if agg.Func == AggCountDistinct {
+		return "count(DISTINCT " + expr + ")", nil
 	}
 
 	// TRY_CAST yields NULL for a value that is not a number, which excludes it
@@ -623,6 +634,30 @@ func binExpr(width time.Duration, origin time.Time) string {
 // appendNumeric records a field that has to hold numbers, once per field.
 func appendNumeric(list []StatsNumeric, agg Aggregate, schema Schema) []StatsNumeric {
 	if !agg.Func.Numeric() {
+		return list
+	}
+	for _, n := range list {
+		if n.Field == agg.Field {
+			return list
+		}
+	}
+
+	// resolve already succeeded in statsAggExpr, so this cannot fail.
+	expr, err := schema.resolve(agg.Field)
+	if err != nil {
+		return list
+	}
+	return append(list, StatsNumeric{Field: agg.Field, Agg: agg.String(), Expr: expr})
+}
+
+// appendCounting records a field read by a counting aggregate, so the caller
+// can state how many matching records carry no value for it.
+//
+// count(field) needs this less — its own result is the number of records that
+// carried a value — but count_distinct(field) hides the denominator entirely,
+// and the two should not disagree about what they disclose.
+func appendCounting(list []StatsNumeric, agg Aggregate, schema Schema) []StatsNumeric {
+	if agg.Func.Numeric() || agg.Field == "" {
 		return list
 	}
 	for _, n := range list {

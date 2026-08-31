@@ -118,6 +118,16 @@ func (p *parser) parseAggField(fn AggFunc, rest string, tok token) (string, erro
 	if fn == AggCount && field == "*" {
 		field = ""
 	}
+	// count_distinct(*) reads as "how many different records", which is not a
+	// question this answers and would otherwise fail as an unknown field named
+	// `*` — a true error that explains nothing.
+	if fn == AggCountDistinct && field == "*" {
+		return "", &SyntaxError{
+			Pos:     tok.pos,
+			Message: "count_distinct() needs a field, not *",
+			Hint:    "e.g. count_distinct(client); count(*) is the one that takes every record",
+		}
+	}
 	if fn != AggCount && field == "" {
 		return "", &SyntaxError{
 			Pos:     tok.pos,

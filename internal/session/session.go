@@ -248,7 +248,7 @@ func (s *Session) Schema(ctx context.Context) (query.Schema, error) {
 		return *s.schema, nil
 	}
 
-	fields, err := s.DB.Fields(ctx)
+	fields, err := s.fieldNames(ctx)
 	if err != nil {
 		return query.Schema{}, err
 	}
@@ -274,6 +274,30 @@ func (s *Session) Schema(ctx context.Context) (query.Schema, error) {
 
 	s.schema = &sch
 	return sch, nil
+}
+
+// fieldNames lists what the bag holds, from the cache when it can.
+//
+// Discovering them means parsing the JSON of every record, which on a 200MB
+// corpus is 450ms — and it was being paid on every command, to answer a
+// question whose answer had not changed since the ingest. The store keeps the
+// list beside the promotion decisions and invalidates it when records are
+// appended, so this is a read for anything already ingested and the full scan
+// only for the run that ingested it.
+func (s *Session) fieldNames(ctx context.Context) ([]string, error) {
+	if stored, ok, err := s.DB.StoredFieldNames(ctx); err == nil && ok {
+		return stored, nil
+	}
+
+	fields, err := s.DB.Fields(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Best effort: a cache that cannot be written is slower, not wrong, and a
+	// read-only cache directory must not stop the question being answered.
+	_ = s.DB.StoreFieldNames(ctx, fields)
+	return fields, nil
 }
 
 // TimeContext is what time resolution needs from the loaded data.

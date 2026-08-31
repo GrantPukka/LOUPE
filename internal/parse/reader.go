@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -90,7 +91,28 @@ type ReaderOptions struct {
 	// StartLine offsets the reported line numbers, for concatenating rotated
 	// files into one logical source.
 	StartLine int64
+
+	// Workers is how many goroutines parse head lines at once. Zero or one
+	// reads serially.
+	//
+	// Only the parsing is shared out. Deciding where records begin stays on one
+	// goroutine, because that decision is sequential by nature — a continuation
+	// line belongs to whatever came before it — and so does emitting them, so
+	// that seq, the Tail and every counter come out in the order a serial read
+	// would produce. parallel_test.go holds the two paths to being identical.
+	//
+	// Parsing in a pool costs latency: a record is not emitted until its batch
+	// is complete. That is fine for a file and wrong for a stream, where the
+	// point is to show a line the moment it arrives, so callers reading a
+	// stream leave this at zero.
+	Workers int
 }
+
+// parseBatch is how many records are parsed per round when Workers > 1.
+//
+// Large enough that the hand-off costs nothing next to the parsing, small
+// enough that the entries waiting in it are a rounding error against a file.
+const parseBatch = 256
 
 // Tail is where to resume reading a source that may since have grown.
 //
@@ -145,42 +167,46 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 	br := bufio.NewReaderSize(r, 256*1024)
 	lineNo := opts.StartLine
 
-	// pending holds the record being accumulated, so that continuation lines
-	// can be appended to it before it is emitted.
-	var pending *Entry
+	// Records wait here until enough have arrived to parse them together. One
+	// worker means a batch of one, which is the serial read: complete a record,
+	// parse it, emit it, and only then read on.
+	batchSize, workers := 1, opts.Workers
+	if workers > 1 {
+		batchSize = parseBatch
+	}
+	queue := make([]pending, 0, batchSize)
 
-	// consumed counts every byte taken from r. pendingStart and pendingLine
-	// record where the pending record began, and become the Tail once it is
-	// emitted — so the Tail always describes the most recent record.
-	var consumed, pendingStart, pendingLine int64
-	var pendingBefore Stats
-	emitted := false
+	// open is the record being accumulated, so that continuation lines can be
+	// appended to it before it joins the queue. -1 when there is none.
+	open := -1
 
-	flush := func() error {
-		if pending == nil {
+	// consumed counts every byte taken from r.
+	var consumed int64
+
+	// Counting is split between the two goroutines so neither has to lock.
+	// This one owns what reading knows — lines, blanks, continuations,
+	// truncations. The emitter owns what a parsed record knows, and the two
+	// are added together once it has finished. pending.scan carries the
+	// reader's half across so the Tail can be built from both.
+	em := newEmitter(workers > 1, fn)
+
+	// complete moves the open record to the queue, and hands the queue on once
+	// it is full: parsed here, then counted and emitted in order.
+	complete := func(force bool) error {
+		if open >= 0 {
+			open = -1
+		}
+		if len(queue) == 0 || (!force && len(queue) < batchSize) {
 			return nil
 		}
-		e := *pending
-		pending = nil
-		tail = Tail{Offset: pendingStart, Line: pendingLine, Before: pendingBefore}
-		emitted = true
-
-		stats.Records++
-		if !e.Parsed {
-			stats.Unparsed++
+		batch := parseBatchOf(queue, opts.Parser, loc, workers)
+		if err := em.send(batch); err != nil {
+			return err
 		}
-		if !e.HasTimestamp() {
-			stats.NoTimestamp++
-		} else if !e.TimestampZoned {
-			stats.ZoneAssumed++
-			if e.ZoneAbbrev != "" {
-				if stats.ZoneAbbrevs == nil {
-					stats.ZoneAbbrevs = map[string]int64{}
-				}
-				stats.ZoneAbbrevs[e.ZoneAbbrev]++
-			}
-		}
-		return fn(e)
+		// The emitter holds the batch until it has written it, so the next one
+		// gets its own backing array rather than overwriting a batch in flight.
+		queue = make([]pending, 0, batchSize)
+		return nil
 	}
 
 	for {
@@ -210,62 +236,45 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 		}
 
 		// A continuation line belongs to the record above it, not to itself.
-		if pending != nil && continuer != nil && continuer.IsContinuation(trimmed) {
+		// It is held as text and appended after the head line is parsed, which
+		// is the order the serial read used and the order the message needs:
+		// the parser sets the message, the trace goes underneath it.
+		if open >= 0 && continuer != nil && continuer.IsContinuation(trimmed) {
 			stats.Continuation++
-			pending.Message += "\n" + string(trimmed)
-			pending.Raw += "\n" + string(trimmed)
+			queue[open].cont += "\n" + string(trimmed)
 			if err == io.EOF {
 				break
 			}
 			continue
 		}
 
-		// This line starts a new record, so the previous one is complete. flush
-		// reads pendingStart, which still refers to that previous record.
-		if ferr := flush(); ferr != nil {
-			return stats, tail, ferr
+		// This line starts a new record, so the previous one is complete.
+		if cerr := complete(false); cerr != nil {
+			recStats, tail, _, _ := em.close()
+			stats.Records, stats.Unparsed = recStats.Records, recStats.Unparsed
+			stats.NoTimestamp, stats.ZoneAssumed = recStats.NoTimestamp, recStats.ZoneAssumed
+			stats.ZoneAbbrevs = recStats.ZoneAbbrevs
+			return stats, tail, cerr
 		}
 
-		entry := Entry{
-			LineNo:    lineNo,
-			Raw:       string(trimmed),
-			Truncated: truncated,
-		}
-
-		rec, perr := opts.Parser.Parse(trimmed)
-		switch {
-		case perr == nil:
-			entry.Record = applyAssumedZone(rec, loc)
-			entry.Parsed = true
-
-		case errors.Is(perr, ErrPartial):
-			// The line stopped early and the parser salvaged what preceded the
-			// cut. The fields are kept so the record is findable and placeable;
-			// Parsed stays false so the damage is still counted and still
-			// reachable through parsed:false.
-			entry.Record = applyAssumedZone(rec, loc)
-
-		default:
-			// Not an error worth propagating: keep the raw text and move on.
-			entry.Record = Record{Message: string(trimmed), Fields: map[string]any{}}
-		}
-		if entry.Fields == nil {
-			entry.Fields = map[string]any{}
-		}
-
-		pending = &entry
-		pendingStart = lineStart
-		pendingLine = lineNo
-
-		// The totals as they stood before this record. Taken after the flush
-		// above, so the previous record is counted, then backing out this line's
-		// own accounting — a resumed read starts at this line and counts it
-		// again. Records is not adjusted: this record has not been flushed yet.
-		pendingBefore = stats
-		pendingBefore.Lines--
+		// The totals as they stood before this record: the scan counters as of
+		// this line, backing out the line's own accounting because a resumed
+		// read starts here and counts it again. The record counters are filled
+		// in at drain, where they are known and in order.
+		scan := stats
+		scan.Lines--
 		if truncated {
-			pendingBefore.Truncated--
+			scan.Truncated--
 		}
+
+		queue = append(queue, pending{
+			head:      append([]byte(nil), trimmed...),
+			lineNo:    lineNo,
+			truncated: truncated,
+			start:     lineStart,
+			scan:      scan,
+		})
+		open = len(queue) - 1
 
 		// A format with no continuation lines has a complete record the moment
 		// its line is read, so holding it back until the next one arrives buys
@@ -276,8 +285,12 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 		// Log4j and anything else that can continue still waits, because a
 		// stack trace emitted before its own trace would be worse than late.
 		if continuer == nil {
-			if ferr := flush(); ferr != nil {
-				return stats, tail, ferr
+			if cerr := complete(false); cerr != nil {
+				recStats, tail, _, _ := em.close()
+				stats.Records, stats.Unparsed = recStats.Records, recStats.Unparsed
+				stats.NoTimestamp, stats.ZoneAssumed = recStats.NoTimestamp, recStats.ZoneAssumed
+				stats.ZoneAbbrevs = recStats.ZoneAbbrevs
+				return stats, tail, cerr
 			}
 		}
 
@@ -285,16 +298,34 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 			break
 		}
 		if err != nil {
-			flushErr := flush()
-			if flushErr != nil {
-				return stats, tail, flushErr
+			readErr := fmt.Errorf("read line %d: %w", lineNo, err)
+			if cerr := complete(true); cerr != nil {
+				readErr = cerr
 			}
-			return stats, tail, fmt.Errorf("read line %d: %w", lineNo, err)
+			recStats, tail, _, _ := em.close()
+			stats.Records, stats.Unparsed = recStats.Records, recStats.Unparsed
+			stats.NoTimestamp, stats.ZoneAssumed = recStats.NoTimestamp, recStats.ZoneAssumed
+			stats.ZoneAbbrevs = recStats.ZoneAbbrevs
+			return stats, tail, readErr
 		}
 	}
 
-	if err := flush(); err != nil {
-		return stats, tail, err
+	cerr := complete(true)
+
+	// Whatever the emitter counted, plus whatever reading counted. Joined
+	// before either is read, so there is nothing to synchronise afterwards.
+	recStats, tail, emitted, emitErr := em.close()
+	stats.Records = recStats.Records
+	stats.Unparsed = recStats.Unparsed
+	stats.NoTimestamp = recStats.NoTimestamp
+	stats.ZoneAssumed = recStats.ZoneAssumed
+	stats.ZoneAbbrevs = recStats.ZoneAbbrevs
+
+	switch {
+	case cerr != nil:
+		return stats, tail, cerr
+	case emitErr != nil:
+		return stats, tail, emitErr
 	}
 
 	// Nothing was emitted, so there is no record to re-read. Resume past what
@@ -304,6 +335,210 @@ func ReadAll(r io.Reader, opts ReaderOptions, fn func(Entry) error) (stats Stats
 		tail = Tail{Offset: consumed, Line: lineNo + 1, Before: stats}
 	}
 	return stats, tail, nil
+}
+
+// pending is a record whose extent is known and whose head line has not been
+// parsed yet.
+type pending struct {
+	head      []byte
+	cont      string
+	lineNo    int64
+	truncated bool
+	start     int64
+	// scan holds the counters that are known while reading — lines, blanks,
+	// continuations, truncations — as they stood before this record. Its
+	// record counters are stale by construction and are replaced at drain.
+	scan Stats
+}
+
+// batch is a run of records whose head lines have been parsed.
+type batch struct {
+	queue   []pending
+	records []Record
+	parsed  []bool
+}
+
+// parseBatchOf parses every head line in the queue.
+//
+// This is the half of reading that goes wide: a head line is parsed on its own,
+// by a stateless parser, with no reference to any other line. Deciding where
+// records begin and emitting them stay sequential, because those are facts
+// about the file's order rather than about any one record. See
+// ReaderOptions.Workers.
+func parseBatchOf(queue []pending, p Parser, loc *time.Location, workers int) batch {
+	b := batch{
+		queue:   queue,
+		records: make([]Record, len(queue)),
+		parsed:  make([]bool, len(queue)),
+	}
+
+	parseOne := func(i int) {
+		rec, perr := p.Parse(queue[i].head)
+		switch {
+		case perr == nil:
+			b.records[i], b.parsed[i] = applyAssumedZone(rec, loc), true
+
+		case errors.Is(perr, ErrPartial):
+			// The line stopped early and the parser salvaged what preceded the
+			// cut. The fields are kept so the record is findable and placeable;
+			// Parsed stays false so the damage is still counted and still
+			// reachable through parsed:false.
+			b.records[i] = applyAssumedZone(rec, loc)
+
+		default:
+			// Not an error worth propagating: keep the raw text and move on.
+			b.records[i] = Record{Message: string(queue[i].head), Fields: map[string]any{}}
+		}
+		if b.records[i].Fields == nil {
+			b.records[i].Fields = map[string]any{}
+		}
+	}
+
+	if workers > 1 && len(queue) > 1 {
+		parseRange(len(queue), workers, parseOne)
+	} else {
+		for i := range queue {
+			parseOne(i)
+		}
+	}
+	return b
+}
+
+// emitter counts parsed records and hands them to the caller, in order.
+//
+// When parsing is spread across workers this runs on a goroutine of its own, so
+// that appending one batch to the database overlaps parsing the next — the
+// append was a fifth of the ingest and every bit of it was waiting. When it is
+// not, it runs inline, because a stream's whole point is that a record appears
+// the moment it arrives and a hand-off would hold it back.
+type emitter struct {
+	fn      func(Entry) error
+	async   bool
+	ch      chan batch
+	done    chan struct{}
+	stats   Stats
+	tail    Tail
+	emitted bool
+	err     error
+}
+
+func newEmitter(async bool, fn func(Entry) error) *emitter {
+	e := &emitter{fn: fn, async: async}
+	if !async {
+		return e
+	}
+
+	// One in flight: enough to overlap the append with the next parse, and no
+	// more, so a slow consumer cannot make the reader buffer the file.
+	e.ch = make(chan batch, 1)
+	e.done = make(chan struct{})
+	go func() {
+		defer close(e.done)
+		for b := range e.ch {
+			if e.err != nil {
+				// Keep draining so the reader is never blocked writing into a
+				// channel nobody is reading.
+				continue
+			}
+			e.err = e.write(b)
+		}
+	}()
+	return e
+}
+
+// send hands a parsed batch on, and reports an error the emitter has already
+// hit so the read stops rather than filling a database it cannot write to.
+func (e *emitter) send(b batch) error {
+	if !e.async {
+		if e.err == nil {
+			e.err = e.write(b)
+		}
+		return e.err
+	}
+	e.ch <- b
+	return nil
+}
+
+// close finishes the emitter and returns everything it owns.
+func (e *emitter) close() (Stats, Tail, bool, error) {
+	if e.async {
+		close(e.ch)
+		<-e.done
+	}
+	return e.stats, e.tail, e.emitted, e.err
+}
+
+// write counts and emits one batch. Only the emitter calls it, so the fields it
+// touches need no synchronising.
+func (e *emitter) write(b batch) error {
+	for i, q := range b.queue {
+		entry := Entry{
+			LineNo:    q.lineNo,
+			Raw:       string(q.head) + q.cont,
+			Truncated: q.truncated,
+			Record:    b.records[i],
+			Parsed:    b.parsed[i],
+		}
+		entry.Message += q.cont
+
+		// The scan counters as of this record's head line, carried over from
+		// the reader, plus the record counters as they stand now — which is to
+		// say, after every record before this one and before this one itself.
+		before := e.stats
+		before.Lines, before.Blank = q.scan.Lines, q.scan.Blank
+		before.Continuation, before.Truncated = q.scan.Continuation, q.scan.Truncated
+
+		e.tail = Tail{Offset: q.start, Line: q.lineNo, Before: before}
+		e.emitted = true
+
+		e.stats.Records++
+		if !entry.Parsed {
+			e.stats.Unparsed++
+		}
+		if !entry.HasTimestamp() {
+			e.stats.NoTimestamp++
+		} else if !entry.TimestampZoned {
+			e.stats.ZoneAssumed++
+			if entry.ZoneAbbrev != "" {
+				if e.stats.ZoneAbbrevs == nil {
+					e.stats.ZoneAbbrevs = map[string]int64{}
+				}
+				e.stats.ZoneAbbrevs[entry.ZoneAbbrev]++
+			}
+		}
+		if err := e.fn(entry); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// parseRange runs work over 0..n-1 across at most workers goroutines.
+//
+// Contiguous slices rather than a work queue: every item is one line through
+// one parser, so they cost about the same and the scheduling would cost more
+// than the imbalance.
+func parseRange(n, workers int, work func(int)) {
+	if workers > n {
+		workers = n
+	}
+
+	var wg sync.WaitGroup
+	size := (n + workers - 1) / workers
+	for start := 0; start < n; start += size {
+		end := start + size
+		if end > n {
+			end = n
+		}
+		wg.Add(1)
+		go func(lo, hi int) {
+			defer wg.Done()
+			for i := lo; i < hi; i++ {
+				work(i)
+			}
+		}(start, end)
+	}
+	wg.Wait()
 }
 
 // applyAssumedZone reinterprets a zoneless timestamp in the source's assumed
