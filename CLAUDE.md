@@ -179,21 +179,43 @@ targets nobody had checked, and they were wrong by up to an order of magnitude �
 which meant every claim made on their authority was also wrong. Quote these
 instead, and re-measure rather than trusting them if the ingest path has moved.
 
-Measured 2026-08-28 on a Ryzen 5 4600H (12 threads), 14GB RAM, NVMe SSD, with
+Measured 2026-08-31 on a Ryzen 5 4600H (12 threads), 14GB RAM, NVMe SSD, with
 the file already in the page cache:
 
 | | Cold ingest | Rate | Peak RSS | Cached re-open |
 |---|---|---|---|---|
-| 48MB, ~12 formats merged | 23s | 2.1MB/s | 536MB | 0.34s |
-| 198MB, ~12 formats merged | 90s | 2.2MB/s | 1.73GB | 0.49s |
-| 323MB, single-format JSON lines | 63s | 5.1MB/s | 1.73GB | — |
+| 48MB, ~12 formats merged | 7.5s | 6.4MB/s | 580MB | 0.07s |
+| 198MB, ~12 formats merged | 22s | 9.1MB/s | 1.76GB | 0.08s |
+| 339MB, single-format JSON lines | 36s | 9.4MB/s | 1.69GB | 0.08s |
 
-- **Ingest is roughly 5MB/s on one format and 2MB/s on a merged stream.** 1GB of
-  JSON lines takes about three and a half minutes, not the twenty seconds this
-  section used to claim. Per-line format detection accounts for the gap between
-  the two rates; the rest is the parser and the DuckDB append, roughly evenly.
-- **A cached re-open is 0.3-0.5s**, and grows with the data. Under 200ms is
-  where this should be, and is not where it is.
+- **Ingest is roughly 9MB/s.** 1GB of JSON lines takes about a minute and three
+  quarters, not the twenty seconds this section used to claim — but no longer
+  the three minutes it took before the reader was made parallel.
+- **Reading is split in two.** Parsing a head line is pure and independent, so it
+  runs across `GOMAXPROCS` goroutines; deciding where records begin, counting
+  them and emitting them are facts about the file's order and stay sequential,
+  and appending one batch overlaps parsing the next. See
+  `parse.ReaderOptions.Workers`. A parallel read must be indistinguishable from
+  a serial one — same records, same `seq`, same `Tail`, same counters — and
+  `internal/parse/parallel_test.go` holds it to that over every fixture at
+  several worker counts. Streams stay serial: a pool holds a record back until
+  its batch fills, and a live tail exists to show it now.
+- **Where the time went** on the 48MB merged file, before that work: per-line
+  format detection ~24%, the winning parser ~15%, `Ingester.Add` ~21% (DuckDB
+  itself only 8%), GC ~10%. Regular expressions were the single largest cost.
+- Each hot `Detect` is fronted by a cheap byte test — a substring, a byte count,
+  a colon at one of three offsets. Those gates were worth ~25% of ingest and are
+  sound only while they reject nothing their expression would accept, which
+  `internal/parse/gate_test.go` pins against every fixture and against random
+  input. Adding a gate without that property changes which parser claims a line.
+- **A cached re-open is under 100ms** and no longer grows with the data. It used
+  to be 0.3-0.6s, almost all of it in one query: listing the field names meant
+  parsing the JSON bag of every record, on every command, to answer a question
+  whose answer had not changed since the ingest. The names are now stored beside
+  the promotion decisions and invalidated by record count, so a run that appends
+  recomputes them and a run that does not reads them. See
+  `internal/store/fieldnames.go` — the count is what keeps the list from going
+  quietly short, which would make the DSL refuse a field that is really there.
 - **A filter over 850k records returns the first page in 30-380ms**, field
   filters at the fast end and free-text search at the slow end. End-to-end the
   command takes 0.5-0.9s, because process start and opening the cache dominate
@@ -203,7 +225,9 @@ the file already in the page cache:
   store holds the table, so the process as a whole scales with the data. A file
   much larger than RAM has not been tested.
 
-Ingest throughput is the weakest number here and the one most worth improving.
+Ingest throughput is still the weakest number here, though less so: what is left
+is the DuckDB append and the JSON round-trip through the fields bag, not the
+parsing.
 Correctness comes first when the two conflict: a per-line detection cache was
 tried and reverted because it let a worse parser claim a line, silently losing a
 `pg_severity:FATAL` — see internal/parse/mixed.go.

@@ -61,6 +61,25 @@ var haproxyAcceptLayouts = []string{
 	"02/Jan/2006:15:04:05.999",
 }
 
+// haproxySlashes is how many slashes the expression demands: one between the
+// backend and the server, four in the Tq/Tw/Tc/Tr/Tt timers, four in the
+// actconn/feconn/beconn/srv_conn/retries tuple, and one between the two queue
+// depths.
+const haproxySlashes = 10
+
+// couldBeHAProxy is a cheap gate in front of haproxyRe.
+//
+// That expression has twenty-odd groups and backtracks hard on anything that
+// is not an HAProxy line, which on a merged corpus is almost everything —
+// 7.2% of the whole ingest spent proving nginx lines are not load balancer
+// lines. Counting bytes settles it far sooner.
+//
+// The count is a lower bound the expression cannot match without, so the gate
+// rejects nothing it would accept. haproxyGateIsConservative pins that.
+func couldBeHAProxy(line []byte) bool {
+	return bytes.Count(line, []byte("/")) >= haproxySlashes
+}
+
 func (p *haproxyParser) Detect(sample [][]byte) float64 {
 	if len(sample) == 0 {
 		return 0
@@ -72,7 +91,7 @@ func (p *haproxyParser) Detect(sample [][]byte) float64 {
 			continue
 		}
 		considered++
-		if haproxyRe.Match(line) {
+		if couldBeHAProxy(line) && haproxyRe.Match(line) {
 			matched++
 		}
 	}
@@ -83,6 +102,9 @@ func (p *haproxyParser) Detect(sample [][]byte) float64 {
 }
 
 func (p *haproxyParser) Parse(line []byte) (Record, error) {
+	if !couldBeHAProxy(line) {
+		return Record{}, ErrNoMatch
+	}
 	m := haproxyRe.FindSubmatch(line)
 	if m == nil {
 		return Record{}, ErrNoMatch

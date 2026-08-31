@@ -106,7 +106,7 @@ func (p *log4jParser) Detect(sample [][]byte) float64 {
 			continue
 		}
 		considered++
-		if log4jRe.Match(line) {
+		if couldBeLog4j(line) && log4jRe.Match(line) {
 			matched++
 		}
 	}
@@ -123,7 +123,7 @@ func (p *log4jParser) IsContinuation(line []byte) bool {
 	}
 	// A line that starts a new record wins, even if it is indented, so an
 	// oddly formatted log does not swallow everything after it.
-	if log4jRe.Match(line) {
+	if couldBeLog4j(line) && log4jRe.Match(line) {
 		return false
 	}
 	if line[0] == '\t' {
@@ -132,7 +132,32 @@ func (p *log4jParser) IsContinuation(line []byte) bool {
 	return continuationRe.Match(line)
 }
 
+// couldBeLog4j is a cheap gate in front of log4jRe.
+//
+// The expression needs `\d\d:\d\d:\d\d` at one of three offsets: at the start
+// of the line, after an optional `[`, or after a `yyyy-mm-dd` date and its
+// separator with or without that bracket. So the colon that opens the time can
+// only be at index 2, 13 or 14, and a line with none of those is not a Log4j
+// line however long it is.
+//
+// This runs on every line of every file — mixed mode asks each format whether
+// the line continues the record above — and was 9.5% of ingest on its own.
+//
+// Like every gate here it may only reject what the expression would reject.
+// log4jGateIsConservative pins that.
+func couldBeLog4j(line []byte) bool {
+	for _, at := range [...]int{2, 13, 14} {
+		if at < len(line) && line[at] == ':' {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *log4jParser) Parse(line []byte) (Record, error) {
+	if !couldBeLog4j(line) {
+		return Record{}, ErrNoMatch
+	}
 	m := log4jRe.FindSubmatch(line)
 	if m == nil {
 		return Record{}, ErrNoMatch
