@@ -30,6 +30,11 @@ func TestParseStats(t *testing.T) {
 			want:  &Stats{Aggs: []Aggregate{{Func: AggCount, Field: "trace_id"}}},
 		},
 		{
+			name:  "count_distinct reads a field",
+			input: "stats count_distinct(client)",
+			want:  &Stats{Aggs: []Aggregate{{Func: AggCountDistinct, Field: "client"}}},
+		},
+		{
 			name:  "the headline shape",
 			input: "stats count() by level",
 			want: &Stats{

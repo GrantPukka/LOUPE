@@ -281,25 +281,42 @@ func emptyBins(first, last sql.NullTime, distinct int64, width time.Duration) in
 // error, and a field with only some is a note stating exactly how many were
 // left out.
 func (s *Session) statsNumeric(ctx context.Context, compiled query.StatsSQL, where string, args []any) ([]string, error) {
-	if len(compiled.Numeric) == 0 {
+	if len(compiled.Numeric) == 0 && len(compiled.Counting) == 0 {
 		return nil, nil
 	}
 
-	selects := make([]string, 0, len(compiled.Numeric)*3)
+	selects := make([]string, 0, len(compiled.Numeric)*3+len(compiled.Counting)+1)
 	for _, n := range compiled.Numeric {
 		selects = append(selects,
 			"count("+n.Expr+")",
 			"count(TRY_CAST("+n.Expr+" AS DOUBLE))",
 			"min(CAST("+n.Expr+" AS VARCHAR))")
 	}
+	// Folded into the same statement as the numeric probe rather than run as a
+	// second query: this is one scan of the matching records either way, and
+	// two would be a scan of a 10M-row table to print a footnote.
+	for _, c := range compiled.Counting {
+		selects = append(selects, "count("+c.Expr+")")
+	}
+	if len(compiled.Counting) > 0 {
+		selects = append(selects, "count(*)")
+	}
 
 	present := make([]int64, len(compiled.Numeric))
 	numeric := make([]int64, len(compiled.Numeric))
 	sample := make([]sql.NullString, len(compiled.Numeric))
+	carried := make([]int64, len(compiled.Counting))
+	var matched int64
 
 	dest := make([]any, 0, len(selects))
 	for i := range compiled.Numeric {
 		dest = append(dest, &present[i], &numeric[i], &sample[i])
+	}
+	for i := range compiled.Counting {
+		dest = append(dest, &carried[i])
+	}
+	if len(compiled.Counting) > 0 {
+		dest = append(dest, &matched)
 	}
 
 	row := s.DB.QueryRow(ctx, "SELECT "+strings.Join(selects, ", ")+" FROM logs WHERE "+where, args...)
@@ -321,6 +338,18 @@ func (s *Session) statsNumeric(ctx context.Context, compiled query.StatsSQL, whe
 			notes = append(notes, fmt.Sprintf(
 				"%d of %d %s values are not numbers and are left out of %s.",
 				present[i]-numeric[i], present[i], n.Field, n.Agg))
+		}
+	}
+
+	// What a count could not place. count_distinct(client) over a corpus where
+	// most records are not HTTP requests is a true number about a minority of
+	// the data, and saying so is the difference between that and a number the
+	// reader will take for the whole.
+	for i, c := range compiled.Counting {
+		if absent := matched - carried[i]; absent > 0 {
+			notes = append(notes, fmt.Sprintf(
+				"%d of %d matching records carry no %s, so they are outside %s (%s:none finds them).",
+				absent, matched, c.Field, c.Agg, c.Field))
 		}
 	}
 	return notes, nil

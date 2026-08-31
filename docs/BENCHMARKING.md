@@ -298,19 +298,21 @@ result. On the same corpus, byte-identical:
 | Records no parser claimed | 76,932 | 1 |
 | Tasks needing `loupe sql` | 16 of 24 | 4 of 24 |
 
-The four remaining are worth stating plainly, because they are the honest
-starting point for the next run rather than something the fixes hid:
+What remains is worth stating plainly, because it is the honest starting point
+for the next run rather than something the fixes hid:
 
-1. **Task 9** (distinct client IPs) — the DSL has no `count_distinct()`
-   aggregate. `loupe top client <dir> 'format:nginx'` reports the distinct count
-   in its footer, so the answer is reachable, but not the way the task asks.
-2. **Task 22** (prove the file is not sorted) — needs a window function.
+1. **Task 22** (prove the file is not sorted) — needs a window function.
    Reasonable to leave in `loupe sql`.
-3. **Task 12** (longest line) — needs `length(raw)`. Same.
-4. **Task 24** (reconcile a `Z` log with a `+10:00` log 90 s apart) — works, but
+2. **Task 12** (longest line) — needs `length(raw)`. Same.
+3. **Task 24** (reconcile a `Z` log with a `+10:00` log 90 s apart) — works, but
    only because `--source-tz` is passed. That flag names a *source*, and one
    merged file is a single source carrying a dozen formats, so it cannot say
    "the Postgres lines are AEST, the app JSON is UTC". Per-format zone
    assignment does not exist.
 
-A true test should keep all four visible rather than scoring around them.
+Task 9 (distinct client IPs) used to be on this list: the DSL had no
+`count_distinct()` and the number was only reachable from `loupe top`'s footer,
+on stderr, ungroupable. That is what a benchmark is for, and it is now
+`stats count_distinct(client) by server`.
+
+A true test should keep the rest visible rather than scoring around them.
